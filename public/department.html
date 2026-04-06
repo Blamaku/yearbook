@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1628">
+  <title>Department — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="department">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <nav class="top-bar">
+    <button class="back-btn" onclick="goBack()" aria-label="Back">‹</button>
+    <div style="flex:1">
+      <h1>Department<span class="subtitle">GLUK Yearbook 2026</span></h1>
+    </div>
+    <div class="logo-sm">G</div>
+  </nav>
+
+  <div class="page-hero">
+    <div class="breadcrumb">
+      <a href="index.html" style="color:rgba(255,255,255,.6)">Home</a>
+      <span>›</span>
+      <span id="deptBreadcrumb">Department</span>
+    </div>
+    <h1 id="deptTitle">Health Sciences</h1>
+    <p id="deptDesc">Select a course to view class yearbooks</p>
+  </div>
+
+  <div class="list-container" id="courseList"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
+  <script>
+  (function(){
+    const dept = new URLSearchParams(window.location.search).get('dept') || 'Health Sciences';
+    document.getElementById('deptTitle').textContent     = dept;
+    document.getElementById('deptBreadcrumb').textContent = dept;
+    const COURSES = {
+      'Health Sciences': [
+        {name:'Clinical Medicine', icon:'🩺', sub:'Bachelor of Clinical Medicine — Classes 2026–2029'},
+      ],
+      'Education': [
+        {name:'Bachelor of Education (Arts)',    icon:'📖', sub:'B.Ed Arts — Classes 2026–2029'},
+        {name:'Bachelor of Education (Science)', icon:'🔬', sub:'B.Ed Science — Classes 2026–2029'},
+        {name:'Early Childhood Education',       icon:'🧒', sub:'ECDE — Classes 2026–2029'},
+      ],
+    };
+    const courses = COURSES[dept] || [{name:dept, icon:'📚', sub:'View class yearbooks'}];
+    document.getElementById('deptDesc').textContent = `${courses.length} course${courses.length>1?'s':''} available`;
+    document.getElementById('courseList').innerHTML = courses.map((c,i) => `
+      <a class="list-item slide-in"
+        href="course.html?dept=${encodeURIComponent(dept)}&course=${encodeURIComponent(c.name)}"
+        style="animation-delay:${i*.1}s">
+        <div class="list-num">${c.icon}</div>
+        <div class="list-info">
+          <div class="list-title">${c.name}</div>
+          <div class="list-sub">${c.sub}</div>
+        </div>
+        <div class="list-arrow">›</div>
+      </a>`).join('');
+  })();
+  </script>
+</body>
+</html>

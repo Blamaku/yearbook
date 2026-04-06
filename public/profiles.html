@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1628">
+  <title>Profiles — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="profiles">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <nav class="top-bar">
+    <button class="back-btn" onclick="goBack()" aria-label="Back">‹</button>
+    <div style="flex:1">
+      <h1 id="profilesTitle">Students<span class="subtitle" id="profilesSubtitle">GLUK Yearbook 2026</span></h1>
+    </div>
+    <div class="logo-sm">G</div>
+  </nav>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <span class="icon">🔍</span>
+      <input type="search" id="searchInput" placeholder="Search by name or reg number..." autocomplete="off">
+    </div>
+  </div>
+
+  <div class="filter-row" id="filterChips"></div>
+
+  <div style="padding:0 16px 4px;font-size:.7rem;color:var(--gray-600)" id="breadcrumb">Home › ...</div>
+
+  <div class="profiles-grid" id="profilesGrid"></div>
+
+  <!-- FAB -->
+  <button class="fab" onclick="openAddModal()" title="Add Profile" aria-label="Add Profile">+</button>
+
+  <!-- Add Profile Modal -->
+  <div class="modal-overlay hidden" id="addModal" onclick="if(event.target===this)closeAddModal()">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">➕ Add Student Profile</div>
+      <form id="addProfileForm" onsubmit="submitProfile(event)">
+
+        <div class="form-group">
+          <label class="form-label">Profile Photo</label>
+          <div class="photo-upload-area" onclick="document.getElementById('photoInput').click()">
+            <div id="photoPreview">
+              <div class="upload-icon">📷</div>
+              <p>Tap to upload photo</p>
+            </div>
+          </div>
+          <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="f-name">Full Name *</label>
+            <input class="form-input" type="text" id="f-name" name="name" required placeholder="e.g. Achieng Otieno">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="f-reg">Reg Number *</label>
+            <input class="form-input" type="text" id="f-reg" name="reg" required placeholder="GLUK/HS/CM/...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Class Year</label>
+          <select class="form-select" name="classYear">
+            <option value="2026">Class of 2026</option>
+            <option value="2027">Class of 2027</option>
+            <option value="2028">Class of 2028</option>
+            <option value="2029">Class of 2029</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">WhatsApp</label>
+            <input class="form-input" type="tel" name="whatsapp" placeholder="+254 7XX XXX XXX">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" name="email" placeholder="name@gluk.ac.ke">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Home County</label>
+            <input class="form-input" type="text" name="county" placeholder="e.g. Kisumu">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Constituency</label>
+            <input class="form-input" type="text" name="constituency" placeholder="e.g. Kisumu East">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Bio (max 5 lines)</label>
+          <textarea class="form-textarea" name="bio" rows="4" placeholder="Write a short bio about yourself..." maxlength="600"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hobbies (comma-separated)</label>
+          <input class="form-input" type="text" name="hobbies" placeholder="Reading, Hiking, Cooking">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Clubs (comma-separated)</label>
+          <input class="form-input" type="text" name="clubs" placeholder="Medical Students Association, Choir">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Best Memory</label>
+          <textarea class="form-textarea" name="bestMemory" rows="3" placeholder="Your most cherished university memory..." maxlength="400"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Biggest Lesson (max 2 lines)</label>
+          <textarea class="form-textarea" name="biggestLesson" rows="2" placeholder="The most important thing university taught you..." maxlength="200"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Most Likely To...</label>
+          <input class="form-input" type="text" name="mostLikelyTo" placeholder="e.g. Become the next Health Minister 🏥">
+        </div>
+
+        <button type="submit" class="btn-primary">✓ &nbsp; Save Profile</button>
+        <button type="button" class="btn-secondary" onclick="closeAddModal()">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

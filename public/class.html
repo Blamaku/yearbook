@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1628">
+  <title>Class — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="class">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <nav class="top-bar">
+    <button class="back-btn" onclick="goBack()" aria-label="Back">‹</button>
+    <div style="flex:1">
+      <h1 id="topBarTitle">Class<span class="subtitle">GLUK Yearbook 2026</span></h1>
+    </div>
+    <div class="logo-sm">G</div>
+  </nav>
+
+  <div class="page-hero" style="padding-bottom:32px">
+    <div class="breadcrumb">
+      <a href="index.html" style="color:rgba(255,255,255,.6)">Home</a>
+      <span>›</span>
+      <a id="deptLink" style="color:rgba(255,255,255,.6)">Dept</a>
+      <span>›</span>
+      <a id="courseLink" style="color:rgba(255,255,255,.6)">Course</a>
+      <span>›</span>
+      <span id="classBreadcrumb">Class</span>
+    </div>
+    <h1 id="classTitle">Class of 2026</h1>
+    <p id="classDesc">Clinical Medicine — Health Sciences</p>
+    <!-- Countdown shown only for 2026 -->
+    <div id="heroCountdown" style="display:none;margin-top:20px">
+      <div class="countdown-card" style="max-width:100%">
+        <div class="countdown-label">🎓 Days to Graduation</div>
+        <div class="countdown-grid">
+          <div class="count-unit"><span class="count-num" id="cd-days">--</span><span class="count-lbl">Days</span></div>
+          <div class="count-unit"><span class="count-num" id="cd-hours">--</span><span class="count-lbl">Hours</span></div>
+          <div class="count-unit"><span class="count-num" id="cd-minutes">--</span><span class="count-lbl">Mins</span></div>
+          <div class="count-unit"><span class="count-num" id="cd-seconds">--</span><span class="count-lbl">Secs</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:20px 16px 0">
+    <div style="background:var(--white);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-sm);display:flex;gap:16px;align-items:center">
+      <div style="font-size:2.5rem">📖</div>
+      <div style="flex:1">
+        <div style="font-size:.85rem;font-weight:800;color:var(--navy)" id="cardTitle">Class of 2026 Yearbook</div>
+        <div style="font-size:.75rem;color:var(--gray-600);margin-top:4px">Browse student profiles, photos and memories</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:16px 16px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <div class="stat-box"><div class="stat-num" id="statStudents">---</div><div class="stat-lbl">Students</div></div>
+    <div class="stat-box"><div class="stat-num">4</div><div class="stat-lbl">Years</div></div>
+    <div class="stat-box"><div class="stat-num">2026</div><div class="stat-lbl">Yearbook</div></div>
+  </div>
+
+  <div style="padding:20px 16px 40px">
+    <a id="profilesLink" href="profiles.html" class="btn-primary" style="display:block;text-align:center;padding:16px;text-decoration:none">
+      📸 &nbsp; View Student Profiles
+    </a>
+    <div style="margin-top:10px;text-align:center;font-size:.75rem;color:var(--gray-600)">
+      Tap to browse profiles, add classmates and relive memories
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
+  <script>
+  (function(){
+    const p      = new URLSearchParams(window.location.search);
+    const dept   = p.get('dept')   || 'Health Sciences';
+    const course = p.get('course') || 'Clinical Medicine';
+    const year   = p.get('class')  || '2026';
+    document.getElementById('topBarTitle').innerHTML    = `Class of ${year}<span class="subtitle">GLUK Yearbook 2026</span>`;
+    document.getElementById('classTitle').textContent   = `Class of ${year}`;
+    document.getElementById('classBreadcrumb').textContent = `Class of ${year}`;
+    document.getElementById('classDesc').textContent    = `${course} — ${dept}`;
+    document.getElementById('cardTitle').textContent    = `Class of ${year} Yearbook`;
+    const dl = document.getElementById('deptLink');
+    dl.textContent = dept; dl.href = `department.html?dept=${encodeURIComponent(dept)}`;
+    const cl = document.getElementById('courseLink');
+    cl.textContent = course; cl.href = `course.html?dept=${encodeURIComponent(dept)}&course=${encodeURIComponent(course)}`;
+    document.getElementById('profilesLink').href =
+      `profiles.html?dept=${encodeURIComponent(dept)}&course=${encodeURIComponent(course)}&class=${year}`;
+    if (year === '2026') document.getElementById('heroCountdown').style.display = 'block';
+    // Live student count from Firestore
+    db.collection('students')
+      .where('dept','==',dept).where('course','==',course).where('classYear','==',year)
+      .get().then(s => { document.getElementById('statStudents').textContent = s.size || '0'; })
+      .catch(() => {});
+  })();
+  </script>
+</body>
+</html>

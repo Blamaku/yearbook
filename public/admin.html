@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1628">
+  <title>Admin — GLUK Yearbook 2026</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .admin-wrap    { padding-bottom: 80px; }
+    .admin-gate    { position:fixed;inset:0;background:var(--off-white);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center; }
+    .admin-stats   { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:16px; }
+    .a-stat        { background:var(--white);border-radius:var(--radius-md);padding:16px 10px;text-align:center;box-shadow:var(--shadow-sm); }
+    .a-stat .num   { font-size:1.5rem;font-weight:900;color:var(--blue); }
+    .a-stat .lbl   { font-size:.65rem;color:var(--gray-600);text-transform:uppercase;letter-spacing:.5px;margin-top:2px; }
+    .admin-tabs    { display:flex;border-bottom:2px solid var(--gray-200);background:var(--white);position:sticky;top:0;z-index:10;padding:0 16px;gap:4px; }
+    .a-tab         { padding:12px 16px;font-size:.8rem;font-weight:700;color:var(--gray-600);border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;font-family:inherit; }
+    .a-tab.active  { color:var(--blue);border-bottom-color:var(--blue); }
+    .a-filters     { display:flex;gap:8px;padding:12px 16px;flex-wrap:wrap;background:var(--off-white); }
+    .a-filter      { padding:6px 14px;border-radius:50px;font-size:.75rem;border:2px solid var(--gray-200);background:var(--white);cursor:pointer;font-weight:600;font-family:inherit;transition:all .2s; }
+    .a-filter.active { background:var(--blue);border-color:var(--blue);color:var(--white); }
+    .a-list        { padding:0 16px; }
+    .a-item        { background:var(--white);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow-sm);display:flex;align-items:center;gap:12px; }
+    .a-item-av     { width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-light));display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--white);font-size:.9rem;flex-shrink:0; }
+    .a-item-info   { flex:1;min-width:0; }
+    .a-item-name   { font-weight:800;color:var(--navy);font-size:.875rem; }
+    .a-item-sub    { font-size:.72rem;color:var(--gray-600);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .a-actions     { display:flex;gap:6px;flex-shrink:0; }
+    .a-btn         { padding:6px 12px;border-radius:var(--radius-sm);border:none;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit; }
+    .a-btn.edit    { background:var(--gold-pale);color:var(--blue); }
+    .a-btn.del     { background:#fef2f2;color:var(--danger); }
+    .a-empty       { text-align:center;padding:48px 20px;color:var(--gray-400);font-size:.85rem; }
+    /* Edit overlay */
+    .edit-ov       { position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:5000;display:none;align-items:flex-end; }
+    .edit-ov.open  { display:flex; }
+    .edit-sheet    { background:var(--white);border-radius:var(--radius-xl) var(--radius-xl) 0 0;width:100%;max-height:90dvh;overflow-y:auto;padding:24px 20px 40px;animation:slideUp .3s ease; }
+  </style>
+</head>
+<body>
+
+  <!-- Auth Gate -->
+  <div class="admin-gate" id="adminGate">
+    <div style="font-size:3.5rem">🔐</div>
+    <h2 style="color:var(--navy);font-size:1.3rem">Admin Access</h2>
+    <p style="color:var(--gray-600);font-size:.875rem;max-width:280px">Sign in with the admin account to manage the yearbook.</p>
+    <button class="btn-primary" style="max-width:240px;width:100%" onclick="openAuthModal(null,'login')">Sign In as Admin</button>
+    <a href="index.html" style="font-size:.8rem;color:var(--gray-400);margin-top:8px">← Back to Yearbook</a>
+  </div>
+
+  <!-- Denied screen (shown if logged in but not admin) -->
+  <div id="adminDenied" style="display:none;position:fixed;inset:0;background:var(--off-white);z-index:9998;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center">
+    <div style="font-size:3rem">🚫</div>
+    <h2 style="color:var(--navy)">Access Denied</h2>
+    <p style="color:var(--gray-600);font-size:.875rem">This page is only accessible to the yearbook admin.</p>
+    <a href="index.html" class="btn-primary" style="max-width:200px;display:block;text-align:center">Go Home</a>
+  </div>
+
+  <!-- Main Admin Content (hidden until auth confirmed) -->
+  <div id="adminContent" style="display:none">
+
+    <!-- Header -->
+    <div style="background:var(--navy);padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-md);position:sticky;top:0;z-index:100">
+      <a href="index.html" class="back-btn" style="text-decoration:none;display:flex;align-items:center;justify-content:center">‹</a>
+      <div style="flex:1;color:var(--white);font-size:.95rem;font-weight:800">🛠 Admin Panel</div>
+      <span style="background:var(--gold);color:var(--navy);font-size:.65rem;font-weight:900;padding:3px 10px;border-radius:20px">Admin</span>
+      <button onclick="logOut()" style="background:rgba(255,100,100,.15);border:1px solid rgba(255,100,100,.3);color:rgba(255,130,130,.9);font-size:.72rem;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:inherit">Sign Out</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="admin-stats">
+      <div class="a-stat"><div class="num" id="aStat1">--</div><div class="lbl">Students</div></div>
+      <div class="a-stat"><div class="num" id="aStat2">--</div><div class="lbl">Comments</div></div>
+      <div class="a-stat"><div class="num">2</div><div class="lbl">Departments</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="admin-tabs">
+      <button class="a-tab active" onclick="switchTab('students',this)">👥 Students</button>
+      <button class="a-tab"        onclick="switchTab('comments',this)">💬 Comments</button>
+    </div>
+
+    <!-- Student filters -->
+    <div class="a-filters" id="aFilters">
+      <button class="a-filter active" onclick="setFilter('all',   this,'all')">All</button>
+      <button class="a-filter"        onclick="setFilter('Health Sciences',this,'dept')">Health Sci</button>
+      <button class="a-filter"        onclick="setFilter('Education',      this,'dept')">Education</button>
+      <button class="a-filter"        onclick="setFilter('2026',this,'year')">2026</button>
+      <button class="a-filter"        onclick="setFilter('2027',this,'year')">2027</button>
+      <button class="a-filter"        onclick="setFilter('2028',this,'year')">2028</button>
+      <button class="a-filter"        onclick="setFilter('2029',this,'year')">2029</button>
+    </div>
+
+    <!-- List -->
+    <div class="a-list" id="aList">
+      <div class="a-empty">Loading...</div>
+    </div>
+
+  </div><!-- /adminContent -->
+
+  <!-- Edit overlay -->
+  <div class="edit-ov" id="editOv">
+    <div class="edit-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">✏️ Edit Profile</div>
+      <form id="editForm" onsubmit="saveEdit(event)">
+        <input type="hidden" id="eId">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input class="form-input" type="text" id="eName">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reg Number</label>
+          <input class="form-input" type="text" id="eReg">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Home County</label>
+            <input class="form-input" type="text" id="eCounty">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Class Year</label>
+            <select class="form-select" id="eYear">
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+              <option value="2028">2028</option>
+              <option value="2029">2029</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bio</label>
+          <textarea class="form-textarea" id="eBio" rows="4" maxlength="600"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Best Memory</label>
+          <textarea class="form-textarea" id="eMemory" rows="3" maxlength="400"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Most Likely To</label>
+          <input class="form-input" type="text" id="eLikely">
+        </div>
+        <button type="submit" class="btn-primary">💾 &nbsp; Save Changes</button>
+        <button type="button" class="btn-secondary" onclick="closeEdit()">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
+
+  <script>
+  // ── State ────────────────────────────────────────
+  let _tab    = 'students';
+  let _fVal   = 'all';
+  let _fType  = 'all';
+
+  // ── Auth gate ─────────────────────────────────────
+  auth.onAuthStateChanged(user => {
+    const gate    = document.getElementById('adminGate');
+    const denied  = document.getElementById('adminDenied');
+    const content = document.getElementById('adminContent');
+
+    if (!user) {
+      gate.style.display    = 'flex';
+      denied.style.display  = 'none';
+      content.style.display = 'none';
+      return;
+    }
+
+    if (user.email !== ADMIN_EMAIL) {
+      gate.style.display    = 'none';
+      denied.style.display  = 'flex';
+      content.style.display = 'none';
+      return;
+    }
+
+    // Admin confirmed
+    gate.style.display    = 'none';
+    denied.style.display  = 'none';
+    content.style.display = 'block';
+    loadStats();
+    loadStudents();
+  });
+
+  // ── After login, stay on page ─────────────────────
+  // auth.js onAuthDone calls _afterLogin callback which is null here,
+  // so auth state change above will fire and show content automatically.
+
+  // ── Stats ──────────────────────────────────────────
+  async function loadStats() {
+    const [s, c] = await Promise.all([
+      db.collection('students').get(),
+      db.collection('comments').get(),
+    ]);
+    document.getElementById('aStat1').textContent = s.size;
+    document.getElementById('aStat2').textContent = c.size;
+  }
+
+  // ── Students ──────────────────────────────────────
+  async function loadStudents() {
+    document.getElementById('aList').innerHTML = '<div class="a-empty">Loading...</div>';
+    try {
+      const snap = await db.collection('students').get();
+      let list   = snap.docs.map(d => ({id:d.id,...d.data()}));
+      if (_fType === 'dept') list = list.filter(s => s.dept      === _fVal);
+      if (_fType === 'year') list = list.filter(s => s.classYear === _fVal);
+      if (!list.length) { document.getElementById('aList').innerHTML = '<div class="a-empty">No students found.</div>'; return; }
+      document.getElementById('aList').innerHTML = list.map(s => {
+        const init = (s.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+        return `<div class="a-item" id="ai-${s.id}">
+          <div class="a-item-av">${init}</div>
+          <div class="a-item-info">
+            <div class="a-item-name">${s.name||'Unnamed'}</div>
+            <div class="a-item-sub">${s.reg||''} · ${s.dept||''} · Class of ${s.classYear||''}</div>
+          </div>
+          <div class="a-actions">
+            <button class="a-btn edit" onclick="openEdit('${s.id}')">✏️ Edit</button>
+            <button class="a-btn del"  onclick="delStudent('${s.id}','${(s.name||'').replace(/'/g,"\\'")}')">🗑</button>
+          </div></div>`;
+      }).join('');
+    } catch(e) { document.getElementById('aList').innerHTML = `<div class="a-empty">Error: ${e.message}</div>`; }
+  }
+
+  // ── Comments ──────────────────────────────────────
+  async function loadComments() {
+    document.getElementById('aList').innerHTML = '<div class="a-empty">Loading...</div>';
+    try {
+      const snap = await db.collection('comments').orderBy('timestamp','desc').get();
+      const list = snap.docs.map(d => ({id:d.id,...d.data()}));
+      if (!list.length) { document.getElementById('aList').innerHTML = '<div class="a-empty">No comments yet.</div>'; return; }
+      document.getElementById('aList').innerHTML = list.map(c => {
+        const ts = c.timestamp?.toDate ? c.timestamp.toDate().toLocaleString() : '–';
+        return `<div class="a-item" id="ai-${c.id}">
+          <div class="a-item-av" style="font-size:1.2rem;background:var(--gray-200);color:var(--navy)">💬</div>
+          <div class="a-item-info">
+            <div class="a-item-name">${c.authorName||'Anonymous'}</div>
+            <div class="a-item-sub">${(c.text||'').slice(0,70)} · ${ts}</div>
+          </div>
+          <div class="a-actions">
+            <button class="a-btn del" onclick="delComment('${c.id}')">🗑</button>
+          </div></div>`;
+      }).join('');
+    } catch(e) { document.getElementById('aList').innerHTML = `<div class="a-empty">Error: ${e.message}</div>`; }
+  }
+
+  // ── Edit ──────────────────────────────────────────
+  async function openEdit(id) {
+    const doc = await db.collection('students').doc(id).get();
+    if (!doc.exists) return;
+    const s = doc.data();
+    document.getElementById('eId').value      = id;
+    document.getElementById('eName').value    = s.name || '';
+    document.getElementById('eReg').value     = s.reg || '';
+    document.getElementById('eCounty').value  = s.county || '';
+    document.getElementById('eYear').value    = s.classYear || '2026';
+    document.getElementById('eBio').value     = s.bio || '';
+    document.getElementById('eMemory').value  = s.bestMemory || '';
+    document.getElementById('eLikely').value  = s.mostLikelyTo || '';
+    document.getElementById('editOv').classList.add('open');
+  }
+  function closeEdit() { document.getElementById('editOv').classList.remove('open'); }
+
+  async function saveEdit(e) {
+    e.preventDefault();
+    const id  = document.getElementById('eId').value;
+    const btn = e.target.querySelector('button[type=submit]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+    try {
+      await db.collection('students').doc(id).update({
+        name:         document.getElementById('eName').value.trim(),
+        reg:          document.getElementById('eReg').value.trim(),
+        county:       document.getElementById('eCounty').value.trim(),
+        classYear:    document.getElementById('eYear').value,
+        bio:          document.getElementById('eBio').value.trim(),
+        bestMemory:   document.getElementById('eMemory').value.trim(),
+        mostLikelyTo: document.getElementById('eLikely').value.trim(),
+        updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      closeEdit();
+      showToast('Profile updated ✅');
+      loadStudents(); loadStats();
+    } catch(err) {
+      showToast('❌ Update failed.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '💾  Save Changes'; }
+    }
+  }
+
+  // ── Delete ────────────────────────────────────────
+  async function delStudent(id, name) {
+    if (!confirm(`Delete profile for ${name}?\n\nThis cannot be undone.`)) return;
+    try {
+      await db.collection('students').doc(id).delete();
+      document.getElementById('ai-'+id)?.remove();
+      showToast('Profile deleted 🗑');
+      loadStats();
+    } catch(e) { showToast('❌ Delete failed.'); }
+  }
+
+  async function delComment(id) {
+    if (!confirm('Delete this comment?')) return;
+    try {
+      await db.collection('comments').doc(id).delete();
+      document.getElementById('ai-'+id)?.remove();
+      showToast('Comment deleted 🗑');
+      loadStats();
+    } catch(e) { showToast('❌ Delete failed.'); }
+  }
+
+  // ── Tab + filter switching ────────────────────────
+  function switchTab(tab, btn) {
+    _tab = tab;
+    document.querySelectorAll('.a-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('aFilters').style.display = tab === 'students' ? 'flex' : 'none';
+    if (tab === 'students') loadStudents(); else loadComments();
+  }
+
+  function setFilter(val, btn, type) {
+    _fVal = val; _fType = type;
+    document.querySelectorAll('.a-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadStudents();
+  }
+  </script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1628">
+  <meta name="description" content="Great Lakes University of Kisumu — Official Yearbook 2026">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GLUK 2026">
+  <title>GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="home">
+
+  <!-- User bar (populated by auth.js) -->
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-crest">
+      <span class="crest-letter">G</span>
+      <span class="crest-sub">GLUK</span>
+    </div>
+    <h1>Great Lakes<br><span>University</span></h1>
+    <p class="hero-sub">of Kisumu &mdash; Official Yearbook</p>
+    <div class="divider-gold"></div>
+
+    <!-- Countdown -->
+    <div class="countdown-card">
+      <div class="countdown-label">🎓 Countdown to Graduation</div>
+      <div class="countdown-grid">
+        <div class="count-unit"><span class="count-num" id="cd-days">--</span><span class="count-lbl">Days</span></div>
+        <div class="count-unit"><span class="count-num" id="cd-hours">--</span><span class="count-lbl">Hours</span></div>
+        <div class="count-unit"><span class="count-num" id="cd-minutes">--</span><span class="count-lbl">Mins</span></div>
+        <div class="count-unit"><span class="count-num" id="cd-seconds">--</span><span class="count-lbl">Secs</span></div>
+      </div>
+      <p style="font-size:.68rem;color:rgba(255,255,255,.5);margin-top:10px;text-align:center">
+        27 November 2026 &bull; Graduation Ceremony
+      </p>
+    </div>
+
+    <div style="position:relative;margin-top:28px;color:rgba(255,255,255,.4);font-size:.75rem;display:flex;flex-direction:column;align-items:center;gap:6px">
+      <span>Explore Yearbook</span>
+      <span style="font-size:1.2rem;animation:bounce 1.5s ease-in-out infinite">↓</span>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="about-section fade-in">
+    <span class="section-tag">About</span>
+    <h2>Our University</h2>
+    <p>Great Lakes University of Kisumu (GLUK) is a premier private chartered university
+    located in Kisumu City, on the shores of Lake Victoria — the heart of the Great
+    Lakes region of East Africa.</p>
+    <p>Founded with a vision to produce graduates of integrity, competence and compassion,
+    GLUK is committed to academic excellence and community transformation.</p>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-num">2</div><div class="stat-lbl">Faculties</div></div>
+      <div class="stat-box"><div class="stat-num">5</div><div class="stat-lbl">Courses</div></div>
+      <div class="stat-box"><div class="stat-num">2026</div><div class="stat-lbl">Class Year</div></div>
+    </div>
+  </section>
+
+  <!-- Departments -->
+  <section class="dept-section">
+    <span class="section-tag">Faculties</span>
+    <h2>Select Your Department</h2>
+    <p>Choose a faculty to browse courses and class yearbooks.</p>
+    <a class="dept-card fade-in" href="department.html?dept=Health+Sciences" style="animation-delay:.1s">
+      <div class="dept-icon health">🏥</div>
+      <div class="dept-info">
+        <div class="dept-name">Health Sciences</div>
+        <div class="dept-count">Clinical Medicine &bull; Class of 2026–2029</div>
+      </div>
+      <div class="dept-arrow">›</div>
+    </a>
+    <a class="dept-card fade-in" href="department.html?dept=Education" style="animation-delay:.2s">
+      <div class="dept-icon edu">📚</div>
+      <div class="dept-info">
+        <div class="dept-name">Education</div>
+        <div class="dept-count">Bachelor of Education &bull; Class of 2026–2029</div>
+      </div>
+      <div class="dept-arrow">›</div>
+    </a>
+  </section>
+
+  <!-- Footer -->
+  <footer style="background:var(--navy);color:rgba(255,255,255,.5);text-align:center;padding:24px 20px;font-size:.75rem">
+    <div style="color:var(--gold);font-weight:700;margin-bottom:4px">GLUK Yearbook 2026</div>
+    Great Lakes University of Kisumu<br>
+    P.O. Box 2224 – 40100, Kisumu, Kenya
+    <div style="margin-top:12px;font-size:.65rem">&copy; 2026 GLUK. All rights reserved.</div>
+  </footer>
+
+  <!-- Install Banner -->
+  <div class="install-banner" id="installBanner">
+    <div>📲</div>
+    <p><strong>Install GLUK Yearbook</strong><br>Add to home screen for offline access</p>
+    <button class="inst-btn" onclick="installApp()">Install</button>
+    <button class="close-btn" onclick="dismissInstall()">✕</button>
+  </div>
+
+  <style>
+    @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+  </style>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- App scripts (order matters) -->
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
