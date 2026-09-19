@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <title>Department — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="department">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <nav class="top-bar">
+    <button class="back-btn" onclick="goBack()" aria-label="Back">‹</button>
+    <div style="flex:1">
+      <h1>Department<span class="subtitle">GLUK Yearbook 2026</span></h1>
+    </div>
+    <div class="logo-sm">G</div>
+  </nav>
+
+  <div class="page-hero">
+    <div class="breadcrumb">
+      <a href="index.html" style="color:rgba(255,255,255,.55)">Home</a>
+      <span>›</span>
+      <span id="deptBreadcrumb">Department</span>
+    </div>
+    <h1 id="deptTitle">Health Sciences</h1>
+    <p id="deptDesc">Select a programme to view class yearbooks</p>
+  </div>
+
+  <div class="list-container" id="courseList"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script>
+  (function(){
+    const dept = new URLSearchParams(window.location.search).get('dept') || 'School of Medicine';
+    document.getElementById('deptTitle').textContent      = dept;
+    document.getElementById('deptBreadcrumb').textContent = dept;
+
+    // ── Full GLUK course catalogue ──────────────────
+    const COURSES = {
+      'School of Medicine': [
+        {name:'BSc. in Clinical Medicine and Community Health',  icon:'🩺', sub:'B.Sc Clinical Medicine · 4 Years'},
+        {name:'MSc. in Clinical Medicine',                       icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'MSc. in Medical Education',                       icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'MSc. in Biology',                                 icon:'🔬', sub:'Masters · Postgraduate'},
+        {name:'Diploma in Clinical Medicine and Surgery',        icon:'📋', sub:'Diploma · 3 Years'},
+        {name:'BSc. in Physiotherapy',                           icon:'💪', sub:'B.Sc Physiotherapy · 4 Years'},
+        {name:'BSc. Medical Laboratory Science',                 icon:'🔬', sub:'B.Sc Medical Lab Science · 4 Years'},
+        {name:'Health Care Assistant Certificate',               icon:'🏥', sub:'Certificate Programme · 1 Year'},
+      ],
+      'School of Nursing and Midwifery': [
+        {name:'BSc. in Nursing',              icon:'💉', sub:'B.Sc Nursing · 4 Years'},
+        {name:'BSc. in Nursing (Upgrading)',  icon:'⬆️', sub:'B.Sc Nursing Upgrading · 2 Years'},
+        {name:'MSc. in Nursing',              icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'PhD in Nursing',               icon:'🎓', sub:'Doctorate'},
+      ],
+      'School of Public Health': [
+        {name:'BSc. in Public Health',                          icon:'🌍', sub:'B.Sc Public Health · 4 Years'},
+        {name:'BSc. in Community Health and Development',       icon:'🌍', sub:'B.Sc Community Health · 4 Years'},
+        {name:'MSc. in Community Health and Development',       icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'PhD in Community Health and Development',        icon:'🎓', sub:'Doctorate'},
+        {name:'PhD in Public Health',                           icon:'🎓', sub:'Doctorate'},
+        {name:'MSc. in Public Health',                          icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'BSc. in Community Nutrition and Dietetics',      icon:'🥗', sub:'B.Sc Community Nutrition · 4 Years'},
+        {name:'MSc. in Community Nutrition and Dietetics',      icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'Postgraduate Diploma in Health Service Management', icon:'📋', sub:'Postgraduate Diploma'},
+        {name:'Diploma in Community Health and Development',    icon:'📋', sub:'Diploma · 3 Years'},
+        {name:'Certificate in Community Health and Development',icon:'📜', sub:'Certificate · 1 Year'},
+        {name:'Diploma in Community Nutrition',                 icon:'📋', sub:'Diploma · 3 Years'},
+        {name:'Certificate in Community Nutrition',             icon:'📜', sub:'Certificate · 1 Year'},
+      ],
+      'Faculty of Education': [
+        {name:'Bachelor of Education (Arts)',              icon:'📖', sub:'B.Ed Arts · 4 Years'},
+        {name:'Bachelor of Education (Science)',           icon:'🔬', sub:'B.Ed Science · 4 Years'},
+        {name:'Bachelor of Education (Special Needs)',     icon:'🧩', sub:'B.Ed Special Needs · 4 Years'},
+        {name:'Master of Education',                       icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'PhD in Education',                          icon:'🎓', sub:'Doctorate'},
+        {name:'Postgraduate Diploma in Education',         icon:'📋', sub:'Postgraduate Diploma'},
+        {name:'Postgraduate Diploma in Technical Education',icon:'📋',sub:'Postgraduate Diploma'},
+        {name:'Diploma in Psycho-Educational Assessment & Intervention Strategies', icon:'🧠', sub:'Diploma · 2 Years'},
+        {name:'Certificate in Psycho-Educational Assessment & Intervention Strategies', icon:'📜', sub:'Certificate · 1 Year'},
+        {name:'Certificate in Cognitive and Affective Neuroscience', icon:'🧬', sub:'Certificate · 1 Year'},
+      ],
+      'Faculty of Humanities and Social Sciences': [
+        {name:'Bachelor of Arts in Counseling Psychology', icon:'🧠', sub:'B.A Counseling Psychology · 4 Years'},
+        {name:'Master of Counseling Psychology',           icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'PhD in Counseling Psychology',              icon:'🎓', sub:'Doctorate'},
+        {name:'Bachelor of Arts in Leadership and Governance', icon:'🏛️', sub:'B.A Leadership · 4 Years'},
+        {name:'Master of Arts in Leadership and Governance',   icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'Bachelor of Theology',   icon:'✝️', sub:'B.Th · 4 Years'},
+        {name:'Diploma in Theology',    icon:'📖', sub:'Diploma Theology · 2 Years'},
+        {name:'Certificate in Theology',icon:'📜', sub:'Certificate · 1 Year'},
+        {name:'Master of Theology',     icon:'🎓', sub:'Masters · Postgraduate'},
+      ],
+      'Faculty of Agribusiness and Technology': [
+        {name:'BSc. in Agribusiness Management',         icon:'🌾', sub:'B.Sc Agribusiness · 4 Years'},
+        {name:'MSc. in Agribusiness Management',         icon:'🎓', sub:'Masters · Postgraduate'},
+        {name:'PhD in Agribusiness Management',          icon:'🎓', sub:'Doctorate'},
+        {name:'BSc. Information Technology',             icon:'💻', sub:'B.Sc IT · 4 Years'},
+        {name:'BSc. in Hospitality and Tourism',         icon:'🏨', sub:'B.Sc Hospitality · 4 Years'},
+        {name:'Diploma in Hospitality and Tourism Management', icon:'📋', sub:'Diploma · 2 Years'},
+        {name:'Bachelor of Business Administration',     icon:'💼', sub:'BBA · 4 Years'},
+        {name:'Diploma in Business Administration',      icon:'📋', sub:'Diploma Business Admin · 2 Years'},
+      ],
+      'School of Business Administration': [
+        {name:'Bachelor of Commerce (Accounting)',                         icon:'📊', sub:'B.Com Accounting · 4 Years'},
+        {name:'Bachelor of Commerce (Finance)',                            icon:'💰', sub:'B.Com Finance · 4 Years'},
+        {name:'Bachelor of Commerce (Human Resource Management)',          icon:'👥', sub:'B.Com HRM · 4 Years'},
+        {name:'Bachelor of Commerce (Procurement and Supply Chain Management)', icon:'🚚', sub:'B.Com Procurement · 4 Years'},
+        {name:'Master of Business Administration',                         icon:'🎓', sub:'MBA · Postgraduate'},
+        {name:'PhD in Business Administration',                            icon:'🎓', sub:'Doctorate'},
+      ],
+    };
+
+    const courses = COURSES[dept] || [{name:dept, icon:'📚', sub:'View class yearbooks'}];
+    document.getElementById('deptDesc').textContent = `${courses.length} programme${courses.length>1?'s':''} available`;
+
+    document.getElementById('courseList').innerHTML = courses.map((c,i) => `
+      <a class="list-item slide-in"
+        href="course.html?dept=${encodeURIComponent(dept)}&course=${encodeURIComponent(c.name)}"
+        style="animation-delay:${i*.07}s">
+        <div class="list-num">${c.icon}</div>
+        <div class="list-info">
+          <div class="list-title">${c.name}</div>
+          <div class="list-sub">${c.sub}</div>
+        </div>
+        <div class="list-arrow">›</div>
+      </a>`).join('');
+  })();
+  </script>
+</body>
+</html>

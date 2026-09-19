@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <title>Students — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="profiles">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <nav class="top-bar">
+    <button class="back-btn" onclick="goBack()" aria-label="Back">‹</button>
+    <div style="flex:1">
+      <h1 id="profilesTitle">Students<span class="subtitle" id="profilesSubtitle">GLUK Yearbook</span></h1>
+    </div>
+    <div class="logo-sm">G</div>
+  </nav>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <span class="icon">🔍</span>
+      <input type="search" id="searchInput" placeholder="Search by name or reg number…" autocomplete="off">
+    </div>
+    <button class="search-add-btn" onclick="openConsentModal()" title="Add your profile" aria-label="Add Profile">+</button>
+  </div>
+
+  <div id="allStudentsBanner" style="display:none" class="all-students-banner">
+    <div style="width:44px;height:44px;border-radius:var(--radius-md);background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">👥</div>
+    <div style="flex:1">
+      <div style="color:var(--white);font-weight:800;font-size:.875rem">All Students</div>
+      <div id="allStudentsCount" style="color:rgba(255,255,255,.45);font-size:.7rem;margin-top:2px">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Alumni mode banner (shown only when ?mode=alumni) -->
+  <div id="alumniModeBanner" style="display:none;align-items:center;gap:12px;
+       background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:14px 16px;margin:0;
+       border-radius:0">
+    <div style="width:44px;height:44px;border-radius:var(--radius-md);background:rgba(255,255,255,.15);
+                display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">🎓</div>
+    <div style="flex:1">
+      <div style="color:#fff;font-weight:800;font-size:.875rem">Alumni Profiles</div>
+      <div id="allStudentsCount" style="color:rgba(255,255,255,.55);font-size:.7rem;margin-top:2px">Loading…</div>
+    </div>
+    <a href="profiles.html" style="color:#e9d5ff;font-size:.7rem;font-weight:700;text-decoration:none;
+       background:rgba(255,255,255,.15);padding:6px 10px;border-radius:8px;flex-shrink:0">
+      👥 Students →
+    </a>
+  </div>
+
+  <div class="filter-section-lbl" id="yearFilterLbl">Filter by Year</div>
+  <div class="filter-row" id="filterChips"></div>
+
+  <!-- Compact School + Programme + County + Club dropdowns -->
+  <div class="filter-selects-row" id="compactFilterRow">
+    <div class="filter-select-wrap">
+      <select class="filter-compact-select" id="schoolFilterSel" aria-label="Filter by school"></select>
+    </div>
+    <div class="filter-select-wrap">
+      <select class="filter-compact-select" id="courseFilterSel" aria-label="Filter by programme"></select>
+    </div>
+    <div class="filter-select-wrap">
+      <select class="filter-compact-select" id="countyFilterSel" aria-label="Filter by county"></select>
+    </div>
+    <div class="filter-select-wrap">
+      <select class="filter-compact-select" id="clubFilterSel" aria-label="Filter by club"></select>
+    </div>
+  </div>
+
+  <div style="padding:4px 16px 2px;font-size:.68rem;color:var(--gray-400)" id="breadcrumb">Home › …</div>
+
+  <div class="profiles-grid" id="profilesGrid"></div>
+
+  <!-- FAB removed — add button is now inline next to search bar -->
+
+  <!-- ══ CONSENT MODAL ══ -->
+  <div class="modal-overlay hidden" id="consentModal" onclick="if(event.target===this)closeConsentModal()">
+    <div class="modal-sheet" style="max-height:88vh;overflow-y:auto">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-vivid));color:white;font-size:1.5rem;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">🛡️</div>
+        <div class="modal-title" style="margin-bottom:2px">Data Privacy &amp; Consent</div>
+        <p style="font-size:.72rem;color:var(--gray-400);margin:0">GLUK Yearbook 2026 — please read before continuing</p>
+      </div>
+
+      <div class="consent-body">
+        <div class="consent-section">
+          <div class="consent-section-title">📋 What we collect</div>
+          <p>Your name, registration number, school, programme, class year, home county, WhatsApp number, email address, bio, hobbies, club memberships, personal memories, and any photos you choose to share.</p>
+        </div>
+        <div class="consent-section">
+          <div class="consent-section-title">🎯 How it is used</div>
+          <p>Your profile will be visible to other GLUK students and alumni on this yearbook platform — solely to celebrate and document your university journey, not for any commercial purpose.</p>
+        </div>
+        <div class="consent-section">
+          <div class="consent-section-title">🔐 Your rights</div>
+          <p>You may edit or delete your profile at any time. You may also choose to <strong>submit anonymously</strong> — sharing only your name and class details while keeping all other information private.</p>
+        </div>
+        <div class="consent-section">
+          <div class="consent-section-title">⚠️ What we don't do</div>
+          <p>We do not sell your data or share it with third parties outside GLUK. Your WhatsApp number and email are only visible to signed-in users on your profile page.</p>
+        </div>
+      </div>
+
+      <label class="consent-check-row">
+        <input type="checkbox" id="consentCheckbox" onchange="updateConsentBtn()">
+        <span>I have read and understood the above. I consent to my profile data being published on the GLUK Yearbook 2026 platform.</span>
+      </label>
+
+      <div id="consentError" class="auth-error" style="display:none;margin-bottom:10px">Please tick the checkbox above to continue.</div>
+
+      <button class="btn-primary" id="consentAgreeBtn" onclick="acceptConsent()" style="opacity:.45;pointer-events:none">
+        I Agree — Continue to Profile →
+      </button>
+      <button class="btn-secondary" onclick="closeConsentModal()" style="margin-top:8px">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ══ ADD PROFILE MODAL ══ -->
+  <div class="modal-overlay hidden" id="addModal" onclick="if(event.target===this)closeAddModal()">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">🎓 Add Your Profile</div>
+      <p style="font-size:.75rem;color:var(--gray-400);margin:-12px 0 16px">Fill in as much as you like — you can edit later!</p>
+
+      <form id="addProfileForm" onsubmit="submitProfile(event)">
+
+        <!-- ── PROFILE TYPE SELECTOR ── -->
+        <div class="form-group" style="margin-bottom:18px">
+          <label class="form-label" style="margin-bottom:8px">I am a… *</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button type="button" id="typeStudentBtn" onclick="selectProfileType('student')"
+              style="padding:13px 8px;border-radius:12px;border:2px solid var(--blue);
+                     background:rgba(0,154,224,.09);color:var(--blue);font-weight:700;
+                     font-size:.8rem;cursor:pointer;transition:all .2s">
+              🎓 Current Student
+            </button>
+            <button type="button" id="typeAlumniBtn" onclick="selectProfileType('alumni')"
+              style="padding:13px 8px;border-radius:12px;border:2px solid var(--gray-200);
+                     background:none;color:var(--gray-500);font-weight:700;
+                     font-size:.8rem;cursor:pointer;transition:all .2s">
+              🏅 Alumni
+            </button>
+          </div>
+          <input type="hidden" name="profiletype" id="f-profiletype" value="student">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">📸 Your Photos
+            <span style="font-weight:400;color:var(--gray-400)">(up to 4 · first = profile pic)</span>
+          </label>
+          <div class="photo-slots-grid">
+            <div class="photo-slot" id="photoSlot0"></div>
+            <div class="photo-slot" id="photoSlot1"></div>
+            <div class="photo-slot" id="photoSlot2"></div>
+            <div class="photo-slot" id="photoSlot3"></div>
+          </div>
+          <p style="font-size:.65rem;color:var(--gray-400);margin-top:6px">Tap a slot · Auto-compressed before upload</p>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="f-name">Full Name *</label>
+            <input class="form-input" type="text" id="f-name" name="name" required placeholder="e.g. Achieng Otieno" autocomplete="name">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="f-reg">Reg Number *</label>
+            <input class="form-input" type="text" id="f-reg" name="reg" required placeholder="GLUK/MED/CM/…">
+          </div>
+        </div>
+
+        <!-- Dept + Course: always shown, pre-filled from URL if available -->
+        <div id="deptCourseFields">
+          <div class="form-group">
+            <label class="form-label">School / Faculty</label>
+            <select class="form-select" name="dept" id="f-dept" onchange="populateCourseSelect()">
+              <option value="">— Select School —</option>
+              <option>School of Medicine</option>
+              <option>School of Nursing and Midwifery</option>
+              <option>School of Public Health</option>
+              <option>Faculty of Education</option>
+              <option>Faculty of Humanities and Social Sciences</option>
+              <option>Faculty of Agribusiness and Technology</option>
+              <option>School of Business Administration</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Programme</label>
+            <select class="form-select" name="course" id="f-course">
+              <option value="">— Select Programme —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Class Year</label>
+          <select class="form-select" name="classYear" id="f-classYear"></select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">WhatsApp</label>
+            <input class="form-input" type="tel" name="whatsapp" placeholder="+254 7XX XXX XXX">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" name="email" placeholder="name@gluk.ac.ke">
+          </div>
+        </div>
+
+        <!-- WHERE ARE YOU RIGHT NOW? -->
+        <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;
+                    letter-spacing:.5px;padding:10px 0 6px;border-top:1px solid var(--gray-100);margin-top:4px">
+          📍 Where Are You Right Now?
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Current County</label>
+            <select class="form-select" name="currentcounty">
+              <option value="">— Select County —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Town / City / Country</label>
+            <input class="form-input" type="text" name="currentlocation"
+              placeholder="e.g. Nairobi, London UK, Kisumu…">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">💼 What Are You Up To?</label>
+          <textarea class="form-textarea" name="whatareyouto" rows="2" maxlength="300"
+            placeholder="Alumni: Working at / Studying at… · Students: Research, placement, projects…"></textarea>
+        </div>
+
+        <!-- WHERE ARE YOU FROM? (home origin) -->
+        <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;
+                    letter-spacing:.5px;padding:10px 0 6px;border-top:1px solid var(--gray-100);margin-top:4px">
+          🏠 Where Are You From?
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Home County</label>
+            <select class="form-select" name="county">
+              <option value="">— Select County —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Constituency</label>
+            <input class="form-input" type="text" name="constituency" placeholder="e.g. Kisumu East">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Bio</label>
+          <textarea class="form-textarea" name="bio" rows="4" maxlength="600" placeholder="Write a short bio about yourself…"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hobbies <span style="font-weight:400;color:var(--gray-400)">(comma-separated)</span></label>
+          <input class="form-input" type="text" name="hobbies" placeholder="Reading, Hiking, Photography">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Clubs &amp; Societies</label>
+          <div class="clubs-check-grid"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Best Memory</label>
+          <textarea class="form-textarea" name="bestMemory" rows="3" maxlength="400" placeholder="Your most cherished university memory…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Biggest Lesson</label>
+          <textarea class="form-textarea" name="biggestLesson" rows="2" maxlength="200" placeholder="The most important thing university taught you…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Most Likely To…</label>
+          <input class="form-input" type="text" name="mostLikelyTo" placeholder="e.g. Become the next Health Minister 🏥">
+        </div>
+
+        <!-- Consent note (inline — no separate gate) -->
+        <div style="font-size:.65rem;color:var(--gray-500);background:var(--gray-50);
+                    border-radius:10px;padding:10px 12px;margin-bottom:12px;
+                    border:1px solid var(--gray-200);line-height:1.55">
+          🛡️ By submitting you consent to your profile being visible to GLUK students &amp;
+          alumni on this yearbook platform — solely to celebrate your university journey.
+          Your data is never sold. You can edit or delete your profile at any time.
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top:4px">🎓 &nbsp; Save My Profile</button>
+        <button type="button" id="anonSubmitBtn" class="btn-anonymous" onclick="submitAnonymousProfile()">
+          🕵️ &nbsp; Stay Anonymous — Name Only
+        </button>
+        <p style="font-size:.65rem;color:var(--gray-400);text-align:center;margin-top:4px;margin-bottom:0">
+          Only your name, school and class year will appear on your profile
+        </p>
+        <button type="button" class="btn-secondary" onclick="closeAddModal()">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script>
+  // ── Full GLUK programme map ────────────────────────
+  const DEPT_COURSES = {
+    'School of Medicine': [
+      'BSc. in Clinical Medicine and Community Health',
+      'MSc. in Clinical Medicine',
+      'MSc. in Medical Education',
+      'MSc. in Biology',
+      'Diploma in Clinical Medicine and Surgery',
+      'BSc. in Physiotherapy',
+      'BSc. Medical Laboratory Science',
+      'Health Care Assistant Certificate',
+    ],
+    'School of Nursing and Midwifery': [
+      'BSc. in Nursing',
+      'BSc. in Nursing (Upgrading)',
+      'MSc. in Nursing',
+      'PhD in Nursing',
+    ],
+    'School of Public Health': [
+      'BSc. in Public Health',
+      'BSc. in Community Health and Development',
+      'MSc. in Community Health and Development',
+      'PhD in Community Health and Development',
+      'PhD in Public Health',
+      'MSc. in Public Health',
+      'BSc. in Community Nutrition and Dietetics',
+      'MSc. in Community Nutrition and Dietetics',
+      'Postgraduate Diploma in Health Service Management',
+      'Diploma in Community Health and Development',
+      'Certificate in Community Health and Development',
+      'Diploma in Community Nutrition',
+      'Certificate in Community Nutrition',
+    ],
+    'Faculty of Education': [
+      'Bachelor of Education (Arts)',
+      'Bachelor of Education (Science)',
+      'Bachelor of Education (Special Needs)',
+      'Master of Education',
+      'PhD in Education',
+      'Postgraduate Diploma in Education',
+      'Postgraduate Diploma in Technical Education',
+      'Diploma in Psycho-Educational Assessment & Intervention Strategies',
+      'Certificate in Psycho-Educational Assessment & Intervention Strategies',
+      'Certificate in Cognitive and Affective Neuroscience',
+    ],
+    'Faculty of Humanities and Social Sciences': [
+      'Bachelor of Arts in Counseling Psychology',
+      'Master of Counseling Psychology',
+      'PhD in Counseling Psychology',
+      'Bachelor of Arts in Leadership and Governance',
+      'Master of Arts in Leadership and Governance',
+      'Bachelor of Theology',
+      'Diploma in Theology',
+      'Certificate in Theology',
+      'Master of Theology',
+    ],
+    'Faculty of Agribusiness and Technology': [
+      'BSc. in Agribusiness Management',
+      'MSc. in Agribusiness Management',
+      'PhD in Agribusiness Management',
+      'BSc. Information Technology',
+      'BSc. in Hospitality and Tourism',
+      'Diploma in Hospitality and Tourism Management',
+      'Bachelor of Business Administration',
+      'Diploma in Business Administration',
+    ],
+    'School of Business Administration': [
+      'Bachelor of Commerce (Accounting)',
+      'Bachelor of Commerce (Finance)',
+      'Bachelor of Commerce (Human Resource Management)',
+      'Bachelor of Commerce (Procurement and Supply Chain Management)',
+      'Master of Business Administration',
+      'PhD in Business Administration',
+    ],
+  };
+
+  window.populateCourseSelect = function() {
+    const dept = document.getElementById('f-dept').value;
+    const sel  = document.getElementById('f-course');
+    sel.innerHTML = `<option value="">— Select Programme —</option>` +
+      (DEPT_COURSES[dept]||[]).map(c=>`<option value="${c}">${c}</option>`).join('');
+  };
+
+  // ── Profile type selector ─────────────────────────────
+  window.selectProfileType = function(type) {
+    const GY      = window.GRAD_YEAR || new Date().getFullYear();
+    const stuBtn  = document.getElementById('typeStudentBtn');
+    const alBtn   = document.getElementById('typeAlumniBtn');
+    const ptInput = document.getElementById('f-profiletype');
+    const sel     = document.getElementById('f-classYear');
+    const title   = document.querySelector('#addModal .modal-title');
+    const currentVal = sel ? sel.value : '';
+
+    if (type === 'student') {
+      if(stuBtn){ stuBtn.style.borderColor='var(--blue)'; stuBtn.style.background='rgba(0,154,224,.09)'; stuBtn.style.color='var(--blue)'; }
+      if(alBtn){  alBtn.style.borderColor='var(--gray-200)'; alBtn.style.background='none'; alBtn.style.color='var(--gray-500)'; }
+      if(title) title.textContent = '🎓 Add Your Student Profile';
+    } else {
+      if(alBtn){  alBtn.style.borderColor='#7c3aed'; alBtn.style.background='rgba(124,58,237,.09)'; alBtn.style.color='#7c3aed'; }
+      if(stuBtn){ stuBtn.style.borderColor='var(--gray-200)'; stuBtn.style.background='none'; stuBtn.style.color='var(--gray-500)'; }
+      if(title) title.textContent = '🏅 Add Your Alumni Profile';
+    }
+    if (ptInput) ptInput.value = type;
+
+    // Rebuild year options
+    if (sel) {
+      sel.innerHTML = '';
+      const years = type === 'alumni'
+        ? [GY-1,GY-2,GY-3,GY-4,GY-5,GY-6,GY-7,GY-8,GY-9,GY-10]
+        : [GY,GY+1,GY+2,GY+3];
+      years.forEach(y => {
+        const o = document.createElement('option');
+        o.value = String(y); o.textContent = `Class of ${y}`;
+        if (String(y) === currentVal) o.selected = true;
+        sel.appendChild(o);
+      });
+      if (!sel.value) sel.selectedIndex = 0;
+    }
+  };
+
+  (function init(){
+    const GY  = window.GRAD_YEAR || new Date().getFullYear();
+    const p   = new URLSearchParams(window.location.search);
+    const preYear = p.get('class') || String(GY);
+
+    // Detect alumni context: URL has a past year or mode=alumni
+    const isAlumniCtx = Number(preYear) < GY || p.get('mode') === 'alumni';
+
+    // Populate year select
+    const sel   = document.getElementById('f-classYear');
+    const years = isAlumniCtx
+      ? [GY-1,GY-2,GY-3,GY-4,GY-5,GY-6,GY-7,GY-8,GY-9,GY-10]
+      : [GY, GY+1, GY+2, GY+3];
+    years.forEach(y => {
+      const o = document.createElement('option');
+      o.value = String(y); o.textContent = `Class of ${y}`;
+      if (String(y) === preYear) o.selected = true;
+      sel.appendChild(o);
+    });
+    if (!sel.value) sel.selectedIndex = 0;
+
+    // Auto-select profile type button to match context
+    if (isAlumniCtx) {
+      const alBtn = document.getElementById('typeAlumniBtn');
+      if (alBtn) {
+        alBtn.style.borderColor = '#7c3aed';
+        alBtn.style.background  = 'rgba(124,58,237,.09)';
+        alBtn.style.color       = '#7c3aed';
+        const stuBtn = document.getElementById('typeStudentBtn');
+        if (stuBtn) { stuBtn.style.borderColor='var(--gray-200)'; stuBtn.style.background='none'; stuBtn.style.color='var(--gray-500)'; }
+        const ptInput = document.getElementById('f-profiletype');
+        if (ptInput) ptInput.value = 'alumni';
+        const title = document.querySelector('#addModal .modal-title');
+        if (title) title.textContent = '🏅 Add Your Alumni Profile';
+      }
+    }
+
+    // Pre-fill school/course from URL — trim to ensure exact option match
+    const urlDept   = (p.get('dept')   || '').trim();
+    const urlCourse = (p.get('course') || '').trim();
+    if (urlDept) {
+      const deptSel = document.getElementById('f-dept');
+      if (deptSel) {
+        deptSel.value = urlDept;
+        if (typeof populateCourseSelect === 'function') populateCourseSelect();
+        if (urlCourse) {
+          const cSel = document.getElementById('f-course');
+          if (cSel) cSel.value = urlCourse;
+        }
+      }
+    }
+
+    // Banners
+    const isAll = !urlDept && !urlCourse && !p.get('class');
+    if (isAll && p.get('mode') !== 'alumni') {
+      const b = document.getElementById('allStudentsBanner');
+      if (b) b.style.display = 'flex';
+    }
+    if (p.get('mode') === 'alumni') {
+      const b = document.getElementById('alumniModeBanner');
+      if (b) b.style.display = 'flex';
+    }
+
+    // ── action=add: skip consent — go STRAIGHT to the form ──
+    if (p.get('action') === 'add') {
+      const cleanSearch = window.location.search.replace(/[?&]action=add/, '');
+      history.replaceState({}, '', window.location.pathname + (cleanSearch !== '?' ? cleanSearch : ''));
+      const _open = () => {
+        if (typeof requireAuth === 'function' && typeof openAddModal === 'function') {
+          requireAuth(() => openAddModal(), 'signup');
+        } else {
+          setTimeout(_open, 80);
+        }
+      };
+      setTimeout(_open, 120);
+    }
+
+    // Photo slots
+    if (typeof resetPhotoSlots === 'function') resetPhotoSlots();
+    else window.addEventListener('load', () => { if(typeof resetPhotoSlots==='function') resetPhotoSlots(); });
+  })();
+  </script>
+</body>
+</html>

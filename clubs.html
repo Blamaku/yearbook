@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <title>Clubs &amp; Societies — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="clubs">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <nav class="top-bar">
+    <button class="back-btn" onclick="goBack()" aria-label="Back">‹</button>
+    <div style="flex:1">
+      <h1>Clubs &amp; Societies<span class="subtitle">GLUK Yearbook 2026</span></h1>
+    </div>
+    <div class="logo-sm">G</div>
+  </nav>
+
+  <div class="page-hero">
+    <div class="breadcrumb">
+      <a href="index.html" style="color:rgba(255,255,255,.55)">Home</a>
+      <span>›</span>
+      <span>Clubs &amp; Societies</span>
+    </div>
+    <h1>Clubs &amp; Societies</h1>
+    <p id="clubsSubtitle">Explore all GLUK clubs — activities, members &amp; more</p>
+  </div>
+
+  <!-- Search bar -->
+  <div style="padding:16px 16px 0">
+    <div style="position:relative">
+      <input type="search" id="clubSearch" placeholder="🔍  Search clubs…"
+        style="width:100%;padding:12px 16px;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);
+               font-size:.85rem;background:var(--white);color:var(--navy);box-sizing:border-box;outline:none"
+        oninput="filterClubs(this.value)">
+    </div>
+  </div>
+
+  <div class="list-container" id="clubList" style="padding-top:12px"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script>
+  (function(){
+    const CLUBS_META = {
+      'GLUK Students Association':    { icon:'🏫', color:'#0f4c81', desc:'Student governance & representation' },
+      'Red Cross Club':               { icon:'🚑', color:'#dc2626', desc:'Humanitarian service & first aid' },
+      'Drama Club':                   { icon:'🎭', color:'#7c3aed', desc:'Theatre, performance & storytelling' },
+      'Christian Union':              { icon:'✝️', color:'#1d4ed8', desc:'Faith, fellowship & outreach' },
+      'Environmental Club':           { icon:'🌿', color:'#16a34a', desc:'Green campus & sustainability' },
+      'Catholic Association':         { icon:'✝️', color:'#b45309', desc:'Catholic faith & community' },
+      'Choir':                        { icon:'🎵', color:'#7c3aed', desc:'Singing, harmony & performance' },
+      'Health Club':                  { icon:'💪', color:'#0891b2', desc:'Wellness, fitness & healthy living' },
+      'GLUSNA':                       { icon:'💉', color:'#dc2626', desc:'GLUK Student Nurses Association' },
+      'CLIMSA GLUK':                  { icon:'🩺', color:'#0f4c81', desc:'Clinical Medicine Students Association' },
+      'Debate Club':                  { icon:'🗣️', color:'#7c3aed', desc:'Public speaking & critical thinking' },
+      'Integrity Club':               { icon:'⚖️', color:'#1d4ed8', desc:'Ethics, leadership & accountability' },
+      'Transparency and Integrity Club': { icon:'🔍', color:'#0369a1', desc:'Transparency, accountability & good governance' },
+      'Art Club':                     { icon:'🎨', color:'#ea580c', desc:'Visual arts, painting & crafts' },
+      'Chess Club':                   { icon:'♟️', color:'#374151', desc:'Strategy, mind games & tournaments' },
+      'Rotaract Club':                { icon:'🌍', color:'#0f4c81', desc:'Community service & leadership' },
+      'Photography Club':             { icon:'📷', color:'#374151', desc:'Photography, film & visual media' },
+      'Toastmasters Club':            { icon:'🎤', color:'#b45309', desc:'Communication & leadership skills' },
+      'Entrepreneurship Club':        { icon:'💡', color:'#16a34a', desc:'Innovation, business & startups' },
+      'Science Club':                 { icon:'🔬', color:'#0891b2', desc:'Research, experiments & STEM' },
+      'Theology Club':                { icon:'📖', color:'#b45309', desc:'Theology, Bible study & ministry' },
+      'Agribusiness Club':            { icon:'🌾', color:'#16a34a', desc:'Agriculture, food & agribusiness' },
+      'Biocosmos':                    { icon:'🧬', color:'#0891b2', desc:'Biology, nature & life sciences' },
+      'Public Health Club':           { icon:'🌍', color:'#16a34a', desc:'Community health & public policy' },
+      'Medical Students Association': { icon:'🏥', color:'#dc2626', desc:'Medical education & clinical training' },
+      'Sports Medicine Club':         { icon:'🏃', color:'#0891b2', desc:'Sports health & exercise science' },
+      'Student Teacher Association':  { icon:'📚', color:'#7c3aed', desc:'Education practice & pedagogy' },
+      'Mathematics Club':             { icon:'➕', color:'#1d4ed8', desc:'Maths, statistics & problem solving' },
+      'Music Band':                   { icon:'🎸', color:'#7c3aed', desc:'Instruments, concerts & music' },
+      'IT Society':                   { icon:'💻', color:'#0f4c81', desc:'Technology, coding & digital skills' },
+      'SASCO':                        { icon:'🤝', color:'#374151', desc:'Student Academic Support Community' },
+      'Peer Counselling Club':        { icon:'🧠', color:'#7c3aed', desc:'Mental health & peer support' },
+    };
+
+    const ALL_CLUBS = window.GLUK_CLUBS || Object.keys(CLUBS_META);
+    let rendered = ALL_CLUBS;
+
+    function renderClubs(list) {
+      document.getElementById('clubsSubtitle').textContent =
+        `${list.length} club${list.length!==1?'s':''} — tap to view members, activities & more`;
+      document.getElementById('clubList').innerHTML = list.map((c,i) => {
+        const m = CLUBS_META[c] || { icon:'🏛️', color:'#374151', desc:'GLUK Club' };
+        return `
+          <a class="list-item slide-in"
+            href="club.html?club=${encodeURIComponent(c)}"
+            style="animation-delay:${Math.min(i,.3)*0.06}s">
+            <div class="list-num"
+              style="background:${m.color}18;color:${m.color};border-radius:12px;
+                     width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+                     font-size:1.25rem;flex-shrink:0">${m.icon}</div>
+            <div class="list-info">
+              <div class="list-title">${c}</div>
+              <div class="list-sub">${m.desc}</div>
+            </div>
+            <div class="list-arrow">›</div>
+          </a>`;
+      }).join('');
+    }
+
+    window.filterClubs = function(q) {
+      const lq = q.toLowerCase();
+      rendered = q
+        ? ALL_CLUBS.filter(c => c.toLowerCase().includes(lq) ||
+            (CLUBS_META[c]?.desc||'').toLowerCase().includes(lq))
+        : ALL_CLUBS;
+      renderClubs(rendered);
+    };
+
+    renderClubs(ALL_CLUBS);
+  })();
+  </script>
+</body>
+</html>

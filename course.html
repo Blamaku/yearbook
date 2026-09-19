@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <title>Course — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="course">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <nav class="top-bar">
+    <button class="back-btn" onclick="goBack()" aria-label="Back">‹</button>
+    <div style="flex:1">
+      <h1 id="topBarTitle">Course<span class="subtitle">GLUK Yearbook 2026</span></h1>
+    </div>
+    <div class="logo-sm">G</div>
+  </nav>
+
+  <div class="page-hero">
+    <div class="breadcrumb">
+      <a href="index.html" style="color:rgba(255,255,255,.55)">Home</a>
+      <span>›</span>
+      <a id="deptLink" style="color:rgba(255,255,255,.55)">Dept</a>
+      <span>›</span>
+      <span id="courseBreadcrumb">Course</span>
+    </div>
+    <h1 id="courseTitle">Clinical Medicine</h1>
+    <p id="courseDesc">Select a class to view the yearbook</p>
+  </div>
+
+  <div class="list-container" id="classList"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script>
+  (function(){
+    const p      = new URLSearchParams(window.location.search);
+    const dept   = p.get('dept')   || 'School of Medicine';
+    const course = p.get('course') || 'Bachelor of Science in Clinical Medicine and Surgery';
+
+    document.getElementById('topBarTitle').innerHTML  = course + '<span class="subtitle">GLUK Yearbook</span>';
+    document.getElementById('courseTitle').textContent      = course;
+    document.getElementById('courseBreadcrumb').textContent = course;
+    const dl = document.getElementById('deptLink');
+    dl.textContent = dept;
+    dl.href = `department.html?dept=${encodeURIComponent(dept)}`;
+
+    // ── Dynamic class years — auto-updates every Jan 1 ──
+    // GY   = current year  = Final Year (graduating this November)
+    // GY+1 = next year     = Third Year
+    // GY+2 = year after    = Second Year
+    // GY+3 = 3 years later = First Year (Freshers)
+    const GY = new Date().getFullYear();
+    const classes = [
+      {year:GY,   label:`Class of ${GY}`,   sub:`Final Year — Graduating November ${GY}`,       icon:'🎓', badge:'Graduating!'},
+      {year:GY+1, label:`Class of ${GY+1}`, sub:`Third Year`,                                   icon:'📘', badge:'3rd Year'},
+      {year:GY+2, label:`Class of ${GY+2}`, sub:`Second Year`,                                  icon:'📗', badge:'2nd Year'},
+      {year:GY+3, label:`Class of ${GY+3}`, sub:`First Year — Class of ${GY+3} Freshers`,       icon:'🌟', badge:'1st Year'},
+    ];
+
+    document.getElementById('courseDesc').textContent = '4 classes available';
+    document.getElementById('classList').innerHTML = classes.map((c,i) => `
+      <a class="list-item slide-in"
+        href="class.html?dept=${encodeURIComponent(dept)}&course=${encodeURIComponent(course)}&class=${c.year}"
+        style="animation-delay:${i*.1}s">
+        <div class="list-num">${c.icon}</div>
+        <div class="list-info">
+          <div class="list-title">${c.label}</div>
+          <div class="list-sub">${c.sub}</div>
+        </div>
+        <span style="background:linear-gradient(135deg,rgba(197,216,0,.14),rgba(197,216,0,.08));color:#6b7a00;font-size:.65rem;font-weight:700;padding:4px 10px;border-radius:20px;flex-shrink:0;border:1px solid rgba(197,216,0,.3)">${c.badge}</span>
+      </a>`).join('');
+  })();
+  </script>
+</body>
+</html>

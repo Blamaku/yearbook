@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <title>Profile — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="profile">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <nav class="top-bar">
+    <button class="back-btn" onclick="goBack()" aria-label="Back">‹</button>
+    <div style="flex:1">
+      <h1>Student Profile<span class="subtitle">GLUK Yearbook 2026</span></h1>
+    </div>
+    <div class="logo-sm">G</div>
+  </nav>
+
+  <!-- Profile Hero -->
+  <div class="profile-hero">
+    <div class="profile-avatar-ring" id="profileAvatar">
+      <div class="avatar-inner">?</div>
+    </div>
+    <div class="profile-name" id="profileName">Loading...</div>
+    <div class="profile-reg"  id="profileReg">---</div>
+    <span class="profile-dept-badge" id="profileDept">---</span>
+    <div class="contact-row">
+      <a class="contact-btn" id="whatsappBtn" href="#" target="_blank" rel="noopener">
+        <span class="cb-icon">💬</span><span class="cb-label">WhatsApp</span>
+      </a>
+      <a class="contact-btn" id="emailBtn" href="#">
+        <span class="cb-icon">✉️</span><span class="cb-label">Email</span>
+      </a>
+      <button class="contact-btn" onclick="shareProfile()">
+        <span class="cb-icon">🔗</span><span class="cb-label">Share</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Profile Body -->
+  <div class="profile-body">
+
+    <!-- WHERE ARE YOU RIGHT NOW — prominent, especially for alumni -->
+    <div class="info-card fade-in" id="currentLocationCard" style="display:none;animation-delay:.02s">
+      <div class="info-card-title">📍 Where Are You Right Now?</div>
+      <div id="profileCurrentLocation"
+        style="font-size:.95rem;font-weight:700;color:var(--navy);margin-bottom:8px"></div>
+      <p id="profileCurrentWork"
+        style="font-size:.82rem;color:var(--gray-600);line-height:1.6;margin:0"></p>
+    </div>
+
+    <!-- HOME ORIGIN -->
+    <div class="info-card fade-in" style="animation-delay:.04s">
+      <div class="info-card-title">🏠 Where Are You From?</div>
+      <div id="profileCountyDisplay"
+        style="font-size:.8rem;color:var(--gray-600);padding:2px 0 6px"></div>
+      <div class="info-row"><span class="info-lbl">Home County</span>
+        <span class="info-val" id="profileCounty">---</span></div>
+      <div class="info-row"><span class="info-lbl">Constituency</span>
+        <span class="info-val" id="profileConst">---</span></div>
+      <div class="info-row"><span class="info-lbl">Email</span>
+        <span class="info-val" id="profileEmail" style="font-size:.72rem;word-break:break-all">---</span></div>
+    </div>
+
+    <!-- Legacy whatUpToCard kept hidden (data now in currentLocationCard) -->
+    <div id="whatUpToCard" style="display:none">
+      <p id="profileWhatUpTo"></p>
+    </div>
+
+    <div class="info-card fade-in" style="animation-delay:.05s">
+      <div class="info-card-title">👤 About Me</div>
+      <p class="bio-text" id="profileBio">---</p>
+      <button id="readMoreBtn" onclick="toggleBio()" style="display:none;background:none;border:none;color:var(--blue);font-size:.75rem;font-weight:700;margin-top:8px;cursor:pointer;padding:0">Read more ›</button>
+    </div>
+
+    <div class="info-card fade-in" style="animation-delay:.1s">
+      <div class="info-card-title">🎯 Hobbies</div>
+      <div class="pills-wrap" id="profileHobbies">
+        <span style="font-size:.8rem;color:var(--gray-400)">No hobbies listed</span>
+      </div>
+    </div>
+
+    <div class="info-card fade-in" style="animation-delay:.15s">
+      <div class="info-card-title">🏛 Clubs &amp; Societies</div>
+      <div class="pills-wrap" id="profileClubs">
+        <span style="font-size:.8rem;color:var(--gray-400)">No clubs listed</span>
+      </div>
+    </div>
+
+    <div class="info-card fade-in" style="animation-delay:.2s">
+      <div class="info-card-title">✨ Best Memory</div>
+      <div class="quote-block">
+        <p class="quote-text" id="profileMemory">---</p>
+        <span class="quote-label">Best Memory</span>
+      </div>
+    </div>
+
+    <div class="info-card fade-in" style="animation-delay:.25s">
+      <div class="info-card-title">💡 Biggest Lesson</div>
+      <p class="lesson-text" id="profileLesson">---</p>
+    </div>
+
+    <div class="info-card fade-in" style="animation-delay:.3s">
+      <div class="info-card-title">🔮 Most Likely To</div>
+      <div style="text-align:center;padding:8px 0">
+        <span class="likely-badge" id="profileLikely">---</span>
+      </div>
+    </div>
+
+    <div class="info-card fade-in" style="animation-delay:.35s;overflow:visible">
+      <div class="info-card-title">📸 Photo Gallery</div>
+      <div class="carousel-wrap">
+        <div class="carousel-track" id="carouselTrack"></div>
+        <button class="carousel-btn prev" onclick="prevSlide()" aria-label="Previous">‹</button>
+        <button class="carousel-btn next" onclick="nextSlide()" aria-label="Next">›</button>
+        <div class="carousel-dots" id="carouselDots"></div>
+      </div>
+      <p style="font-size:.68rem;color:var(--gray-400);text-align:center;margin-top:8px">
+        Swipe or tap arrows to browse · Up to 4 photos
+      </p>
+    </div>
+
+    <!-- Comments section -->
+    <div class="info-card fade-in" style="animation-delay:.4s">
+      <div class="info-card-title">
+        💬 Comments
+        <span id="commentCount" style="background:var(--blue);color:var(--white);font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:20px;font-style:normal;letter-spacing:0">0</span>
+      </div>
+
+      <div id="commentInputWrap" style="display:none">
+        <div class="comment-input-wrap">
+          <div class="avatar-sm" id="commentAvatar">Me</div>
+          <textarea class="comment-box" id="commentInput"
+            placeholder="Leave a comment, congratulation or memory..."
+            rows="2" onkeydown="handleCommentKey(event)" maxlength="144"></textarea>
+          <button class="comment-send-btn" onclick="submitComment()" aria-label="Send">➤</button>
+        </div>
+        <div class="char-count" id="commentCharCount">144 chars left</div>
+      </div>
+
+      <div id="commentGate" style="display:none;text-align:center;padding:12px 0 8px">
+        <p style="font-size:.8rem;color:var(--gray-600);margin-bottom:10px">Sign in to leave a comment or memory</p>
+        <button class="btn-primary" style="max-width:200px;margin:0 auto" onclick="openAuthModal(null,'login')">
+          🔐 Sign In to Comment
+        </button>
+      </div>
+
+      <div id="commentsContainer"></div>
+    </div>
+
+  </div><!-- /profile-body -->
+
+  <!-- Edit profile button (only shown to profile owner) -->
+  <button id="editProfileBtn" onclick="openEditMyProfile()" style="display:none">✏️ Edit My Profile</button>
+
+  <!-- Share bar -->
+  <div class="share-bar">
+    <a id="waShareBtn" href="#" target="_blank" class="share-btn wa" rel="noopener">💬 &nbsp; Chat on WhatsApp</a>
+    <button class="share-btn cp" onclick="copyProfileLink()">🔗 &nbsp; Copy Link</button>
+  </div>
+
+  <!-- ══ EDIT OWN PROFILE MODAL ══ -->
+  <div class="edit-own-modal hidden" id="editMyModal">
+    <div class="edit-own-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">✏️ Edit My Profile</div>
+
+      <form id="editMyForm" onsubmit="saveMyProfile(event)">
+
+        <!-- Current photos -->
+        <div class="form-group">
+          <label class="form-label">📸 Current Photos</label>
+          <div id="editCurrentPhotos" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div>
+        </div>
+
+        <!-- New photos -->
+        <div class="form-group">
+          <label class="form-label">📷 Upload New Photos
+            <span style="font-weight:400;color:var(--gray-400)">(replaces current · up to 4)</span>
+          </label>
+          <div class="photo-slots-grid">
+            <div class="photo-slot" id="photoSlot0"></div>
+            <div class="photo-slot" id="photoSlot1"></div>
+            <div class="photo-slot" id="photoSlot2"></div>
+            <div class="photo-slot" id="photoSlot3"></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="em-name">Full Name *</label>
+            <input class="form-input" type="text" id="em-name" name="name" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="em-reg">Reg Number *</label>
+            <input class="form-input" type="text" id="em-reg" name="reg" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">WhatsApp</label>
+            <input class="form-input" type="tel" name="whatsapp" placeholder="+254 7XX XXX XXX">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" name="email">
+          </div>
+        </div>
+
+        <!-- ── WHERE ARE YOU RIGHT NOW? ── -->
+        <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;
+                    letter-spacing:.5px;padding:8px 0 6px;border-top:1px solid var(--gray-100);margin-top:4px">
+          📍 Where Are You Right Now?
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Current County</label>
+            <select class="form-select" name="currentcounty">
+              <option value="">— Select County —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Town / City / Country</label>
+            <input class="form-input" type="text" name="currentlocation"
+              placeholder="e.g. Nairobi, London UK, Mombasa…">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">💼 What Are You Up To?</label>
+          <textarea class="form-textarea" name="whatareyouto" rows="2" maxlength="300"
+            placeholder="e.g. Working as Clinical Officer at Kenyatta Hospital · Pursuing MSc at UoN…"></textarea>
+        </div>
+
+        <!-- ── WHERE ARE YOU FROM? (home origin) ── -->
+        <div style="font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;
+                    letter-spacing:.5px;padding:8px 0 6px;border-top:1px solid var(--gray-100);margin-top:4px">
+          🏠 Where Are You From?
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Home County</label>
+            <select class="form-select" name="county">
+              <option value="">— Select County —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Constituency</label>
+            <input class="form-input" type="text" name="constituency" placeholder="e.g. Kisumu East">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Bio</label>
+          <textarea class="form-textarea" name="bio" rows="4" maxlength="600"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hobbies <span style="font-weight:400;color:var(--gray-400)">(comma-separated)</span></label>
+          <input class="form-input" type="text" name="hobbies" placeholder="Reading, Hiking, Photography">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Clubs &amp; Societies</label>
+          <div class="clubs-check-grid"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Best Memory</label>
+          <textarea class="form-textarea" name="bestMemory" rows="3" maxlength="400"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Biggest Lesson</label>
+          <textarea class="form-textarea" name="biggestLesson" rows="2" maxlength="200"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Most Likely To…</label>
+          <input class="form-input" type="text" name="mostLikelyTo">
+        </div>
+
+        <button type="submit" class="btn-primary" style="margin-top:8px">💾 &nbsp; Save Changes</button>
+        <button type="button" class="btn-secondary" onclick="closeEditMyModal()">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <!-- app.js auto-inits profile page via data-page="profile" on DOMContentLoaded -->
+</body>
+</html>
