@@ -11,6 +11,9 @@
   if (t) document.documentElement.setAttribute('data-theme', t);
 })();
 
+// Escape text before it goes into the user bar (display names are typed by users)
+const _ubEsc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+
 // ── State ──────────────────────────────────────────
 let currentUser   = null;
 let _afterLogin   = null;   // callback to run after successful auth
@@ -28,7 +31,7 @@ let _defaultTab   = 'login';
 
       <!-- Logo strip -->
       <div class="auth-logo-strip">
-        <div class="auth-crest">G</div>
+        <img class="auth-logo" src="logo-128.png" alt="GLUK crest" width="48" height="44">
         <div>
           <div class="auth-brand">GLUK Yearbook 2026</div>
           <div class="auth-brand-sub">Great Lakes University of Kisumu</div>
@@ -70,6 +73,11 @@ let _defaultTab   = 'login';
           <label>Password</label>
           <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
         </div>
+
+        <button type="button" class="auth-link-btn" onclick="forgotPassword()"
+                style="display:block;margin:-4px 0 12px auto;font-size:.78rem">Forgot password?</button>
+
+        <div id="loginNotice" style="display:none;background:#e8f7ee;color:#166534;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;font-size:.78rem;line-height:1.5;margin-bottom:10px"></div>
 
         <div id="loginError" class="auth-error" style="display:none"></div>
 
@@ -148,6 +156,7 @@ updateUserBar(null);
 auth.onAuthStateChanged(user => {
   currentUser = user;
   updateUserBar(user);
+  if (window.gNotif) window.gNotif.start(user);       // notification bell (no-op when signed out)
 });
 
 // ── Update user bar on every page ─────────────────
@@ -160,15 +169,19 @@ function updateUserBar(user) {
   const themeBtn = `<button class="ub-theme-btn" onclick="toggleTheme()" title="${themeTitle}">${themeIcon}</button>`;
   if (user) {
     const name    = user.displayName || user.email.split('@')[0];
-    const initial = name.charAt(0).toUpperCase();
+    const initial = _ubEsc(name.charAt(0).toUpperCase());
+    const safeName = _ubEsc(name);
+    const bellBtn = `<button type="button" class="ub-bell" id="ubBell" onclick="openNotifications()" aria-label="Notifications">🔔<span class="ub-bell-badge" id="notifBadge" style="display:none">0</span></button>`;
     const isAdmin = user.email === ADMIN_EMAIL;
     bar.innerHTML = `
       <div class="ub-left">
+        <img class="ub-logo ub-logo-auth" src="logo-64.png" alt="GLUK" width="29" height="26">
         <div class="ub-avatar">${initial}</div>
-        <span class="ub-name">${name}</span>
+        <span class="ub-name">${safeName}</span>
         ${isAdmin ? '<span class="ub-admin-badge">Admin</span>' : ''}
       </div>
       <div class="ub-right">
+        ${bellBtn}
         ${themeBtn}
         ${isAdmin ? '<a href="admin.html" class="ub-btn ub-admin-btn">🛠 Admin</a>' : ''}
         <button class="ub-btn ub-logout" onclick="logOut()">Sign Out</button>
@@ -176,6 +189,7 @@ function updateUserBar(user) {
   } else {
     bar.innerHTML = `
       <div class="ub-left">
+        <img class="ub-logo" src="logo-64.png" alt="GLUK" width="29" height="26">
         <span class="ub-guest">GLUK Yearbook 2026</span>
       </div>
       <div class="ub-right">
@@ -184,6 +198,7 @@ function updateUserBar(user) {
         <button class="ub-btn ub-signin-outline" onclick="openAuthModal(null,'login')">Sign In</button>
       </div>`;
   }
+  if (window.gNotif) window.gNotif.paintBadge();      // re-show the unread count after the bar is redrawn
 }
 
 // ── Open / Close Modal ─────────────────────────────
@@ -313,6 +328,29 @@ function onAuthDone() {
   }
 }
 
+// ── Forgot password ────────────────────────────────
+// Uses the email typed in the sign-in box. A 60-second cooldown stops
+// repeated taps (repeated sends can get throttled by Firebase).
+let _lastReset = 0;
+async function forgotPassword() {
+  clearErrors();
+  const email = document.getElementById('loginEmail').value.trim();
+  if (!email) return showError('login', 'Type your email above first, then tap "Forgot password?".');
+  const wait = 60000 - (Date.now() - _lastReset);
+  if (wait > 0) return showError('login', `Reset email already sent. Please wait ${Math.ceil(wait / 1000)}s before trying again.`);
+  try {
+    await auth.sendPasswordResetEmail(email);
+    _lastReset = Date.now();
+    const notice = document.getElementById('loginNotice');
+    if (notice) {
+      notice.textContent = `If an account exists for ${email}, a reset link is on its way. Check your inbox and your spam/promotions folder. Signed up with Google? Use "Continue with Google" instead.`;
+      notice.style.display = 'block';
+    }
+  } catch (e) {
+    showError('login', firebaseMsg(e));
+  }
+}
+
 // ── requireAuth guard ──────────────────────────────
 function requireAuth(callback, tab = 'login') {
   if (currentUser) { callback(); }
@@ -338,6 +376,8 @@ function showError(panel, msg) {
 }
 
 function clearErrors() {
+  const _n = document.getElementById('loginNotice');
+  if (_n) { _n.textContent = ''; _n.style.display = 'none'; }
   ['loginError','signupError'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.textContent = ''; el.style.display = 'none'; }
@@ -355,6 +395,7 @@ function firebaseMsg(err) {
     'auth/too-many-requests':     'Too many attempts. Please wait a moment.',
     'auth/invalid-credential':    'Incorrect email or password.',
     'auth/popup-blocked':         'Popup was blocked. Allow popups and try again.',
+    'auth/unauthorized-domain':   'Google sign-in is not allowed from this web address. Use the live site, or open the local site at localhost instead of 127.0.0.1.',
   };
   return map[err.code] || 'Something went wrong. Please try again.';
 }
@@ -369,3 +410,4 @@ window.emailSignup             = emailSignup;
 window.signInWithGoogle        = signInWithGoogle;
 window.logOut                  = logOut;
 window.requireAuth             = requireAuth;
+window.forgotPassword           = forgotPassword;

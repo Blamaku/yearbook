@@ -6,7 +6,73 @@
   <meta name="theme-color" content="#061020">
   <title>Clubs &amp; Societies — GLUK Yearbook 2026</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="GLUK Yearbook 2026 — Great Lakes University of Kisumu">
+  <meta property="og:description" content="Browse student profiles, photos and memories from the Great Lakes University of Kisumu.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Clubs list ─────────────────────────────── */
+    .club-tools { padding:14px 16px 4px; }
+    .club-search {
+      width:100%; padding:12px 16px; border-radius:var(--radius-md); border:1.5px solid var(--gray-200);
+      font-size:.85rem; background:var(--white); color:var(--navy); box-sizing:border-box; outline:none; font-family:inherit;
+    }
+    .club-search:focus { border-color:var(--blue-light,#4a90e2); }
+    .cat-row { display:flex; gap:8px; overflow-x:auto; padding:12px 0 4px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .cat-row::-webkit-scrollbar { display:none; }
+    .cat-chip {
+      flex-shrink:0; padding:7px 14px; border-radius:50px; font-size:.72rem; font-weight:700; font-family:inherit;
+      border:1.5px solid var(--gray-200); background:var(--white); color:var(--gray-600); cursor:pointer; white-space:nowrap;
+    }
+    .cat-chip.active { background:var(--navy); border-color:var(--navy); color:var(--white); }
+    .club-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:10px 16px 40px; }
+    @media (min-width:640px) { .club-grid { grid-template-columns:repeat(3,1fr); } }
+    .club-card {
+      position:relative; overflow:hidden; display:flex; flex-direction:column; gap:2px; text-decoration:none;
+      background:var(--white); border:1px solid var(--gray-100); border-radius:var(--radius-lg);
+      padding:16px 14px 14px; box-shadow:var(--shadow-sm); transition:transform .15s, box-shadow .15s;
+    }
+    .club-card::before { content:''; position:absolute; left:0; right:0; top:0; height:4px; background:var(--cc,#0f4c81); }
+    .club-card:active { transform:scale(.97); }
+    .club-tile {
+      width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center;
+      font-size:1.4rem; margin-bottom:8px; background:rgba(15,76,129,.1);
+      background:color-mix(in srgb, var(--cc,#0f4c81) 16%, transparent);
+    }
+    .club-name  { font-weight:800; font-size:.84rem; color:var(--navy); line-height:1.25; }
+    .club-count { font-size:.72rem; color:var(--gray-600); margin-top:2px; }
+    .club-status { display:flex; align-items:center; gap:6px; font-size:.66rem; color:var(--gray-400); margin-top:6px; min-height:14px; }
+    .club-status .dot { width:7px; height:7px; border-radius:50%; background:var(--gray-200); flex-shrink:0; }
+    .club-status.fresh { color:#15803d; }
+    .club-status.fresh .dot { background:#22c55e; }
+    .club-empty { text-align:center; padding:40px 24px; color:var(--gray-400); font-size:.85rem; }
+    [data-theme="dark"] .club-tile { background:rgba(255,255,255,.08); background:color-mix(in srgb, var(--cc,#0f4c81) 30%, transparent); }
+    [data-theme="dark"] .club-status.fresh { color:#4ade80; }
+
+    /* Desktop only (860px+): cap and centre the search/filter row and the
+       club grid, and use more columns instead of stretching 3 huge ones. */
+    @media (min-width: 860px) {
+      .club-tools {
+        max-width: var(--content-max, 920px);
+        margin: 0 auto;
+        padding-left: 0; padding-right: 0;
+      }
+      .club-grid {
+        max-width: var(--content-max, 920px);
+        margin: 0 auto;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      }
+    }
+  </style>
 </head>
 <body data-page="clubs">
 
@@ -17,7 +83,7 @@
     <div style="flex:1">
       <h1>Clubs &amp; Societies<span class="subtitle">GLUK Yearbook 2026</span></h1>
     </div>
-    <div class="logo-sm">G</div>
+    <button class="profile-icon-btn" id="myProfileBtn" onclick="goToMyProfile()" title="My profile" aria-label="My profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></button>
   </nav>
 
   <div class="page-hero">
@@ -27,20 +93,16 @@
       <span>Clubs &amp; Societies</span>
     </div>
     <h1>Clubs &amp; Societies</h1>
-    <p id="clubsSubtitle">Explore all GLUK clubs — activities, members &amp; more</p>
+    <p id="clubsSubtitle">Find your people across GLUK</p>
   </div>
 
-  <!-- Search bar -->
-  <div style="padding:16px 16px 0">
-    <div style="position:relative">
-      <input type="search" id="clubSearch" placeholder="🔍  Search clubs…"
-        style="width:100%;padding:12px 16px;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);
-               font-size:.85rem;background:var(--white);color:var(--navy);box-sizing:border-box;outline:none"
-        oninput="filterClubs(this.value)">
-    </div>
+  <div class="club-tools">
+    <input type="search" id="clubSearch" class="club-search" placeholder="🔍  Search clubs…" autocomplete="off">
+    <div class="cat-row" id="catRow"></div>
   </div>
 
-  <div class="list-container" id="clubList" style="padding-top:12px"></div>
+  <div class="club-grid" id="clubGrid"></div>
+  <div class="club-empty" id="clubEmpty" style="display:none">No clubs match your search.</div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -51,77 +113,58 @@
   <script src="supabase.js"></script>
   <script src="app.js"></script>
   <script>
-  (function(){
-    const CLUBS_META = {
-      'GLUK Students Association':    { icon:'🏫', color:'#0f4c81', desc:'Student governance & representation' },
-      'Red Cross Club':               { icon:'🚑', color:'#dc2626', desc:'Humanitarian service & first aid' },
-      'Drama Club':                   { icon:'🎭', color:'#7c3aed', desc:'Theatre, performance & storytelling' },
-      'Christian Union':              { icon:'✝️', color:'#1d4ed8', desc:'Faith, fellowship & outreach' },
-      'Environmental Club':           { icon:'🌿', color:'#16a34a', desc:'Green campus & sustainability' },
-      'Catholic Association':         { icon:'✝️', color:'#b45309', desc:'Catholic faith & community' },
-      'Choir':                        { icon:'🎵', color:'#7c3aed', desc:'Singing, harmony & performance' },
-      'Health Club':                  { icon:'💪', color:'#0891b2', desc:'Wellness, fitness & healthy living' },
-      'GLUSNA':                       { icon:'💉', color:'#dc2626', desc:'GLUK Student Nurses Association' },
-      'CLIMSA GLUK':                  { icon:'🩺', color:'#0f4c81', desc:'Clinical Medicine Students Association' },
-      'Debate Club':                  { icon:'🗣️', color:'#7c3aed', desc:'Public speaking & critical thinking' },
-      'Integrity Club':               { icon:'⚖️', color:'#1d4ed8', desc:'Ethics, leadership & accountability' },
-      'Transparency and Integrity Club': { icon:'🔍', color:'#0369a1', desc:'Transparency, accountability & good governance' },
-      'Art Club':                     { icon:'🎨', color:'#ea580c', desc:'Visual arts, painting & crafts' },
-      'Chess Club':                   { icon:'♟️', color:'#374151', desc:'Strategy, mind games & tournaments' },
-      'Rotaract Club':                { icon:'🌍', color:'#0f4c81', desc:'Community service & leadership' },
-      'Photography Club':             { icon:'📷', color:'#374151', desc:'Photography, film & visual media' },
-      'Toastmasters Club':            { icon:'🎤', color:'#b45309', desc:'Communication & leadership skills' },
-      'Entrepreneurship Club':        { icon:'💡', color:'#16a34a', desc:'Innovation, business & startups' },
-      'Science Club':                 { icon:'🔬', color:'#0891b2', desc:'Research, experiments & STEM' },
-      'Theology Club':                { icon:'📖', color:'#b45309', desc:'Theology, Bible study & ministry' },
-      'Agribusiness Club':            { icon:'🌾', color:'#16a34a', desc:'Agriculture, food & agribusiness' },
-      'Biocosmos':                    { icon:'🧬', color:'#0891b2', desc:'Biology, nature & life sciences' },
-      'Public Health Club':           { icon:'🌍', color:'#16a34a', desc:'Community health & public policy' },
-      'Medical Students Association': { icon:'🏥', color:'#dc2626', desc:'Medical education & clinical training' },
-      'Sports Medicine Club':         { icon:'🏃', color:'#0891b2', desc:'Sports health & exercise science' },
-      'Student Teacher Association':  { icon:'📚', color:'#7c3aed', desc:'Education practice & pedagogy' },
-      'Mathematics Club':             { icon:'➕', color:'#1d4ed8', desc:'Maths, statistics & problem solving' },
-      'Music Band':                   { icon:'🎸', color:'#7c3aed', desc:'Instruments, concerts & music' },
-      'IT Society':                   { icon:'💻', color:'#0f4c81', desc:'Technology, coding & digital skills' },
-      'SASCO':                        { icon:'🤝', color:'#374151', desc:'Student Academic Support Community' },
-      'Peer Counselling Club':        { icon:'🧠', color:'#7c3aed', desc:'Mental health & peer support' },
-    };
+  (function () {
+    'use strict';
+    const E   = s => window.escHtml(s);
+    const ALL = window.CLUB_CATALOG || [];
+    const CATS = window.CLUB_CATEGORIES || [];
+    let cat = 'All', q = '', stats = null;
 
-    const ALL_CLUBS = window.GLUK_CLUBS || Object.keys(CLUBS_META);
-    let rendered = ALL_CLUBS;
+    function statusOf(name) {
+      if (!stats) return { text: '', fresh: false };
+      return window.clubActivityLabel(stats.last[name]);
+    }
 
-    function renderClubs(list) {
+    function render() {
+      const lq = q.toLowerCase();
+      const list = ALL.filter(c =>
+        (cat === 'All' || c.cat === cat) &&
+        (!lq || c.name.toLowerCase().includes(lq) || c.desc.toLowerCase().includes(lq) || c.cat.toLowerCase().includes(lq)));
       document.getElementById('clubsSubtitle').textContent =
-        `${list.length} club${list.length!==1?'s':''} — tap to view members, activities & more`;
-      document.getElementById('clubList').innerHTML = list.map((c,i) => {
-        const m = CLUBS_META[c] || { icon:'🏛️', color:'#374151', desc:'GLUK Club' };
+        `${list.length} club${list.length === 1 ? '' : 's'} — tap one to see members, activities and photos`;
+      document.getElementById('clubEmpty').style.display = list.length ? 'none' : 'block';
+      document.getElementById('clubGrid').innerHTML = list.map((c, i) => {
+        const n  = stats ? (stats.members[c.name] || 0) : null;
+        const st = statusOf(c.name);
         return `
-          <a class="list-item slide-in"
-            href="club.html?club=${encodeURIComponent(c)}"
-            style="animation-delay:${Math.min(i,.3)*0.06}s">
-            <div class="list-num"
-              style="background:${m.color}18;color:${m.color};border-radius:12px;
-                     width:44px;height:44px;display:flex;align-items:center;justify-content:center;
-                     font-size:1.25rem;flex-shrink:0">${m.icon}</div>
-            <div class="list-info">
-              <div class="list-title">${c}</div>
-              <div class="list-sub">${m.desc}</div>
-            </div>
-            <div class="list-arrow">›</div>
+          <a class="club-card slide-in" href="club.html?club=${encodeURIComponent(c.name)}"
+             style="--cc:${E(c.color)};animation-delay:${Math.min(i, 10) * .04}s">
+            <div class="club-tile">${c.icon}</div>
+            <div class="club-name">${E(c.name)}</div>
+            <div class="club-count">${n === null ? '&nbsp;' : n + ' member' + (n === 1 ? '' : 's')}</div>
+            <div class="club-status${st.fresh ? ' fresh' : ''}"><i class="dot"></i><span>${E(st.text) || '&nbsp;'}</span></div>
           </a>`;
       }).join('');
     }
 
-    window.filterClubs = function(q) {
-      const lq = q.toLowerCase();
-      rendered = q
-        ? ALL_CLUBS.filter(c => c.toLowerCase().includes(lq) ||
-            (CLUBS_META[c]?.desc||'').toLowerCase().includes(lq))
-        : ALL_CLUBS;
-      renderClubs(rendered);
-    };
+    function renderChips() {
+      const row = document.getElementById('catRow');
+      row.innerHTML = ['All', ...CATS].map(k =>
+        `<button class="cat-chip${k === cat ? ' active' : ''}" data-cat="${E(k)}">${E(k)}</button>`).join('');
+    }
 
-    renderClubs(ALL_CLUBS);
+    document.getElementById('catRow').addEventListener('click', e => {
+      const b = e.target.closest('.cat-chip'); if (!b) return;
+      cat = b.dataset.cat; renderChips(); render();
+    });
+    document.getElementById('clubSearch').addEventListener('input', function () { q = this.value.trim(); render(); });
+
+    renderChips(); render();
+
+    // Member counts + activity load after the cards are already on screen
+    window.getClubStats()
+      .then(s => { stats = s; render(); })
+      .catch(e => console.warn('[club stats]', e));
   })();
   </script>
 </body>

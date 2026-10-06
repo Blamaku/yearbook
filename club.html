@@ -6,141 +6,195 @@
   <meta name="theme-color" content="#061020">
   <title>Club — GLUK Yearbook 2026</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="GLUK Yearbook 2026 — Great Lakes University of Kisumu">
+  <meta property="og:description" content="Browse student profiles, photos and memories from the Great Lakes University of Kisumu.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="style.css">
+
   <style>
-    .club-tabs{display:flex;overflow-x:auto;background:var(--white);border-bottom:2px solid var(--gray-100);
-      padding:0 8px;position:sticky;top:56px;z-index:100;gap:2px;scrollbar-width:none}
-    .club-tabs::-webkit-scrollbar{display:none}
-    .club-tab{flex-shrink:0;padding:13px 12px;font-size:.72rem;font-weight:700;color:var(--gray-400);
-      border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;
-      transition:all .2s;white-space:nowrap}
-    .club-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
-    .club-panel{display:none;padding:14px 14px 88px}
-    .club-panel.active{display:block}
+    /* ── Club page ─────────────────────────────── */
+    body[data-page="club"] .top-bar { position:static; }        /* only the tab strip stays pinned */
 
-    /* Members */
-    .member-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .member-card{background:var(--white);border-radius:var(--radius-md);box-shadow:var(--shadow-xs);
-      overflow:hidden;text-decoration:none;border:1px solid var(--gray-100);transition:transform .18s}
-    .member-card:active{transform:scale(.95)}
-    .member-img{width:100%;aspect-ratio:1;object-fit:cover;background:var(--gray-100)}
-    .member-ph{width:100%;aspect-ratio:1;background:linear-gradient(135deg,var(--navy),var(--blue));
-      display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;color:rgba(255,255,255,.8)}
-    .member-info{padding:7px 8px}
-    .member-name{font-size:.68rem;font-weight:700;color:var(--navy);
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .member-meta{font-size:.58rem;color:var(--gray-400);margin-top:2px}
-    .member-search{width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--gray-200);
-      font-size:.82rem;background:var(--white);color:var(--navy);margin-bottom:12px;
-      outline:none;box-sizing:border-box;transition:border-color .2s}
-    .member-search:focus{border-color:var(--blue)}
+    .club-hero {
+      position:relative; color:#fff; text-align:center; padding:18px 18px 22px;
+      background:linear-gradient(160deg,var(--navy),var(--navy-mid,#0a2a5e));
+      background:linear-gradient(160deg,color-mix(in srgb,var(--cc,#0f4c81) 42%,#061020) 0%,var(--cc,#0f4c81) 115%);
+    }
+    .club-hero .breadcrumb { display:flex; gap:6px; justify-content:center; font-size:.68rem; color:rgba(255,255,255,.7); margin-bottom:12px; flex-wrap:wrap; }
+    .club-hero .breadcrumb a { color:rgba(255,255,255,.8); text-decoration:none; }
+    .hero-icon {
+      width:68px; height:68px; margin:0 auto 10px; border-radius:50%; background:rgba(255,255,255,.95);
+      display:flex; align-items:center; justify-content:center; font-size:2rem; box-shadow:0 6px 20px rgba(0,0,0,.25);
+    }
+    .club-hero h1 { font-size:1.25rem; font-weight:800; margin:0 0 4px; color:#fff; }
+    .hero-desc { font-size:.8rem; opacity:.9; margin:0 0 8px; }
+    .hero-cat { display:inline-block; font-size:.62rem; font-weight:800; letter-spacing:.5px; text-transform:uppercase; padding:3px 10px; border-radius:20px; background:rgba(255,255,255,.18); }
+    .hero-stats { display:flex; justify-content:center; gap:28px; margin:16px 0 14px; }
+    .hero-stats div { display:flex; flex-direction:column; align-items:center; }
+    .hero-stats b { font-size:1.15rem; font-weight:800; }
+    .hero-stats span { font-size:.62rem; opacity:.85; text-transform:uppercase; letter-spacing:.4px; }
+    .join-btn {
+      border:none; border-radius:50px; padding:11px 26px; font-size:.82rem; font-weight:800; font-family:inherit; cursor:pointer;
+      background:#fff; color:#0b1f3a; box-shadow:0 4px 14px rgba(0,0,0,.25); transition:transform .15s;
+    }
+    .join-btn:active { transform:scale(.96); }
+    .join-btn.joined { background:rgba(255,255,255,.16); color:#fff; box-shadow:none; border:1.5px solid rgba(255,255,255,.7); }
 
-    /* Posts */
-    .post-card{background:var(--white);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
-      padding:16px;margin-bottom:12px;border:1px solid var(--gray-100);position:relative}
-    .post-card.pinned{border-color:#f59e0b;background:linear-gradient(135deg,#fffbeb,#fff)}
-    .pin-badge{position:absolute;top:12px;right:12px;font-size:.6rem;background:#f59e0b;
-      color:#78350f;padding:2px 7px;border-radius:20px;font-weight:700}
-    .post-badge{display:inline-flex;align-items:center;gap:4px;font-size:.6rem;
-      font-weight:700;padding:3px 9px;border-radius:20px;margin-bottom:8px}
-    .badge-notice{background:#fef3c7;color:#92400e}
-    .badge-activity{background:#dcfce7;color:#166534}
-    .badge-minutes{background:#dbeafe;color:#1e40af}
-    .badge-photo{background:#fce7f3;color:#9d174d}
-    .post-title{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:5px}
-    .post-body{font-size:.78rem;color:var(--gray-600);line-height:1.65;white-space:pre-wrap}
-    .post-dateline{font-size:.63rem;color:var(--gray-400);margin-bottom:6px}
-    .post-footer{display:flex;align-items:center;gap:8px;margin-top:12px;
-      padding-top:10px;border-top:1px solid var(--gray-100)}
-    .post-avatar{width:30px;height:30px;border-radius:50%;background:var(--blue);
-      display:flex;align-items:center;justify-content:center;
-      color:white;font-size:.65rem;font-weight:800;flex-shrink:0}
-    .post-author{font-size:.72rem;font-weight:700;color:var(--navy)}
-    .post-ts{font-size:.6rem;color:var(--gray-400)}
-    .post-photos{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:10px}
-    .post-photo{aspect-ratio:1;object-fit:cover;border-radius:8px;width:100%;
-      cursor:pointer;transition:opacity .18s}
-    .post-photo:hover{opacity:.85}
-    .att-wrap{margin-top:10px}
-    .att-label{font-size:.63rem;font-weight:700;color:var(--gray-400);margin-bottom:5px}
-    .att-pills{display:flex;flex-wrap:wrap;gap:4px}
-    .att-pill{background:var(--gray-100);color:var(--gray-600);font-size:.6rem;padding:3px 8px;border-radius:20px}
-    .file-link{display:flex;align-items:center;gap:8px;padding:10px 12px;
-      background:var(--gray-50);border-radius:10px;text-decoration:none;
-      border:1px solid var(--gray-200);margin-top:8px;transition:background .18s}
-    .file-link:hover{background:var(--gray-100)}
-    .del-btn{margin-left:auto;background:none;border:none;color:var(--gray-300);
-      font-size:.72rem;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all .18s}
-    .del-btn:hover{color:#dc2626;background:#fee2e2}
+    .club-tabs {
+      position:sticky; top:var(--ub-h,0px); z-index:90; display:flex; background:var(--white);
+      border-bottom:1px solid var(--gray-100); box-shadow:var(--shadow-sm);
+    }
+    .club-tab {
+      flex:1; padding:13px 4px; border:none; background:none; font-family:inherit; font-size:.78rem; font-weight:700;
+      color:var(--gray-400); border-bottom:3px solid transparent; cursor:pointer;
+    }
+    .club-tab.active { color:var(--navy); border-bottom-color:var(--cc,var(--blue)); }
 
-    /* Gallery */
-    .gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-    .gallery-img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;transition:opacity .18s}
-    .gallery-img:hover{opacity:.85}
+    .club-main { padding:14px 16px 110px; min-height:50vh; }
+    .club-panel { display:none; }
+    .club-panel.active { display:block; }
+    .muted { color:var(--gray-400); font-size:.8rem; }
+    .c-card { background:var(--white); border:1px solid var(--gray-100); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:12px; box-shadow:var(--shadow-sm); }
+    .c-card h2 { font-size:.68rem; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--gray-400); margin:0 0 8px; }
+    .c-text { font-size:.86rem; line-height:1.6; color:var(--navy); margin:0; }
+    .c-text div + div { margin-top:4px; }
+    .lead-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:12px; }
+    .lead { text-align:center; }
+    .lead-av { width:46px; height:46px; margin:0 auto 6px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.85rem; color:#fff; background:var(--cc,var(--blue)); }
+    .lead-nm { font-size:.75rem; font-weight:700; color:var(--navy); line-height:1.25; }
+    .lead-role { font-size:.66rem; color:var(--gray-400); margin-top:1px; }
+    .contact-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    .contact-btn {
+      flex:1; min-width:140px; text-align:center; text-decoration:none; padding:11px 12px; border-radius:var(--radius-md);
+      font-size:.78rem; font-weight:700; border:1.5px solid var(--gray-200); background:var(--white); color:var(--navy);
+    }
+    .contact-btn.wa { background:#16a34a; border-color:#16a34a; color:#fff; }
+    .edit-info-btn { width:100%; padding:12px; border-radius:var(--radius-md); border:1.5px dashed var(--gray-200); background:none; color:var(--blue); font-weight:800; font-size:.8rem; font-family:inherit; cursor:pointer; }
+    .notice-card { border-radius:var(--radius-md); padding:11px 14px; font-size:.78rem; line-height:1.5; margin-bottom:12px; background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+    .notice-card.ok { background:#f0fdf4; color:#166534; border-color:#bbf7d0; }
+    .notice-card button { display:block; margin-top:8px; padding:7px 12px; border:none; border-radius:8px; background:#ea580c; color:#fff; font-weight:700; font-size:.72rem; font-family:inherit; cursor:pointer; }
 
-    /* FAB */
-    .fab{position:fixed;bottom:24px;right:20px;width:54px;height:54px;border-radius:50%;
-      background:var(--blue);color:white;border:none;font-size:1.6rem;
-      box-shadow:0 4px 18px rgba(0,154,224,.45);cursor:pointer;z-index:200;
-      display:none;align-items:center;justify-content:center;transition:transform .2s,background .2s}
-    .fab:hover{transform:scale(1.08);background:#0077b6}
-    .fab:active{transform:scale(.92)}
+    .f-chips { display:flex; gap:8px; overflow-x:auto; padding-bottom:10px; scrollbar-width:none; }
+    .f-chips::-webkit-scrollbar { display:none; }
+    .f-chip { flex-shrink:0; padding:7px 14px; border-radius:50px; border:1.5px solid var(--gray-200); background:var(--white); color:var(--gray-600); font-size:.72rem; font-weight:700; font-family:inherit; cursor:pointer; }
+    .f-chip.active { background:var(--cc,var(--navy)); border-color:var(--cc,var(--navy)); color:#fff; }
 
-    /* Upload modal */
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;
-      align-items:flex-end;justify-content:center;z-index:9000;
-      opacity:0;pointer-events:none;transition:opacity .25s}
-    .overlay.open{opacity:1;pointer-events:auto}
-    .sheet{background:var(--white);border-radius:22px 22px 0 0;
-      padding:20px 18px 44px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto}
-    .sheet-handle{width:36px;height:4px;background:var(--gray-200);border-radius:4px;margin:0 auto 18px}
-    .type-row{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
-    .type-btn{flex:1;min-width:68px;padding:8px 4px;border-radius:10px;
-      border:1.5px solid var(--gray-200);font-size:.67rem;font-weight:700;
-      background:none;cursor:pointer;color:var(--gray-500);transition:all .18s}
-    .type-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(0,154,224,.07)}
-    .f{width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--gray-200);
-      border-radius:10px;font-size:.82rem;margin-bottom:10px;background:var(--white);
-      color:var(--navy);outline:none;transition:border-color .2s;font-family:inherit}
-    .f:focus{border-color:var(--blue)}
-    textarea.f{min-height:72px;resize:vertical}
-    .sec-lbl{font-size:.67rem;font-weight:700;color:var(--gray-500);
-      text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-    .upload-zone{border:2px dashed var(--gray-200);border-radius:12px;
-      padding:18px;text-align:center;cursor:pointer;margin-bottom:10px;transition:border-color .2s}
-    .upload-zone:hover{border-color:var(--blue)}
-    .preview-strip{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-    .preview-strip img{width:56px;height:56px;object-fit:cover;border-radius:8px}
-    .preview-pdf-thumb{width:56px;height:56px;background:var(--gray-100);
-      border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.3rem}
-    .att-row{display:flex;gap:6px;margin-bottom:8px}
-    .att-row .f{flex:1;margin:0}
-    .att-row .add-att-btn{padding:10px 12px;background:var(--blue);color:white;
-      border:none;border-radius:10px;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap}
-    .att-added{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
-    .att-added span{background:var(--gray-100);color:var(--gray-600);
-      font-size:.6rem;padding:3px 8px;border-radius:20px;cursor:pointer}
-    .sub-btn{width:100%;padding:13px;background:var(--blue);color:white;border:none;
-      border-radius:12px;font-size:.88rem;font-weight:800;cursor:pointer;
-      margin-top:6px;transition:background .2s}
-    .sub-btn:hover{background:#0077b6}
-    .sub-btn:disabled{background:var(--gray-200);color:var(--gray-400);cursor:not-allowed}
-    .cancel-link{width:100%;padding:11px;background:none;border:none;
-      color:var(--gray-400);font-size:.8rem;cursor:pointer;margin-top:4px;display:block;text-align:center}
+    .post { background:var(--white); border:1px solid var(--gray-100); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:12px; box-shadow:var(--shadow-sm); }
+    .post-top { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+    .badge { font-size:.66rem; font-weight:800; padding:3px 10px; border-radius:20px; background:var(--gray-100); color:var(--gray-600); }
+    .badge.t-notice   { background:#fff7ed; color:#c2410c; }
+    .badge.t-activity { background:#f0fdf4; color:#15803d; }
+    .badge.t-minutes  { background:#eff6ff; color:#1d4ed8; }
+    .badge.t-photo    { background:#fdf4ff; color:#a21caf; }
+    .pin { font-size:.66rem; font-weight:800; color:#b45309; }
+    .post-date { margin-left:auto; font-size:.68rem; color:var(--gray-400); }
+    .post-title { font-size:.95rem; font-weight:800; color:var(--navy); margin:0 0 4px; }
+    .post-body { font-size:.84rem; line-height:1.6; color:var(--gray-600); margin:0 0 4px; word-break:break-word; }
+    .post-body.clamped { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+    .read-more-btn { display:block; border:none; background:none; padding:0 0 8px; font-family:inherit; font-size:.78rem; font-weight:700; color:var(--blue); cursor:pointer; }
+    .post-imgs { display:grid; gap:4px; margin:8px 0; border-radius:12px; overflow:hidden; }
+    .post-imgs.n1 { grid-template-columns:1fr; }
+    .post-imgs.n2, .post-imgs.n4 { grid-template-columns:1fr 1fr; }
+    .post-imgs.n3 { grid-template-columns:1fr 1fr 1fr; }
+    .pi { position:relative; padding:0; border:none; background:var(--gray-100); cursor:zoom-in; aspect-ratio:1; overflow:hidden; }
+    .post-imgs.n1 .pi { aspect-ratio:16/10; }
+    .pi img { width:100%; height:100%; object-fit:cover; display:block; }
+    .pi .more { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.55); color:#fff; font-weight:800; font-size:1.2rem; }
+    .doc { display:flex; align-items:center; gap:8px; padding:10px 12px; margin:6px 0; border-radius:10px; background:var(--gray-100); color:var(--navy); text-decoration:none; font-size:.78rem; font-weight:700; word-break:break-all; }
+    details.att { margin:8px 0; font-size:.78rem; color:var(--gray-600); }
+    details.att summary { cursor:pointer; font-weight:700; color:var(--navy); }
+    .att-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+    .att-chips span { padding:3px 9px; border-radius:20px; background:var(--gray-100); font-size:.7rem; }
+    .post-foot { display:flex; align-items:center; gap:8px; margin-top:8px; padding-top:8px; border-top:1px solid var(--gray-100); font-size:.7rem; color:var(--gray-400); }
+    .post-foot .sp { flex:1; }
+    .link-btn { border:none; background:none; font-family:inherit; font-size:.7rem; font-weight:700; cursor:pointer; padding:2px 4px; color:var(--blue); }
+    .link-btn.danger { color:var(--danger,#dc2626); }
+    .load-more { width:100%; padding:12px; border-radius:var(--radius-md); border:1.5px solid var(--gray-200); background:var(--white); color:var(--navy); font-weight:700; font-size:.8rem; font-family:inherit; cursor:pointer; margin:4px 0 16px; }
+    .empty { text-align:center; padding:36px 20px; color:var(--gray-400); font-size:.84rem; line-height:1.6; }
+    .empty b { display:block; color:var(--navy); font-size:.95rem; margin:6px 0 2px; }
+    .empty .big { font-size:2rem; }
+    .skel { height:92px; border-radius:var(--radius-lg); background:linear-gradient(90deg,var(--gray-100),var(--gray-200),var(--gray-100)); background-size:200% 100%; animation:skel 1.2s infinite; margin-bottom:12px; }
+    @keyframes skel { to { background-position:-200% 0; } }
 
-    /* Lightbox */
-    #lb{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:9999;
-      display:none;align-items:center;justify-content:center}
-    #lb.open{display:flex}
-    #lb img{max-width:96vw;max-height:88vh;border-radius:10px;object-fit:contain}
-    #lb-x{position:absolute;top:16px;right:18px;background:none;border:none;
-      color:white;font-size:2rem;cursor:pointer;line-height:1;padding:4px}
+    .m-search { width:100%; padding:11px 14px; border-radius:var(--radius-md); border:1.5px solid var(--gray-200); background:var(--white); color:var(--navy); font-size:.84rem; font-family:inherit; box-sizing:border-box; margin-bottom:8px; outline:none; }
+    .m-count { font-size:.72rem; color:var(--gray-400); margin:0 2px 10px; }
+    .member-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    @media (min-width:640px) { .member-grid { grid-template-columns:repeat(5,1fr); } }
+    .member { text-align:center; text-decoration:none; background:var(--white); border:1px solid var(--gray-100); border-radius:var(--radius-md); padding:12px 6px; }
+    .m-av { width:52px; height:52px; margin:0 auto 6px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--cc,var(--blue)); color:#fff; font-weight:800; font-size:.9rem; }
+    .m-av img { width:100%; height:100%; object-fit:cover; }
+    .m-nm { font-size:.72rem; font-weight:700; color:var(--navy); line-height:1.25; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .m-sub { font-size:.62rem; color:var(--gray-400); margin-top:2px; }
 
-    /* Dark mode */
-    [data-theme="dark"] .post-card,[data-theme="dark"] .member-card{
-      background:var(--surface);border-color:var(--gray-200)}
-    [data-theme="dark"] .sheet,[data-theme="dark"] .f{background:var(--surface)}
-    [data-theme="dark"] .f{border-color:var(--gray-200);color:var(--gray-600)}
+    .gal-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; }
+    @media (min-width:640px) { .gal-grid { grid-template-columns:repeat(5,1fr); } }
+    .gal-grid button { padding:0; border:none; aspect-ratio:1; overflow:hidden; background:var(--gray-100); cursor:zoom-in; border-radius:6px; }
+    .gal-grid img { width:100%; height:100%; object-fit:cover; display:block; }
+
+    .club-fab {
+      position:fixed; right:18px; bottom:calc(20px + env(safe-area-inset-bottom,0px)); z-index:120; display:none;
+      width:56px; height:56px; border-radius:50%; border:none; font-size:1.7rem; line-height:1; cursor:pointer;
+      background:var(--cc,var(--blue)); color:#fff; box-shadow:0 8px 24px rgba(0,0,0,.3);
+    }
+    .club-fab.show { display:block; }
+
+    .lb { position:fixed; inset:0; z-index:9000; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.94); touch-action:pan-y; }
+    .lb.open { display:flex; }
+    .lb img { max-width:100%; max-height:86vh; object-fit:contain; }
+    .lb-x { position:absolute; top:calc(14px + env(safe-area-inset-top,0px)); right:14px; width:42px; height:42px; border-radius:50%; border:none; background:rgba(255,255,255,.15); color:#fff; font-size:1.1rem; cursor:pointer; }
+    .lb-nav { position:absolute; top:50%; transform:translateY(-50%); width:44px; height:64px; border:none; background:rgba(255,255,255,.1); color:#fff; font-size:2rem; cursor:pointer; }
+    .lb-prev { left:0; border-radius:0 12px 12px 0; }
+    .lb-next { right:0; border-radius:12px 0 0 12px; }
+    .lb-count { position:absolute; bottom:calc(18px + env(safe-area-inset-bottom,0px)); left:0; right:0; text-align:center; color:rgba(255,255,255,.8); font-size:.78rem; }
+
+    .sheet-ov { position:fixed; inset:0; z-index:5000; display:none; align-items:flex-end; background:rgba(4,13,30,.78); }
+    .sheet-ov.open { display:flex; }
+    .sheet { background:var(--white); width:100%; max-height:92dvh; overflow-y:auto; border-radius:var(--radius-xl,24px) var(--radius-xl,24px) 0 0; padding:20px 18px 40px; box-sizing:border-box; }
+    .type-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:14px; }
+    .type-row button { padding:9px 2px; border-radius:10px; border:1.5px solid var(--gray-200); background:var(--white); color:var(--gray-600); font-size:.68rem; font-weight:700; font-family:inherit; cursor:pointer; }
+    .type-row button.active { background:var(--cc,var(--navy)); border-color:var(--cc,var(--navy)); color:#fff; }
+    .hint { font-weight:400; color:var(--gray-400); font-size:.7rem; }
+    .prev-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px; }
+    .prev-grid img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; }
+    .att-list { max-height:150px; overflow-y:auto; border:1.5px solid var(--gray-200); border-radius:10px; padding:6px 10px; margin-bottom:8px; }
+    .att-list label { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:.8rem; color:var(--navy); }
+
+    [data-theme="dark"] .notice-card { background:#3b2410; color:#fdba74; border-color:#7c2d12; }
+    [data-theme="dark"] .notice-card.ok { background:#0f2a1a; color:#86efac; border-color:#14532d; }
+    [data-theme="dark"] .badge.t-notice   { background:#3b2410; color:#fdba74; }
+    [data-theme="dark"] .badge.t-activity { background:#0f2a1a; color:#86efac; }
+    [data-theme="dark"] .badge.t-minutes  { background:#172554; color:#93c5fd; }
+    [data-theme="dark"] .badge.t-photo    { background:#3b0a3f; color:#f0abfc; }
+
+    /* Desktop only (860px+): cap and centre the hero, tabs and main content,
+       and turn the bottom sheets into centred dialogs like the rest of the app. */
+    @media (min-width: 860px) {
+      .club-hero, .club-tabs {
+        padding-left: max(28px, calc((100% - var(--content-max, 920px)) / 2));
+        padding-right: max(28px, calc((100% - var(--content-max, 920px)) / 2));
+      }
+      .club-main {
+        max-width: var(--content-max, 920px);
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .sheet-ov { align-items: center; padding: 20px; }
+      .sheet {
+        width: 100%; max-width: 640px; margin: 0 auto;
+        border-radius: var(--radius-xl);
+        max-height: calc(100dvh - 40px);
+        animation: authIn .32s cubic-bezier(.34,1.2,.64,1) both;
+      }
+    }
   </style>
 </head>
 <body data-page="club">
@@ -152,180 +206,120 @@
     <div style="flex:1">
       <h1 id="navTitle">Club<span class="subtitle">GLUK Yearbook 2026</span></h1>
     </div>
-    <div class="logo-sm">G</div>
+    <button class="profile-icon-btn" id="myProfileBtn" onclick="goToMyProfile()" title="My profile" aria-label="My profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></button>
   </nav>
 
-  <!-- Hero -->
-  <div class="page-hero" style="padding-bottom:22px">
+  <header class="club-hero" id="clubHero">
     <div class="breadcrumb">
-      <a href="index.html" style="color:rgba(255,255,255,.5)">Home</a><span>›</span>
-      <a href="clubs.html" style="color:rgba(255,255,255,.5)">Clubs</a><span>›</span>
-      <span id="heroBreadcrumb">Club</span>
+      <a href="index.html">Home</a><span>›</span><a href="clubs.html">Clubs</a><span>›</span><span id="bcClub">Club</span>
     </div>
-    <div id="heroIcon" style="font-size:2.8rem;margin-bottom:8px">🏛️</div>
+    <div class="hero-icon" id="heroIcon">🏛️</div>
     <h1 id="heroName">Club</h1>
-    <p id="heroDesc" style="color:rgba(255,255,255,.6);font-size:.8rem;margin-top:4px"></p>
-    <div style="display:flex;gap:22px;justify-content:center;margin-top:14px">
-      <div style="text-align:center">
-        <div id="statMembers" style="font-size:1.5rem;font-weight:900;color:var(--gold-bright)">–</div>
-        <div style="font-size:.6rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px">Members</div>
+    <p class="hero-desc" id="heroDesc"></p>
+    <span class="hero-cat" id="heroCat"></span>
+    <div class="hero-stats">
+      <div><b id="stMembers">–</b><span>Members</span></div>
+      <div><b id="stActs">–</b><span>Activities</span></div>
+      <div><b id="stPhotos">–</b><span>Photos</span></div>
+    </div>
+    <button class="join-btn" id="joinBtn" type="button">＋ Join this club</button>
+  </header>
+
+  <div class="club-tabs" id="clubTabs" role="tablist">
+    <button class="club-tab active" data-tab="about"   role="tab" type="button">About</button>
+    <button class="club-tab"        data-tab="feed"    role="tab" type="button">Feed</button>
+    <button class="club-tab"        data-tab="members" role="tab" type="button">Members</button>
+    <button class="club-tab"        data-tab="gallery" role="tab" type="button">Gallery</button>
+  </div>
+
+  <main class="club-main">
+
+    <section class="club-panel active" id="panel-about">
+      <div id="officerBanner"></div>
+      <div class="c-card"><h2>About</h2><p class="c-text" id="aboutText"></p></div>
+      <div class="c-card"><h2>Meets</h2><div class="c-text" id="meetBody"></div></div>
+      <div class="c-card"><h2>Leadership</h2><div id="leadBody"></div></div>
+      <div class="contact-row" id="contactRow"></div>
+      <div id="setupNote"></div>
+      <button class="edit-info-btn" id="editInfoBtn" type="button" style="display:none">✏️ Edit club info</button>
+    </section>
+
+    <section class="club-panel" id="panel-feed">
+      <div class="f-chips" id="feedChips">
+        <button class="f-chip active" data-f="all"      type="button">All</button>
+        <button class="f-chip"        data-f="notice"   type="button">Notices</button>
+        <button class="f-chip"        data-f="activity" type="button">Activities</button>
+        <button class="f-chip"        data-f="minutes"  type="button">Minutes</button>
       </div>
-      <div style="text-align:center">
-        <div id="statPosts" style="font-size:1.5rem;font-weight:900;color:var(--gold-bright)">–</div>
-        <div style="font-size:.6rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px">Posts</div>
-      </div>
-      <div style="text-align:center">
-        <div id="statMinutes" style="font-size:1.5rem;font-weight:900;color:var(--gold-bright)">–</div>
-        <div style="font-size:.6rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px">Minutes</div>
-      </div>
-    </div>
+      <div id="feedNote"></div>
+      <div id="feedList"></div>
+      <div id="feedMore"></div>
+    </section>
+
+    <section class="club-panel" id="panel-members">
+      <div id="leadSection"></div>
+      <input type="search" class="m-search" id="memberSearch" placeholder="🔍  Search members…" autocomplete="off">
+      <div class="m-count" id="memberCount"></div>
+      <div class="member-grid" id="memberGrid"></div>
+    </section>
+
+    <section class="club-panel" id="panel-gallery">
+      <div class="gal-grid" id="galGrid"></div>
+      <div id="galMore"></div>
+    </section>
+
+  </main>
+
+  <button class="club-fab" id="clubFab" type="button" aria-label="New post">＋</button>
+
+  <div class="lb" id="lb" aria-hidden="true">
+    <button class="lb-x" id="lbX" type="button" aria-label="Close">✕</button>
+    <button class="lb-nav lb-prev" id="lbPrev" type="button" aria-label="Previous">‹</button>
+    <img id="lbImg" alt="">
+    <button class="lb-nav lb-next" id="lbNext" type="button" aria-label="Next">›</button>
+    <div class="lb-count" id="lbCount"></div>
   </div>
 
-  <!-- Tabs -->
-  <div class="club-tabs">
-    <button class="club-tab active" data-tab="feed"     onclick="switchTab('feed',this)">📰 Feed</button>
-    <button class="club-tab"        data-tab="members"  onclick="switchTab('members',this)">👥 Members</button>
-    <button class="club-tab"        data-tab="activity" onclick="switchTab('activity',this)">📅 Activities</button>
-    <button class="club-tab"        data-tab="minutes"  onclick="switchTab('minutes',this)">📋 Minutes</button>
-    <button class="club-tab"        data-tab="photo"    onclick="switchTab('photo',this)">📸 Gallery</button>
-  </div>
-
-  <!-- Feed -->
-  <div class="club-panel active" id="panel-feed">
-    <div id="feedList"></div>
-    <div id="feedLoading" class="empty-state"><div class="auth-spinner-ring"></div></div>
-    <div id="feedEmpty" class="empty-state" style="display:none">
-      <div class="empty-icon">📰</div><h3>No posts yet</h3>
-      <p>Sign in and tap + to post an activity, notice or minutes.</p>
-    </div>
-  </div>
-
-  <!-- Members -->
-  <div class="club-panel" id="panel-members">
-    <input class="member-search" type="search" placeholder="🔍  Search members…"
-      id="memberSearch" oninput="filterMembers(this.value)">
-    <div class="member-grid" id="membersGrid"></div>
-    <div id="membersLoading" class="empty-state"><div class="auth-spinner-ring"></div></div>
-    <div id="membersEmpty" class="empty-state" style="display:none">
-      <div class="empty-icon">👥</div><h3>No members yet</h3>
-      <p>Members who add this club to their yearbook profile appear here.</p>
-      <a href="profiles.html?action=add" class="btn-primary"
-        style="max-width:200px;margin:14px auto 0;display:block;text-align:center">✨ Add My Profile</a>
-    </div>
-  </div>
-
-  <!-- Activities -->
-  <div class="club-panel" id="panel-activity">
-    <div id="activityList"></div>
-    <div id="activityLoading" class="empty-state"><div class="auth-spinner-ring"></div></div>
-    <div id="activityEmpty" class="empty-state" style="display:none">
-      <div class="empty-icon">📅</div><h3>No activities yet</h3>
-      <p>Tap + to post the first activity.</p>
-    </div>
-  </div>
-
-  <!-- Minutes -->
-  <div class="club-panel" id="panel-minutes">
-    <div id="minutesList"></div>
-    <div id="minutesLoading" class="empty-state"><div class="auth-spinner-ring"></div></div>
-    <div id="minutesEmpty" class="empty-state" style="display:none">
-      <div class="empty-icon">📋</div><h3>No minutes uploaded</h3>
-      <p>Tap + to upload the first meeting minutes.</p>
-    </div>
-  </div>
-
-  <!-- Gallery -->
-  <div class="club-panel" id="panel-photo">
-    <div class="gallery-grid" id="galleryGrid"></div>
-    <div id="galleryLoading" class="empty-state"><div class="auth-spinner-ring"></div></div>
-    <div id="galleryEmpty" class="empty-state" style="display:none">
-      <div class="empty-icon">📸</div><h3>No photos yet</h3>
-      <p>Tap + to share club photos.</p>
-    </div>
-  </div>
-
-  <!-- Floating action button -->
-  <button class="fab" id="fab" onclick="openModal()" aria-label="Add post">＋</button>
-
-  <!-- Upload modal -->
-  <div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
+  <!-- New post (officials & admin only) -->
+  <div class="sheet-ov" id="postOv">
     <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div style="font-size:.95rem;font-weight:800;color:var(--navy);margin-bottom:14px" id="modalTitle">Add Post</div>
-
-      <!-- Type selector -->
-      <div class="type-row">
-        <button class="type-btn active" data-type="notice"   onclick="selType('notice',this)">📢 Notice</button>
-        <button class="type-btn"        data-type="activity" onclick="selType('activity',this)">📅 Activity</button>
-        <button class="type-btn"        data-type="minutes"  onclick="selType('minutes',this)">📋 Minutes</button>
-        <button class="type-btn"        data-type="photo"    onclick="selType('photo',this)">📸 Photos</button>
+      <div class="modal-handle"></div>
+      <div class="modal-title">📝 New post</div>
+      <div class="type-row" id="typeRow">
+        <button type="button" data-type="notice">📢 Notice</button>
+        <button type="button" data-type="activity">🎯 Activity</button>
+        <button type="button" data-type="minutes">📋 Minutes</button>
+        <button type="button" data-type="photo">📸 Photos</button>
       </div>
-
-      <input  class="f" type="text"  id="fTitle" placeholder="Title *">
-      <textarea class="f"            id="fBody"  placeholder="Description…"></textarea>
-      <input  class="f" type="date"  id="fDate">
-
-      <!-- Attendance: member checklist (activity + minutes only) -->
-      <div id="attSection">
-        <div class="sec-lbl">👋 Members in Attendance</div>
-
-        <!-- Checklist populated from actual club members -->
-        <div id="memberCheckWrap"
-          style="border:1.5px solid var(--gray-200);border-radius:10px;
-                 max-height:180px;overflow-y:auto;margin-bottom:8px;background:var(--white)">
-          <div id="memberCheckList"
-            style="padding:10px;font-size:.75rem;color:var(--gray-400);text-align:center">
-            Loading members…
-          </div>
-        </div>
-        <input class="f" type="text" id="memberSearch2" placeholder="🔍 Search members…"
-          oninput="filterMemberChecks(this.value)"
-          style="margin-bottom:6px;padding:8px 12px;font-size:.78rem">
-
-        <!-- Manual entry for non-members / guests -->
-        <div class="sec-lbl" style="margin-top:6px">+ Add Guest / Non-Member</div>
-        <div class="att-row">
-          <input class="f" type="text" id="attInput" placeholder="Guest name, then press Add"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();addAtt()}">
-          <button class="add-att-btn" onclick="addAtt()">Add</button>
-        </div>
-        <div class="att-added" id="attAdded"></div>
+      <div class="form-group" id="gTitle"><label class="form-label" for="pTitle">Title</label><input class="form-input" type="text" id="pTitle" maxlength="120"></div>
+      <div class="form-group" id="gBody"><label class="form-label" for="pBody">Details</label><textarea class="form-textarea" id="pBody" rows="4" maxlength="2000"></textarea></div>
+      <div class="form-group" id="gDate"><label class="form-label" for="pDate">Date</label><input class="form-input" type="date" id="pDate"></div>
+      <div class="form-group" id="gReport"><label class="form-label" for="pReport" id="reportLbl">Report (PDF or Word)</label><input type="file" id="pReport" accept=".pdf,.doc,.docx"><div class="hint" id="reportName"></div></div>
+      <div class="form-group" id="gPhotos"><label class="form-label" for="pPhotos">Photos <span class="hint">(up to 6 · resized automatically)</span></label><input type="file" id="pPhotos" accept="image/*" multiple><div class="prev-grid" id="prevGrid"></div></div>
+      <div class="form-group" id="gAtt">
+        <label class="form-label">Members who attended</label>
+        <div class="att-list" id="attList"></div>
+        <label class="form-label" for="pGuests">Guests <span class="hint">(one name per line)</span></label>
+        <textarea class="form-textarea" id="pGuests" rows="2" maxlength="1500"></textarea>
       </div>
-
-      <!-- Report upload (activity only) -->
-      <div id="reportSection" style="display:none">
-        <div class="sec-lbl">📄 Upload Activity Report (PDF/Doc)</div>
-        <div class="upload-zone" onclick="document.getElementById('reportInput').click()"
-          style="border-color:#3b82f6">
-          <div style="font-size:.82rem;color:var(--gray-400)">📄  Tap to select report file</div>
-          <div style="font-size:.63rem;color:var(--gray-400);margin-top:3px">PDF or Word document</div>
-        </div>
-        <input type="file" id="reportInput" accept=".pdf,.doc,.docx,application/pdf"
-          style="display:none" onchange="previewReport(this)">
-        <div id="reportPreview" style="margin-top:6px"></div>
-      </div>
-
-      <!-- Photo / general file upload -->
-      <div id="fileSection">
-        <div class="sec-lbl" id="fileLbl">📸 Upload Photos</div>
-        <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-          <div style="font-size:.82rem;color:var(--gray-400)">📸  Tap to select photos</div>
-          <div style="font-size:.63rem;color:var(--gray-400);margin-top:3px">Images · max 6</div>
-        </div>
-        <input type="file" id="fileInput" multiple accept="image/*"
-          style="display:none" onchange="previewFiles(this)">
-        <div class="preview-strip" id="previewStrip"></div>
-      </div>
-
-      <button class="sub-btn" id="submitBtn" onclick="submitPost()">📤  Post</button>
-      <button class="cancel-link" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="postSubmit" type="button">Post</button>
+      <button class="btn-secondary" id="postCancel" type="button">Cancel</button>
     </div>
   </div>
 
-  <!-- Lightbox -->
-  <div id="lb">
-    <img id="lbImg" src="" alt="">
-    <button id="lb-x" onclick="closeLb()">✕</button>
+  <!-- Edit club info (officials & admin only) -->
+  <div class="sheet-ov" id="infoOv">
+    <div class="sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">✏️ Edit club info</div>
+      <div class="form-group"><label class="form-label" for="iAbout">About the club</label><textarea class="form-textarea" id="iAbout" rows="5" maxlength="800" placeholder="What does your club do? Who can join?"></textarea></div>
+      <div class="form-group"><label class="form-label" for="iDays">Meeting days &amp; time</label><input class="form-input" type="text" id="iDays" maxlength="80" placeholder="e.g. Thursdays, 5:00 pm"></div>
+      <div class="form-group"><label class="form-label" for="iPlace">Meeting place</label><input class="form-input" type="text" id="iPlace" maxlength="80" placeholder="e.g. Lecture Hall 2"></div>
+      <div class="form-group"><label class="form-label" for="iWa">Club WhatsApp number</label><input class="form-input" type="tel" id="iWa" maxlength="20" placeholder="e.g. 0712 345 678"></div>
+      <div class="form-group"><label class="form-label" for="iMail">Club email</label><input class="form-input" type="email" id="iMail" maxlength="80"></div>
+      <button class="btn-primary" id="infoSave" type="button">💾 Save</button>
+      <button class="btn-secondary" id="infoCancel" type="button">Cancel</button>
+    </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -338,566 +332,620 @@
   <script src="app.js"></script>
 
   <script>
-  /* ── Club page controller ────────────────────────── */
-  const CLUB = decodeURIComponent(new URLSearchParams(location.search).get('club') || 'GLUK Students Association');
+  (function () {
+    'use strict';
 
-  let _tab  = 'feed';
-  let _type = 'notice';
-  let _attendees = [];
-  let _files     = [];
-  let _allMembers = [];
-  let _user = null;
+    const $  = id => document.getElementById(id);
+    const E  = s => window.escHtml(s);
+    const toast = (m, d) => window.showToast(m, d);
 
-  const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const fmt = d => d ? new Date(d).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}) : '';
-  const ini = n => (n||'?').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const CLUB = new URLSearchParams(location.search).get('club') || 'GLUK Students Association';
+    const META = window.clubMeta(CLUB) || { icon: '🏛️', color: '#0f4c81', cat: 'Club', desc: 'GLUK club and society' };
 
-  /* ── Club meta ────────────────────────────────────── */
-  const META = {
-    'GLUK Students Association':       {icon:'🏫',desc:'Student governance & representation'},
-    'Red Cross Club':                  {icon:'🚑',desc:'Humanitarian service & first aid'},
-    'Drama Club':                      {icon:'🎭',desc:'Theatre, performance & storytelling'},
-    'Christian Union':                 {icon:'✝️',desc:'Faith, fellowship & outreach'},
-    'Environmental Club':              {icon:'🌿',desc:'Green campus & sustainability'},
-    'Catholic Association':            {icon:'✝️',desc:'Catholic faith & community'},
-    'Choir':                           {icon:'🎵',desc:'Singing, harmony & performance'},
-    'Health Club':                     {icon:'💪',desc:'Wellness, fitness & healthy living'},
-    'GLUSNA':                          {icon:'💉',desc:'GLUK Student Nurses Association'},
-    'CLIMSA GLUK':                     {icon:'🩺',desc:'Clinical Medicine Students Association'},
-    'Debate Club':                     {icon:'🗣️',desc:'Public speaking & critical thinking'},
-    'Integrity Club':                  {icon:'⚖️',desc:'Ethics, leadership & accountability'},
-    'Transparency and Integrity Club': {icon:'🔍',desc:'Transparency, accountability & good governance'},
-    'Art Club':                        {icon:'🎨',desc:'Visual arts, painting & crafts'},
-    'Chess Club':                      {icon:'♟️',desc:'Strategy & tournaments'},
-    'Rotaract Club':                   {icon:'🌍',desc:'Community service & leadership'},
-    'Photography Club':                {icon:'📷',desc:'Photography & visual media'},
-    'Toastmasters Club':               {icon:'🎤',desc:'Communication & leadership'},
-    'Entrepreneurship Club':           {icon:'💡',desc:'Innovation, business & startups'},
-    'Science Club':                    {icon:'🔬',desc:'Research, experiments & STEM'},
-    'Theology Club':                   {icon:'📖',desc:'Theology, Bible study & ministry'},
-    'Agribusiness Club':               {icon:'🌾',desc:'Agriculture, food & agribusiness'},
-    'Biocosmos':                       {icon:'🧬',desc:'Biology, nature & life sciences'},
-    'Public Health Club':              {icon:'🌍',desc:'Community health & public policy'},
-    'Medical Students Association':    {icon:'🏥',desc:'Medical education & clinical training'},
-    'Sports Medicine Club':            {icon:'🏃',desc:'Sports health & exercise science'},
-    'Student Teacher Association':     {icon:'📚',desc:'Education practice & pedagogy'},
-    'Mathematics Club':                {icon:'➕',desc:'Maths, statistics & problem solving'},
-    'Music Band':                      {icon:'🎸',desc:'Instruments, concerts & music'},
-    'IT Society':                      {icon:'💻',desc:'Technology, coding & digital skills'},
-    'SASCO':                           {icon:'🤝',desc:'Student Academic Support Community'},
-    'Peer Counselling Club':           {icon:'🧠',desc:'Mental health & peer support'},
-  };
-  const m = META[CLUB] || {icon:'🏛️', desc:'GLUK Club & Society'};
+    const PAGE_SIZE = 15, MAX_PHOTOS = 6, GALLERY_STEP = 30, MAX_DOC_MB = 10;
+    const ROLE_ORDER = ['Patron', 'Chairperson', 'Vice chairperson', 'Secretary', 'Treasurer', 'Organizing secretary', 'Officer'];
+    const TYPE_LABEL = { notice: '📢 Notice', activity: '🎯 Activity', minutes: '📋 Minutes', photo: '📸 Photos' };
 
-  document.getElementById('navTitle').innerHTML   = `${esc(CLUB)}<span class="subtitle">GLUK Yearbook 2026</span>`;
-  document.getElementById('heroBreadcrumb').textContent = CLUB;
-  document.getElementById('heroName').textContent       = CLUB;
-  document.getElementById('heroDesc').textContent       = m.desc;
-  document.getElementById('heroIcon').textContent       = m.icon;
-  document.title = `${CLUB} — GLUK Yearbook 2026`;
+    let _user = null, _me = null;
+    let _info = null, _officers = [], _setupNeeded = false;
+    let _members = [], _membersReady = Promise.resolve();
+    let _tab = 'about', _filter = 'all', _feedFrom = 0, _feedBusy = false, _feedOnce = false;
+    let _gallery = [], _galShown = 0;
+    let _ptype = 'notice', _pfiles = [];
+    const _postImgs = {};
 
-  /* ── Auth ─────────────────────────────────────────── */
-  auth.onAuthStateChanged(u => {
-    _user = u;
-    const fab = document.getElementById('fab');
-    fab.style.display = u && _tab !== 'members' ? 'flex' : 'none';
-  });
+    /* ── small helpers ─────────────────────────────── */
+    const fmtDate  = d => { try { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } };
+    const ini      = n => (String(n || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('') || '?').toUpperCase();
+    const isImg    = u => /\.(jpe?g|png|gif|webp|avif|heic)$/i.test(String(u).split('?')[0]);
+    const fileName = u => { try { return decodeURIComponent(String(u).split('?')[0].split('/').pop()).replace(/^\d+_[a-z0-9]{1,6}_/i, '').replace(/^\d+_/, ''); } catch (e) { return 'Document'; } };
+    const slug     = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const rank     = r => { const i = ROLE_ORDER.indexOf(r); return i < 0 ? 99 : i; };
+    const missing  = err => !!err && /schema cache|does not exist|PGRST205|42P01/i.test((err.message || '') + ' ' + (err.code || ''));
+    const emailOk  = s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
-  /* ── Tab switching ────────────────────────────────── */
-  window.switchTab = function(tab, btn) {
-    _tab = tab;
-    document.querySelectorAll('.club-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.club-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-' + tab).classList.add('active');
-    // FAB hidden on members tab, shown elsewhere when signed in
-    document.getElementById('fab').style.display = (_user && tab !== 'members') ? 'flex' : 'none';
-  };
-
-  /* ── Normalize clubs into a plain JS string array ─────
-     Handles: JS array, Postgres literal {A,"B"}, comma-string */
-  function parseClubField(raw) {
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw.filter(Boolean);
-    if (typeof raw === 'string') {
-      if (raw.startsWith('{')) {
-        return raw.slice(1, -1).split(',')
-          .map(c => c.trim().replace(/^"|"$/g, '')).filter(Boolean);
-      }
-      return raw.split(',').map(c => c.trim()).filter(Boolean);
-    }
-    return [];
-  }
-
-  function profileInClub(s) {
-    return parseClubField(s.clubs)
-      .some(c => c.toLowerCase() === CLUB.toLowerCase());
-  }
-
-  /* ── Load members ─────────────────────────────────── */
-  async function loadMembers() {
-    try {
-      // Fetch profiles with clubs data; filter client-side for reliability.
-      // Server-side .contains() only works with proper PostgreSQL TEXT[] type.
-      // Client-side handles TEXT[], Postgres literals, and comma-strings equally.
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id,name,reg,photo_url,classyear,dept,course,isanonymous,clubs')
-        .order('name', { ascending: true });
-      if (error) throw error;
-
-      document.getElementById('membersLoading').style.display = 'none';
-      _allMembers = (data || []).filter(s =>
-        !s.isanonymous && !s.isAnonymous && profileInClub(s)
-      );
-      document.getElementById('statMembers').textContent = _allMembers.length || '0';
-      renderMembers(_allMembers);
-    } catch(e) {
-      document.getElementById('membersLoading').style.display = 'none';
-      document.getElementById('membersEmpty').style.display   = 'block';
-      console.error('[Members]', e.message);
-    }
-  }
-
-  function renderMembers(list) {
-    const grid  = document.getElementById('membersGrid');
-    const empty = document.getElementById('membersEmpty');
-    if (!list.length) { grid.innerHTML=''; empty.style.display='block'; return; }
-    empty.style.display = 'none';
-    grid.innerHTML = list.map(s => `
-      <a class="member-card fade-in" href="profile.html?id=${s.id}">
-        ${s.photo_url
-          ? `<img class="member-img" src="${esc(s.photo_url)}" alt="${esc(s.name)}" loading="lazy">`
-          : `<div class="member-ph">${ini(s.name)}</div>`}
-        <div class="member-info">
-          <div class="member-name" title="${esc(s.name)}">${esc(s.name)}</div>
-          <div class="member-meta">${s.classyear ? 'Class of '+s.classyear : (s.dept||'GLUK')}</div>
-        </div>
-      </a>`).join('');
-  }
-
-  window.filterMembers = function(q) {
-    const lq = q.toLowerCase();
-    renderMembers(q
-      ? _allMembers.filter(s =>
-          (s.name||'').toLowerCase().includes(lq) ||
-          (s.classyear||'').includes(lq) ||
-          (s.dept||'').toLowerCase().includes(lq))
-      : _allMembers);
-  };
-
-  /* ── Load posts ───────────────────────────────────── */
-  async function loadPosts() {
-    try {
-      const { data, error } = await supabase
-        .from('club_posts')
-        .select('*')
-        .eq('club_name', CLUB)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-
-      const posts = data || [];
-      // Update stats
-      document.getElementById('statPosts').textContent   = posts.filter(p => p.type !== 'minutes').length;
-      document.getElementById('statMinutes').textContent = posts.filter(p => p.type === 'minutes').length;
-
-      // Hide loaders
-      ['feed','activity','minutes','gallery'].forEach(id => {
-        const el = document.getElementById(id+'Loading') || document.getElementById(id+'Loading');
-        if(el) el.style.display = 'none';
-      });
-      document.getElementById('feedLoading').style.display     = 'none';
-      document.getElementById('activityLoading').style.display = 'none';
-      document.getElementById('minutesLoading').style.display  = 'none';
-      document.getElementById('galleryLoading').style.display  = 'none';
-
-      renderFeed(posts);
-      renderTyped(posts.filter(p => p.type==='activity'), 'activityList', 'activityEmpty');
-      renderTyped(posts.filter(p => p.type==='minutes'),  'minutesList',  'minutesEmpty');
-      renderGallery(posts.filter(p => p.type==='photo'));
-
-    } catch(e) {
-      // Hide every loading spinner so nothing spins forever
-      ['feedLoading','activityLoading','minutesLoading','galleryLoading'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-      });
-      // Show empty states for all panels
-      ['feedEmpty','activityEmpty','minutesEmpty','galleryEmpty'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'block';
-      });
-      const em = document.getElementById('feedEmpty');
-      if (em && e.message && (e.message.includes('does not exist') || e.message.includes('relation'))) {
-        em.innerHTML = `<div class="empty-icon">⚙️</div>
-          <h3>Club posts table missing</h3>
-          <p>Run <strong>fix-supabase.sql</strong> in your Supabase SQL Editor to create it, then refresh.</p>`;
-      }
-      console.error('[Posts]', e.message);
-    }
-  }
-
-  /* ── Build post card HTML ─────────────────────────── */
-  function postHTML(p) {
-    const isOwn = _user && _user.uid === p.created_by;
-    const badgeMap = {
-      notice:   '<span class="post-badge badge-notice">📢 Notice</span>',
-      activity: '<span class="post-badge badge-activity">📅 Activity</span>',
-      minutes:  '<span class="post-badge badge-minutes">📋 Minutes</span>',
-      photo:    '<span class="post-badge badge-photo">📸 Photos</span>',
+    const isAdminUser = () => !!(_user && typeof ADMIN_EMAIL !== 'undefined' && _user.email === ADMIN_EMAIL);
+    const myOfficer   = () => {
+      if (!_user || !_user.email) return null;
+      const em = _user.email.toLowerCase();
+      return _officers.find(o => String(o.officer_email || '').toLowerCase() === em) || null;
     };
-    const imgs = (p.file_urls||[]).filter(u => /\.(jpg|jpeg|png|webp|gif)$/i.test(u));
-    const docs = (p.file_urls||[]).filter(u => !/\.(jpg|jpeg|png|webp|gif)$/i.test(u));
+    const canManage = () => isAdminUser() || (!!myOfficer() && !!_user.emailVerified);
 
-    return `<div class="post-card${p.pinned?' pinned':''}" id="post-${p.id}">
-      ${p.pinned ? '<div class="pin-badge">📌 Pinned</div>' : ''}
-      ${badgeMap[p.type] || ''}
-      ${p.post_date ? `<div class="post-dateline">📆 ${fmt(p.post_date)}</div>` : ''}
-      ${p.title  ? `<div class="post-title">${esc(p.title)}</div>` : ''}
-      ${p.body   ? `<div class="post-body">${esc(p.body)}</div>`   : ''}
-      ${imgs.length ? `<div class="post-photos">
-        ${imgs.map(u=>`<img class="post-photo" src="${esc(u)}" loading="lazy"
-          onclick="openLb('${esc(u)}')" alt="Photo">`).join('')}
-      </div>` : ''}
-      ${docs.map(u => `<a class="file-link" href="${esc(u)}" target="_blank" rel="noopener">
-        <span style="font-size:1.2rem">${/\.pdf$/i.test(u)?'📄':'📎'}</span>
-        <span style="flex:1;color:var(--blue);font-size:.78rem;font-weight:600;
-          overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-          ${esc(u.split('/').pop().replace(/%20/g,' ').split('?')[0])}
-        </span>
-        <span style="font-size:.63rem;color:var(--gray-400);flex-shrink:0">↓ Open</span>
-      </a>`).join('')}
-      ${(p.attendees||[]).length ? `<div class="att-wrap">
-        <div class="att-label">👋 Attendance (${p.attendees.length})</div>
-        <div class="att-pills">${p.attendees.map(a=>`<span class="att-pill">${esc(a)}</span>`).join('')}</div>
-      </div>` : ''}
-      <div class="post-footer">
-        <div class="post-avatar">${ini(p.author_name)}</div>
-        <div style="flex:1">
-          <div class="post-author">${esc(p.author_name||'Member')}</div>
-          <div class="post-ts">${fmt(p.created_at)}</div>
-        </div>
-        ${isOwn ? `<button class="del-btn" onclick="deletePost(${p.id})" title="Delete">🗑</button>` : ''}
-      </div>
-    </div>`;
-  }
-
-  function renderFeed(posts) {
-    const el = document.getElementById('feedList');
-    if (!posts.length) { el.innerHTML=''; document.getElementById('feedEmpty').style.display='block'; return; }
-    document.getElementById('feedEmpty').style.display = 'none';
-    // Pinned posts first
-    const sorted = [...posts].sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0));
-    el.innerHTML = sorted.map(postHTML).join('');
-  }
-
-  function renderTyped(posts, listId, emptyId) {
-    const list  = document.getElementById(listId);
-    const empty = document.getElementById(emptyId);
-    if (!posts.length) { if(list) list.innerHTML=''; if(empty) empty.style.display='block'; return; }
-    if(empty) empty.style.display='none';
-    list.innerHTML = posts.map(postHTML).join('');
-  }
-
-  function renderGallery(posts) {
-    const imgs = posts.flatMap(p => (p.file_urls||[]).filter(u => /\.(jpg|jpeg|png|webp|gif)$/i.test(u)));
-    const grid  = document.getElementById('galleryGrid');
-    const empty = document.getElementById('galleryEmpty');
-    if (!imgs.length) { if(empty) empty.style.display='block'; return; }
-    if(empty) empty.style.display='none';
-    grid.innerHTML = imgs.map(u =>
-      `<img class="gallery-img" src="${esc(u)}" loading="lazy"
-        onclick="openLb('${esc(u)}')" alt="Photo">`
-    ).join('');
-  }
-
-  /* ── Delete post ─────────────────────────────────── */
-  window.deletePost = async function(id) {
-    if (!_user) return;
-    if (!confirm('Delete this post?')) return;
-    try {
-      const { error } = await supabase.from('club_posts')
-        .delete().eq('id', id).eq('created_by', _user.uid);
-      if (error) throw error;
-      const el = document.getElementById('post-'+id);
-      if (el) el.remove();
-      showToast('Post deleted');
-    } catch(e) { showToast('Delete failed: '+e.message); }
-  };
-
-  /* ── Lightbox ────────────────────────────────────── */
-  window.openLb = function(url) {
-    document.getElementById('lbImg').src = url;
-    document.getElementById('lb').classList.add('open');
-    document.body.style.overflow = 'hidden';
-  };
-  window.closeLb = function() {
-    document.getElementById('lb').classList.remove('open');
-    document.body.style.overflow = '';
-  };
-  document.getElementById('lb').addEventListener('click', e => {
-    if (e.target === e.currentTarget) closeLb();
-  });
-
-  /* ── Upload modal ────────────────────────────────── */
-  window.openModal = function() {
-    if (!_user) { openAuthModal(null, 'login'); return; }
-    resetForm();
-    // Pre-select type based on active tab
-    const map = { feed:'notice', activity:'activity', minutes:'minutes', photo:'photo' };
-    const preType = map[_tab] || 'notice';
-    const btn = document.querySelector(`.type-btn[data-type="${preType}"]`);
-    if (btn) selType(preType, btn);
-    document.getElementById('overlay').classList.add('open');
-    document.body.style.overflow = 'hidden';
-  };
-
-  window.closeModal = function() {
-    document.getElementById('overlay').classList.remove('open');
-    document.body.style.overflow = '';
-  };
-
-  window.handleOverlayClick = function(e) {
-    if (e.target === document.getElementById('overlay')) closeModal();
-  };
-
-  window.selType = function(type, btn) {
-    _type = type;
-    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-
-    const showAtt    = type === 'activity' || type === 'minutes';
-    const showReport = type === 'activity';
-    document.getElementById('attSection').style.display    = showAtt    ? 'block' : 'none';
-    document.getElementById('reportSection').style.display = showReport ? 'block' : 'none';
-
-    // Load member checklist when attendance section is shown
-    if (showAtt) loadMemberChecklist();
-
-    const fileLbls = {
-      notice:   '📸 Attach Photos (optional)',
-      activity: '📸 Activity Photos',
-      minutes:  '📄 Upload Minutes PDF or Image',
-      photo:    '📸 Add Photos (required)',
-    };
-    document.getElementById('fileLbl').textContent = fileLbls[type] || '📎 Files';
-
-    const titlePH = { notice:'Announcement title *', activity:'Activity name *',
-                      minutes:'Meeting title *',     photo:'Album or event title' };
-    const bodyPH  = { notice:'Notice or announcement details…',
-                      activity:'Describe the activity…',
-                      minutes:'Key decisions, agenda points, action items…',
-                      photo:'Caption or description…' };
-    document.getElementById('fTitle').placeholder = titlePH[type] || 'Title';
-    document.getElementById('fBody').placeholder  = bodyPH[type]  || 'Description…';
-  };
-
-  /* ── Member checklist ────────────────────────────────
-     Loads from _allMembers (already fetched) or re-fetches */
-  let _memberLoadPromise = null;
-
-  async function ensureMembersLoaded() {
-    if (_allMembers.length) return _allMembers;
-    if (_memberLoadPromise)  return _memberLoadPromise;
-    _memberLoadPromise = supabase
-      .from('profiles')
-      .select('id,name,classyear,isanonymous,clubs')
-      .order('name')
-      .then(({ data }) => {
-        _allMembers = (data || []).filter(s => !s.isanonymous && !s.isAnonymous && profileInClub(s));
-        document.getElementById('statMembers').textContent = _allMembers.length || '0';
-        renderMembers(_allMembers); // update members tab too
-        return _allMembers;
-      })
-      .catch(() => []);
-    return _memberLoadPromise;
-  }
-
-  function renderMemberChecks(list) {
-    const wrap = document.getElementById('memberCheckList');
-    if (!wrap) return;
-    if (!list.length) {
-      wrap.innerHTML = `<div style="padding:14px;font-size:.75rem;color:var(--gray-400);text-align:center;line-height:1.5">
-        No members yet — members who add this club<br>to their profile will appear here.<br>
-        <span style="color:var(--blue)">Use the Guest field below to add attendees manually.</span>
-      </div>`;
-      return;
+    function syncHeader() {
+      const ub = $('userBar');
+      let h = 0;
+      if (ub) { const pos = getComputedStyle(ub).position; if (pos === 'sticky' || pos === 'fixed') h = ub.offsetHeight; }
+      document.documentElement.style.setProperty('--ub-h', h + 'px');
     }
-    wrap.innerHTML = list.map(m => `
-      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;
-        cursor:pointer;border-bottom:1px solid var(--gray-100);transition:background .15s"
-        onmouseover="this.style.background='var(--gray-50)'"
-        onmouseout="this.style.background='transparent'">
-        <input type="checkbox" name="memberPresent" value="${esc(m.name)}"
-          style="width:16px;height:16px;accent-color:var(--blue);flex-shrink:0;cursor:pointer">
-        <span style="flex:1;font-size:.8rem;color:var(--navy);font-weight:500">${esc(m.name)}</span>
-        ${m.classyear
-          ? `<span style="font-size:.62rem;color:var(--gray-400)">Class of ${m.classyear}</span>`
-          : ''}
-      </label>`).join('');
-  }
 
-  window.filterMemberChecks = function(q) {
-    const lq = q.toLowerCase();
-    renderMemberChecks(q
-      ? _allMembers.filter(m => (m.name||'').toLowerCase().includes(lq))
-      : _allMembers);
-  };
+    function lockScroll(on) { document.documentElement.style.overflow = on ? 'hidden' : ''; }
 
-  async function loadMemberChecklist() {
-    const wrap = document.getElementById('memberCheckList');
-    if (wrap) wrap.innerHTML = `<div style="padding:14px;text-align:center">
-      <div class="auth-spinner-ring" style="margin:0 auto"></div></div>`;
-    const members = await ensureMembersLoaded();
-    renderMemberChecks(members);
-  }
+    /* ── hero ──────────────────────────────────────── */
+    function paintHero() {
+      document.title = `${CLUB} — GLUK Yearbook 2026`;
+      $('clubHero').style.setProperty('--cc', META.color);
+      document.documentElement.style.setProperty('--cc', META.color);
+      $('heroIcon').textContent = META.icon;
+      $('heroName').textContent = CLUB;
+      $('heroDesc').textContent = META.desc;
+      $('heroCat').textContent  = META.cat;
+      $('bcClub').textContent   = CLUB;
+      const t = $('navTitle');
+      if (t) t.innerHTML = `${E(CLUB)}<span class="subtitle">Clubs &amp; Societies</span>`;
+    }
 
-  function getCheckedMembers() {
-    return Array.from(document.querySelectorAll('input[name="memberPresent"]:checked'))
-      .map(cb => cb.value);
-  }
+    /* ── tabs ──────────────────────────────────────── */
+    function setTab(t) {
+      _tab = t;
+      document.querySelectorAll('.club-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+      document.querySelectorAll('.club-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + t));
+      if (t === 'feed' && !_feedOnce) { _feedOnce = true; loadFeed(true); }
+      paintFab();
+      try { history.replaceState(null, '', '#' + t); } catch (e) {}
+      const top = $('clubTabs').offsetTop - (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--ub-h')) || 0);
+      if (window.scrollY > top) window.scrollTo(0, top);
+    }
 
-  /* ── Report file ─────────────────────────────────── */
-  let _reportFile = null;
-  window.previewReport = function(inp) {
-    _reportFile = inp.files[0] || null;
-    const prev = document.getElementById('reportPreview');
-    if (!prev) return;
-    if (_reportFile) {
-      prev.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;
-        background:var(--gray-50);border-radius:8px;border:1px solid var(--gray-200)">
-        <span style="font-size:1.2rem">📄</span>
-        <span style="flex:1;font-size:.78rem;color:var(--navy);overflow:hidden;
-          text-overflow:ellipsis;white-space:nowrap">${esc(_reportFile.name)}</span>
-        <button onclick="clearReport()" style="background:none;border:none;
-          color:var(--gray-400);cursor:pointer;font-size:.9rem">✕</button>
-      </div>`;
-    } else { prev.innerHTML = ''; }
-  };
-  window.clearReport = function() {
-    _reportFile = null;
-    document.getElementById('reportInput').value = '';
-    document.getElementById('reportPreview').innerHTML = '';
-  };
+    function paintFab() {
+      const show = canManage() && (_tab === 'feed' || _tab === 'gallery');
+      $('clubFab').classList.toggle('show', show);
+    }
 
-  /* ── Manual guest attendees ──────────────────────── */
-  window.addAtt = function() {
-    const inp  = document.getElementById('attInput');
-    const name = (inp.value||'').trim();
-    if (!name || _attendees.includes(name)) { inp.value=''; return; }
-    _attendees.push(name);
-    inp.value = '';
-    renderAttPills();
-  };
-  function renderAttPills() {
-    document.getElementById('attAdded').innerHTML =
-      _attendees.map((a,i) => `<span onclick="removeAtt(${i})">${esc(a)} ✕</span>`).join('');
-  }
-  window.removeAtt = function(i) { _attendees.splice(i,1); renderAttPills(); };
+    /* ── About tab ─────────────────────────────────── */
+    function leadHTML() {
+      if (!_officers.length) return '<p class="muted">No officials have been added yet.</p>';
+      const sorted = [..._officers].sort((a, b) => rank(a.role) - rank(b.role));
+      return `<div class="lead-grid">${sorted.map(o => {
+        const nm = o.officer_name || String(o.officer_email || '').split('@')[0];
+        return `<div class="lead"><div class="lead-av">${E(ini(nm))}</div><div class="lead-nm">${E(nm)}</div><div class="lead-role">${E(o.role || 'Officer')}</div></div>`;
+      }).join('')}</div>`;
+    }
 
-  /* ── Photo preview ───────────────────────────────── */
-  window.previewFiles = function(inp) {
-    _files = Array.from(inp.files);
-    document.getElementById('previewStrip').innerHTML = _files.map(f =>
-      f.type.startsWith('image/')
-        ? `<img src="${URL.createObjectURL(f)}" alt="">`
-        : `<div class="preview-pdf-thumb">📄</div>`
-    ).join('');
-  };
+    function paintOfficerBanner() {
+      const el = $('officerBanner'); if (!el) return;
+      const o = myOfficer();
+      if (o && !_user.emailVerified && !isAdminUser()) {
+        el.innerHTML = `<div class="notice-card">You are listed as <b>${E(o.role || 'Officer')}</b> of this club. Verify your email to post and edit.
+          <button type="button" id="verifyBtn">Send verification email</button></div>`;
+        $('verifyBtn').onclick = async () => {
+          try { await _user.sendEmailVerification(); toast('Verification email sent. Check your inbox and spam folder.', 4000); }
+          catch (e) { toast('Could not send the email right now. Try again later.'); }
+        };
+      } else if (canManage()) {
+        el.innerHTML = `<div class="notice-card ok">You can post and edit for this club${o ? ' as ' + E(o.role || 'Officer') : ' as admin'}.</div>`;
+      } else { el.innerHTML = ''; }
+    }
 
-  function resetForm() {
-    document.getElementById('fTitle').value   = '';
-    document.getElementById('fBody').value    = '';
-    document.getElementById('fDate').value    = new Date().toISOString().slice(0,10);
-    document.getElementById('attInput').value = '';
-    document.getElementById('memberSearch2') && (document.getElementById('memberSearch2').value = '');
-    document.getElementById('attAdded').innerHTML    = '';
-    document.getElementById('previewStrip').innerHTML = '';
-    document.getElementById('fileInput').value = '';
-    // Uncheck all member checkboxes
-    document.querySelectorAll('input[name="memberPresent"]').forEach(cb => cb.checked = false);
-    clearReport();
-    _attendees = []; _files = [];
-  }
+    function paintAbout() {
+      const about = _info && _info.about;
+      $('aboutText').innerHTML = about
+        ? E(about).replace(/\n/g, '<br>')
+        : `<span class="muted">${canManage() ? 'Add a short description so students know what this club is about.' : 'This club has not added a description yet.'}</span>`;
 
-  /* ── Submit post ─────────────────────────────────── */
-  window.submitPost = async function() {
-    if (!_user) { openAuthModal(null,'login'); return; }
+      const days = _info && _info.meeting_days, place = _info && _info.meeting_place;
+      $('meetBody').innerHTML = (days || place)
+        ? `${days ? `<div>🗓 ${E(days)}</div>` : ''}${place ? `<div>📍 ${E(place)}</div>` : ''}`
+        : '<span class="muted">Meeting times have not been shared yet.</span>';
 
-    const title = (document.getElementById('fTitle').value||'').trim();
-    if (!title && _type !== 'photo') { showToast('Please enter a title'); return; }
-    if (_type === 'photo' && !_files.length) { showToast('Please select at least one photo'); return; }
+      $('leadBody').innerHTML = leadHTML();
 
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true; btn.textContent = '⏳ Uploading…';
+      const wa = window.waLink(_info && _info.contact_whatsapp);
+      const mail = _info && _info.contact_email && emailOk(_info.contact_email) ? _info.contact_email : '';
+      $('contactRow').innerHTML =
+        (wa   ? `<a class="contact-btn wa" href="${E(wa)}" target="_blank" rel="noopener noreferrer">💬 Message the club</a>` : '') +
+        (mail ? `<a class="contact-btn" href="mailto:${E(mail)}">✉️ Email the club</a>` : '');
 
-    try {
-      const slug = CLUB.replace(/[^a-zA-Z0-9]/g,'_').slice(0,30);
+      $('setupNote').innerHTML = (_setupNeeded && isAdminUser())
+        ? '<div class="notice-card">Club tables were not found. Run <b>clubs-upgrade.sql</b> in Supabase (SQL Editor) to turn on officials, club info and pinned posts.</div>' : '';
+      $('editInfoBtn').style.display = canManage() ? 'block' : 'none';
+      paintOfficerBanner();
+      paintLead2();
+    }
 
-      // 1. Upload report (activity only)
-      let reportUrl = null;
-      if (_reportFile) {
-        const ext  = _reportFile.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'');
-        const path = `${slug}/reports/${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
-        const { error: rErr } = await supabase.storage
-          .from('club-files').upload(path, _reportFile, { contentType: _reportFile.type, upsert:false });
-        if (rErr) throw rErr;
-        const { data: pub } = supabase.storage.from('club-files').getPublicUrl(path);
-        reportUrl = pub.publicUrl;
+    function paintLead2() {
+      const el = $('leadSection'); if (!el) return;
+      el.innerHTML = _officers.length ? `<div class="c-card"><h2>Leadership</h2>${leadHTML()}</div>` : '';
+    }
+
+    async function loadInfo() {
+      try {
+        const [a, b] = await Promise.all([
+          supabase.from('club_info').select('*').eq('club_name', CLUB).maybeSingle(),
+          supabase.from('club_officers').select('*').eq('club_name', CLUB).order('id', { ascending: true }),
+        ]);
+        _setupNeeded = missing(a.error) || missing(b.error);
+        _info = a.data || null;
+        _officers = b.data || [];
+      } catch (e) { console.warn('[club info]', e); }
+      paintAbout(); paintFab();
+    }
+
+    /* ── Members ───────────────────────────────────── */
+    async function loadMembers() {
+      const cols = 'id,name,photo_url,classyear,dept,isanonymous';
+      let rows = null;
+      try {
+        const { data, error } = await supabase.from('profiles').select(cols)
+          .contains('clubs', [CLUB]).order('name', { ascending: true }).limit(1000);
+        if (!error && data) rows = data;
+      } catch (e) {}
+      if (!rows) {                                   // older data stored as text: filter in the browser instead
+        rows = [];
+        const PAGE = 1000;
+        for (let from = 0; from < 50000; from += PAGE) {
+          const { data, error } = await supabase.from('profiles').select(cols + ',clubs')
+            .order('id', { ascending: true }).range(from, from + PAGE - 1);
+          if (error) throw error;
+          (data || []).forEach(r => { if (window.parseClubField(r.clubs).some(c => c.toLowerCase() === CLUB.toLowerCase())) rows.push(r); });
+          if (!data || data.length < PAGE) break;
+        }
+        rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
       }
+      _members = rows.filter(r => !r.isanonymous);
+      $('stMembers').textContent = _members.length;
+      paintMembers();
+    }
 
-      // 2. Upload photos
-      const fileUrls = [];
-      for (const f of _files) {
-        const ext  = f.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'');
-        const path = `${slug}/${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from('club-files').upload(path, f, { contentType:f.type, upsert:false });
-        if (upErr) throw upErr;
-        const { data: pub } = supabase.storage.from('club-files').getPublicUrl(path);
-        fileUrls.push(pub.publicUrl);
+    function paintMembers() {
+      const q = ($('memberSearch').value || '').trim().toLowerCase();
+      const list = q ? _members.filter(m => String(m.name || '').toLowerCase().includes(q)) : _members;
+      $('memberCount').textContent = _members.length ? `${list.length} of ${_members.length} member${_members.length === 1 ? '' : 's'}` : '';
+      $('memberGrid').innerHTML = '';
+      if (!list.length) {
+        $('memberGrid').innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="big">🌱</div><b>${_members.length ? 'No members match' : 'No members yet'}</b>${_members.length ? '' : 'Be the first: tap “Join this club” at the top.'}</div>`;
+        return;
       }
-      if (reportUrl) fileUrls.unshift(reportUrl); // report first in file list
+      $('memberGrid').innerHTML = list.map(m => {
+        const photo = window.safeUrl(m.photo_url);
+        return `<a class="member" href="profile.html?id=${Number(m.id)}">
+          <div class="m-av">${photo ? `<img src="${E(photo)}" alt="${E(m.name)}" loading="lazy">` : E(ini(m.name))}</div>
+          <div class="m-nm">${E(m.name)}</div>
+          <div class="m-sub">${m.classyear ? 'Class of ' + E(m.classyear) : '&nbsp;'}</div>
+        </a>`;
+      }).join('');
+    }
 
-      // 3. Combine member checklist + manual guests (dedup)
-      const checkedMembers = getCheckedMembers();
-      const allAttendees   = [...new Set([...checkedMembers, ..._attendees])];
+    /* ── Join / leave ──────────────────────────────── */
+    async function loadMe() {
+      if (!_user) { _me = null; return; }
+      try {
+        const { data } = await supabase.from('profiles').select('id,clubs').eq('uid', _user.uid).limit(1);
+        _me = (data && data[0]) ? { id: data[0].id, clubs: window.parseClubField(data[0].clubs) } : null;
+      } catch (e) { _me = null; }
+    }
+    const isMember = () => !!_me && _me.clubs.some(c => c.toLowerCase() === CLUB.toLowerCase());
+    function paintJoin() {
+      const b = $('joinBtn');
+      b.textContent = isMember() ? '✓ Joined' : '＋ Join this club';
+      b.classList.toggle('joined', isMember());
+    }
+    async function handleJoin() {
+      _user = _user || auth.currentUser;          // sign-in just finished: our own listener may not have fired yet
+      await loadMe();
+      if (!_me) {
+        toast('Create your yearbook profile first, then you can join clubs here 🎓', 3500);
+        setTimeout(() => { location.href = 'profiles.html?action=add'; }, 1500);
+        return;
+      }
+      const leaving = isMember();
+      if (leaving && !confirm(`Leave ${CLUB}?`)) return;
+      const next = leaving ? _me.clubs.filter(c => c.toLowerCase() !== CLUB.toLowerCase()) : [..._me.clubs, CLUB];
+      try {
+        await window.apiWrite('profile.update', { id: _me.id, patch: { clubs: next } }, async () => {
+          const { error } = await supabase.from('profiles').update({ clubs: next }).eq('id', _me.id).eq('uid', _user.uid);
+          if (error) throw error;
+          return {};
+        });
+      } catch (error) { console.warn('[join]', error); toast(error.data ? error.message : 'Could not update your clubs. Please try again.'); return; }
+      _me.clubs = next;
+      try { sessionStorage.removeItem('gluk-club-stats'); } catch (e) {}
+      paintJoin(); loadMembers();
+      toast(leaving ? 'You left the club' : 'Welcome to the club! 🎉');
+    }
 
-      const post = {
-        club_name:   CLUB,
-        type:        _type,
-        title:       title || null,
-        body:        (document.getElementById('fBody').value||'').trim() || null,
-        post_date:   document.getElementById('fDate').value || null,
-        file_urls:   fileUrls,
-        attendees:   allAttendees,
-        created_by:  _user.uid,
-        author_name: _user.displayName || _user.email.split('@')[0],
+    /* ── Feed ──────────────────────────────────────── */
+    async function fetchPosts(filter, from) {
+      const build = withPinned => {
+        let q = supabase.from('club_posts').select('*').eq('club_name', CLUB);
+        if (filter !== 'all') q = q.eq('type', filter);
+        else if (!_user) q = q.neq('type', 'minutes');
+        if (withPinned) q = q.order('pinned', { ascending: false, nullsFirst: false });
+        return q.order('created_at', { ascending: false }).range(from, from + PAGE_SIZE - 1);
       };
-
-      const { error } = await supabase.from('club_posts').insert([post]);
-      if (error) throw error;
-
-      closeModal();
-      showToast('Posted successfully! ✅', 2500);
-      await loadPosts();
-
-      const goMap = { notice:'feed', activity:'activity', minutes:'minutes', photo:'photo' };
-      const dest  = goMap[_type] || 'feed';
-      const tabBtn = document.querySelector(`.club-tab[data-tab="${dest}"]`);
-      if (tabBtn) switchTab(dest, tabBtn);
-    } catch(e) {
-      showToast('Failed: ' + e.message);
-      console.error('[submitPost]', e);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '📤  Post';
+      let res = await build(true);
+      if (res.error && /pinned/i.test(res.error.message || '')) res = await build(false);   // pinned column not added yet
+      if (res.error) throw res.error;
+      return res.data || [];
     }
-  };
 
-  /* ── Boot ────────────────────────────────────────── */
-  loadMembers();
-  loadPosts();
+    function postHTML(p) {
+      const urls = (Array.isArray(p.file_urls) ? p.file_urls : []).map(window.safeUrl).filter(Boolean);
+      const imgs = urls.filter(isImg), docs = urls.filter(u => !isImg(u));
+      const id = Number(p.id);
+      _postImgs[id] = imgs;
+      const mine = !!_user && p.created_by === _user.uid;
+      const att = Array.isArray(p.attendees) ? p.attendees : [];
+      const type = TYPE_LABEL[p.type] ? p.type : 'notice';
+      return `<article class="post">
+        <div class="post-top">
+          <span class="badge t-${type}">${E(TYPE_LABEL[type])}</span>
+          ${p.pinned ? '<span class="pin">📌 Pinned</span>' : ''}
+          <span class="post-date">${E(fmtDate(p.post_date || p.created_at))}</span>
+        </div>
+        ${p.title ? `<h3 class="post-title">${E(p.title)}</h3>` : ''}
+        ${p.body ? (() => {
+          const long = p.body.length > 260 || (p.body.match(/\n/g) || []).length > 3;
+          return `<p class="post-body${long ? ' clamped' : ''}" id="pb-${id}">${E(p.body).replace(/\n/g, '<br>')}</p>${long ? `<button type="button" class="read-more-btn" data-act="more" data-id="${id}">Read more</button>` : ''}`;
+        })() : ''}
+        ${imgs.length ? `<div class="post-imgs n${Math.min(imgs.length, 4)}">${imgs.slice(0, 4).map((u, i) =>
+          `<button type="button" class="pi" data-post="${id}" data-i="${i}"><img src="${E(u)}" alt="" loading="lazy">${i === 3 && imgs.length > 4 ? `<span class="more">+${imgs.length - 4}</span>` : ''}</button>`).join('')}</div>` : ''}
+        ${docs.map(u => `<a class="doc" href="${E(u)}" target="_blank" rel="noopener noreferrer">📄 ${E(fileName(u))}</a>`).join('')}
+        ${att.length ? `<details class="att"><summary>👥 ${att.length} in attendance</summary><div class="att-chips">${att.map(n => `<span>${E(n)}</span>`).join('')}</div></details>` : ''}
+        <div class="post-foot">
+          <span>by ${E(p.author_name || 'Club official')}</span><span class="sp"></span>
+          ${canManage() ? `<button type="button" class="link-btn" data-act="pin" data-id="${id}" data-pinned="${p.pinned ? 1 : 0}">${p.pinned ? 'Unpin' : '📌 Pin'}</button>` : ''}
+          ${(canManage() || mine) ? `<button type="button" class="link-btn danger" data-act="del" data-id="${id}">Delete</button>` : ''}
+        </div>
+      </article>`;
+    }
+
+    function feedEmptyHTML() {
+      const nm = { all: 'posts', notice: 'notices', activity: 'activities', minutes: 'minutes' }[_filter];
+      return `<div class="empty"><div class="big">📭</div><b>No ${nm} yet</b>${canManage()
+        ? 'Tap the ＋ button to share the first update.' : 'Club officials share notices, activities and minutes here.'}</div>`;
+    }
+
+    async function loadFeed(reset) {
+      if (_feedBusy) return;
+      const list = $('feedList'), more = $('feedMore');
+      if (reset) { _feedFrom = 0; more.innerHTML = ''; list.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>'; }
+      $('feedNote').innerHTML = (!_user && _filter === 'all')
+        ? '<p class="muted" style="margin:0 2px 10px">🔒 Minutes are visible to signed-in users only.</p>' : '';
+
+      if (!_user && _filter === 'minutes') {
+        list.innerHTML = '<div class="empty"><div class="big">🔒</div><b>Minutes are for signed-in users</b>Sign in to read this club’s meeting minutes.<br><br><button type="button" class="btn-primary" id="lockSignIn" style="max-width:200px">Sign in</button></div>';
+        $('lockSignIn').onclick = () => openAuthModal(() => { _user = _user || auth.currentUser; loadFeed(true); }, 'login');
+        return;
+      }
+      _feedBusy = true;
+      try {
+        const rows = await fetchPosts(_filter, _feedFrom);
+        if (reset) list.innerHTML = '';
+        if (!rows.length && _feedFrom === 0) list.innerHTML = feedEmptyHTML();
+        else list.insertAdjacentHTML('beforeend', rows.map(postHTML).join(''));
+        _feedFrom += rows.length;
+        more.innerHTML = rows.length === PAGE_SIZE ? '<button type="button" class="load-more" id="loadMoreBtn">Load more</button>' : '';
+      } catch (e) {
+        console.warn('[feed]', e);
+        list.innerHTML = `<div class="empty"><div class="big">⚠️</div><b>Could not load posts</b>${missing(e) ? 'The club tables are not set up yet.' : 'Check your connection and try again.'}<br><br><button type="button" class="btn-secondary" id="feedRetry" style="max-width:160px">Try again</button></div>`;
+        const r = $('feedRetry'); if (r) r.onclick = () => loadFeed(true);
+      } finally { _feedBusy = false; }
+    }
+
+    async function deletePost(id) {
+      if (!confirm('Delete this post? This cannot be undone.')) return;
+      try {
+        await window.apiWrite('club.post.delete', { id }, async () => {
+          let q = supabase.from('club_posts').delete().eq('id', id);
+          if (!canManage()) q = q.eq('created_by', _user.uid);
+          const { error } = await q;
+          if (error) throw error;
+          return {};
+        });
+      } catch (e) { toast(e.status === 403 ? 'You cannot delete that post.' : 'Could not delete the post.'); return; }
+      toast('Post deleted 🗑'); refreshAll();
+    }
+    async function togglePin(id, pinned) {
+      try {
+        await window.apiWrite('club.post.pin', { id, pinned: !pinned }, async () => {
+          const { error } = await supabase.from('club_posts').update({ pinned: !pinned }).eq('id', id);
+          if (error) throw error;
+          return {};
+        });
+      } catch (error) { toast(/pinn/i.test(error.message || '') ? 'Run clubs-upgrade.sql to turn on pinning.' : 'Could not pin the post.', 3500); return; }
+      loadFeed(true);
+    }
+
+    /* ── Gallery + counts ──────────────────────────── */
+    async function loadGallery() {
+      try {
+        const { data, error } = await supabase.from('club_posts').select('file_urls,type,created_at')
+          .eq('club_name', CLUB).neq('type', 'minutes').order('created_at', { ascending: false }).limit(200);
+        if (error) throw error;
+        _gallery = [];
+        (data || []).forEach(p => (Array.isArray(p.file_urls) ? p.file_urls : []).map(window.safeUrl).filter(u => u && isImg(u)).forEach(u => _gallery.push(u)));
+      } catch (e) { console.warn('[gallery]', e); _gallery = []; }
+      _galShown = Math.min(GALLERY_STEP, _gallery.length);
+      $('stPhotos').textContent = _gallery.length;
+      paintGallery();
+    }
+    function paintGallery() {
+      const grid = $('galGrid');
+      if (!_gallery.length) {
+        grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="big">📸</div><b>No photos yet</b>${canManage() ? 'Tap ＋ to add photos from your activities.' : 'Photos from club activities will appear here.'}</div>`;
+        $('galMore').innerHTML = ''; return;
+      }
+      grid.innerHTML = _gallery.slice(0, _galShown).map((u, i) => `<button type="button" data-i="${i}"><img src="${E(u)}" alt="" loading="lazy"></button>`).join('');
+      $('galMore').innerHTML = _galShown < _gallery.length
+        ? `<button type="button" class="load-more" id="galMoreBtn" style="margin-top:12px">Show more (${_gallery.length - _galShown} left)</button>` : '';
+    }
+    async function loadActs() {
+      try {
+        const { count, error } = await supabase.from('club_posts').select('id', { count: 'exact', head: true })
+          .eq('club_name', CLUB).eq('type', 'activity');
+        $('stActs').textContent = error ? '0' : (count || 0);
+      } catch (e) { $('stActs').textContent = '0'; }
+    }
+    function refreshAll() { loadFeed(true); loadGallery(); loadActs(); try { sessionStorage.removeItem('gluk-club-stats'); } catch (e) {} }
+
+    /* ── Lightbox ──────────────────────────────────── */
+    let _lbList = [], _lbI = 0;
+    function showLb() {
+      $('lbImg').src = _lbList[_lbI];
+      $('lbCount').textContent = _lbList.length > 1 ? `${_lbI + 1} / ${_lbList.length}` : '';
+      const v = _lbList.length > 1 ? 'visible' : 'hidden';
+      $('lbPrev').style.visibility = v; $('lbNext').style.visibility = v;
+    }
+    function openLb(list, i) {
+      if (!list || !list.length) return;
+      _lbList = list; _lbI = Math.max(0, Math.min(i, list.length - 1));
+      showLb(); $('lb').classList.add('open'); lockScroll(true);
+    }
+    function closeLb() { $('lb').classList.remove('open'); $('lbImg').src = ''; lockScroll(false); }
+    const lbStep = d => { if (_lbList.length > 1) { _lbI = (_lbI + d + _lbList.length) % _lbList.length; showLb(); } };
+
+    /* ── Photo resizing (saves mobile data) ────────── */
+    function viaImg(file) {
+      return new Promise((res, rej) => {
+        const url = URL.createObjectURL(file), img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); res(img); };
+        img.onerror = e => { URL.revokeObjectURL(url); rej(e); };
+        img.src = url;
+      });
+    }
+    async function compress(file, maxDim = 1600, quality = 0.82) {
+      if (!/^image\//.test(file.type) || file.type === 'image/gif') return file;
+      try {
+        const bmp = (window.createImageBitmap ? await createImageBitmap(file).catch(() => viaImg(file)) : await viaImg(file));
+        const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
+        const s = Math.min(1, maxDim / Math.max(w0, h0));
+        const c = document.createElement('canvas');
+        c.width = Math.round(w0 * s); c.height = Math.round(h0 * s);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', quality));
+        if (!blob || blob.size >= file.size) return file;
+        return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+      } catch (e) { return file; }
+    }
+    async function uploadFile(file) {
+      // ask the secure service for a one-time upload slot (only this club's officials get one) …
+      let slot = null;
+      try { slot = await window.gApi('upload.sign', { bucket: 'club-files', club: CLUB, contentType: file.type || 'application/octet-stream', filename: file.name, size: file.size }); }
+      catch (e) { if (!(e.unreachable && !window.GLUK_API.strict)) throw e; }
+      if (slot) {
+        const up = await window.putToSlot('club-files', slot, file, file.type || 'application/octet-stream');
+        if (up.error) throw up.error;
+        return slot.publicUrl;
+      }
+      // … or, while the service is not reachable yet, the old direct upload
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(-60);
+      const path = `${slug(CLUB)}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${safe}`;
+      const { error } = await supabase.storage.from('club-files').upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+      if (error) throw error;
+      return supabase.storage.from('club-files').getPublicUrl(path).data.publicUrl;
+    }
+
+    /* ── New post ──────────────────────────────────── */
+    function setType(t) {
+      _ptype = t;
+      document.querySelectorAll('#typeRow button').forEach(b => b.classList.toggle('active', b.dataset.type === t));
+      const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+      show('gTitle', t !== 'photo');
+      show('gBody', t !== 'photo');
+      show('gDate', t === 'activity' || t === 'minutes');
+      show('gReport', t === 'activity' || t === 'minutes');
+      show('gAtt', t === 'activity' || t === 'minutes');
+      show('gPhotos', t !== 'minutes');
+      $('reportLbl').textContent = t === 'minutes' ? 'Upload the minutes (PDF or Word)' : 'Activity report (PDF or Word)';
+      $('pTitle').placeholder = { notice: 'e.g. Weekly meeting moved to Friday', activity: 'e.g. Blood donation drive', minutes: 'e.g. Meeting minutes, 5 Sep' }[t] || '';
+    }
+    function renderPreviews() {
+      $('prevGrid').innerHTML = _pfiles.map(f => `<img src="${URL.createObjectURL(f)}" alt="">`).join('');
+    }
+    async function openPost(type) {
+      if (!canManage()) { toast('Only club officials can post here.'); return; }
+      $('pTitle').value = ''; $('pBody').value = ''; $('pGuests').value = '';
+      $('pDate').value = new Date().toISOString().slice(0, 10);
+      $('pReport').value = ''; $('reportName').textContent = ''; $('pPhotos').value = '';
+      _pfiles = []; renderPreviews();
+      $('postSubmit').disabled = false; $('postSubmit').textContent = 'Post';
+      setType(type || 'notice');
+      await _membersReady;
+      $('attList').innerHTML = _members.length
+        ? _members.slice(0, 400).map(m => `<label><input type="checkbox" value="${E(m.name)}"> ${E(m.name)}</label>`).join('')
+        : '<span class="muted">No members listed yet. Add guests below.</span>';
+      $('postOv').classList.add('open'); lockScroll(true);
+    }
+    function closePost() { $('postOv').classList.remove('open'); lockScroll(false); }
+
+    async function submitPost() {
+      if (!canManage()) return;
+      const title = $('pTitle').value.trim(), body = $('pBody').value.trim();
+      const date = $('pDate').value || new Date().toISOString().slice(0, 10);
+      const report = $('pReport').files[0] || null;
+      const t = _ptype;
+      if (t === 'notice'   && !title && !body)       return toast('Add a title or some details.');
+      if (t === 'activity' && !title)                return toast('Give the activity a title.');
+      if (t === 'minutes'  && !title)                return toast('Give the minutes a title.');
+      if (t === 'minutes'  && !body && !report)      return toast('Add the minutes text or upload the file.');
+      if (t === 'photo'    && !_pfiles.length)       return toast('Choose at least one photo.');
+      if (report && report.size > MAX_DOC_MB * 1048576) return toast(`That file is over ${MAX_DOC_MB} MB.`);
+
+      const btn = $('postSubmit'); btn.disabled = true;
+      try {
+        const urls = [], total = _pfiles.length + (report ? 1 : 0); let n = 0;
+        for (const f of _pfiles) { btn.textContent = `Uploading ${++n}/${total}…`; urls.push(await uploadFile(await compress(f))); }
+        if (report) { btn.textContent = `Uploading ${++n}/${total}…`; urls.push(await uploadFile(report)); }
+
+        const ticked = Array.from(document.querySelectorAll('#attList input:checked')).map(i => i.value);
+        const guests = $('pGuests').value.split(/[\n,]/).map(s => s.trim().slice(0, 80)).filter(Boolean);
+        const attendees = (t === 'activity' || t === 'minutes') ? [...ticked, ...guests].slice(0, 300) : [];
+
+        const o = myOfficer();
+        const nm = _user.displayName || String(_user.email || '').split('@')[0];
+        btn.textContent = 'Saving…';
+        const authorName = o ? `${nm} · ${o.role || 'Officer'}` : nm;
+        await window.apiWrite('club.post.create', { club: CLUB, type: t, title, body, post_date: date, file_urls: urls, attendees, author_name: authorName }, async () => {
+          const { error } = await supabase.from('club_posts').insert({
+            club_name: CLUB, type: t, title: title || null, body: body || null, post_date: date,
+            file_urls: urls, attendees, created_by: _user.uid, author_name: authorName,
+          });
+          if (error) throw error;
+          return {};
+        });
+        closePost(); toast('Posted ✅');
+        _filter = t === 'photo' ? 'all' : t;
+        document.querySelectorAll('#feedChips .f-chip').forEach(c => c.classList.toggle('active', c.dataset.f === _filter));
+        _feedOnce = true; refreshAll(); setTab('feed');
+      } catch (e) {
+        console.warn('[post]', e);
+        toast(e && e.data ? e.message : 'Could not post. Check your connection and try again.', 3500);
+        btn.disabled = false; btn.textContent = 'Post';
+      }
+    }
+
+    /* ── Edit club info ────────────────────────────── */
+    function openInfo() {
+      if (!canManage()) return;
+      $('iAbout').value = (_info && _info.about) || '';
+      $('iDays').value  = (_info && _info.meeting_days) || '';
+      $('iPlace').value = (_info && _info.meeting_place) || '';
+      $('iWa').value    = (_info && _info.contact_whatsapp) || '';
+      $('iMail').value  = (_info && _info.contact_email) || '';
+      $('infoOv').classList.add('open'); lockScroll(true);
+    }
+    function closeInfo() { $('infoOv').classList.remove('open'); lockScroll(false); }
+    async function saveInfo() {
+      const wa = $('iWa').value.trim(), mail = $('iMail').value.trim();
+      if (wa && !window.waLink(wa)) return toast('That WhatsApp number does not look right.');
+      if (mail && !emailOk(mail))   return toast('That email address does not look right.');
+      const row = {
+        club_name: CLUB, about: $('iAbout').value.trim() || null, meeting_days: $('iDays').value.trim() || null,
+        meeting_place: $('iPlace').value.trim() || null, contact_whatsapp: wa || null, contact_email: mail || null,
+        updated_by: _user.uid, updated_at: new Date().toISOString(),
+      };
+      const btn = $('infoSave'); btn.disabled = true;
+      let error = null;
+      try {
+        await window.apiWrite('club.info.save', { club: CLUB, info: { about: row.about, meeting_days: row.meeting_days, meeting_place: row.meeting_place, contact_whatsapp: row.contact_whatsapp, contact_email: row.contact_email } }, async () => {
+          const r = await supabase.from('club_info').upsert(row, { onConflict: 'club_name' });
+          if (r.error) throw r.error;
+          return {};
+        });
+      } catch (e) { error = e; }
+      btn.disabled = false;
+      if (error) { console.warn('[info]', error); toast(error.data ? error.message : (missing(error) ? 'Run clubs-upgrade.sql in Supabase first.' : 'Could not save. Please try again.'), 3500); return; }
+      _info = row; closeInfo(); paintAbout(); toast('Club info saved ✅');
+    }
+
+    /* ── Wiring ────────────────────────────────────── */
+    document.querySelectorAll('.club-tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+    $('feedChips').addEventListener('click', e => {
+      const c = e.target.closest('.f-chip'); if (!c) return;
+      _filter = c.dataset.f;
+      document.querySelectorAll('#feedChips .f-chip').forEach(x => x.classList.toggle('active', x === c));
+      loadFeed(true);
+    });
+    $('feedList').addEventListener('click', e => {
+      const pi = e.target.closest('.pi');
+      if (pi) { openLb(_postImgs[pi.dataset.post] || [], +pi.dataset.i); return; }
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const id = +b.dataset.id;
+      if (b.dataset.act === 'del') deletePost(id);
+      else if (b.dataset.act === 'pin') togglePin(id, b.dataset.pinned === '1');
+      else if (b.dataset.act === 'more') {
+        const p = $('pb-' + id); if (!p) return;
+        const collapsed = p.classList.toggle('clamped');   // toggle() returns true when the class is now present (i.e. collapsed)
+        b.textContent = collapsed ? 'Read more' : 'Show less';
+      }
+    });
+    $('feedMore').addEventListener('click', e => { if (e.target.closest('#loadMoreBtn')) loadFeed(false); });
+    $('galGrid').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) openLb(_gallery, +b.dataset.i); });
+    $('galMore').addEventListener('click', e => {
+      if (e.target.closest('#galMoreBtn')) { _galShown = Math.min(_galShown + GALLERY_STEP, _gallery.length); paintGallery(); }
+    });
+    $('memberSearch').addEventListener('input', paintMembers);
+    $('joinBtn').addEventListener('click', () => requireAuth(handleJoin, 'login'));
+    $('clubFab').addEventListener('click', () => openPost(_tab === 'gallery' ? 'photo' : (_filter === 'all' ? 'notice' : _filter)));
+    $('editInfoBtn').addEventListener('click', openInfo);
+    $('infoSave').addEventListener('click', saveInfo);
+    $('infoCancel').addEventListener('click', closeInfo);
+    $('infoOv').addEventListener('click', e => { if (e.target === $('infoOv')) closeInfo(); });
+    $('postCancel').addEventListener('click', closePost);
+    $('postSubmit').addEventListener('click', submitPost);
+    $('postOv').addEventListener('click', e => { if (e.target === $('postOv')) closePost(); });
+    $('typeRow').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setType(b.dataset.type); });
+    $('pReport').addEventListener('change', function () { $('reportName').textContent = this.files[0] ? this.files[0].name : ''; });
+    $('pPhotos').addEventListener('change', function () {
+      let files = Array.from(this.files).filter(f => /^image\//.test(f.type));
+      if (files.length > MAX_PHOTOS) { toast(`Only the first ${MAX_PHOTOS} photos were kept.`); files = files.slice(0, MAX_PHOTOS); }
+      _pfiles = files; renderPreviews();
+    });
+    $('lbX').addEventListener('click', closeLb);
+    $('lbPrev').addEventListener('click', () => lbStep(-1));
+    $('lbNext').addEventListener('click', () => lbStep(1));
+    $('lb').addEventListener('click', e => { if (e.target === $('lb')) closeLb(); });
+    document.addEventListener('keydown', e => {
+      if (!$('lb').classList.contains('open')) return;
+      if (e.key === 'Escape') closeLb(); else if (e.key === 'ArrowLeft') lbStep(-1); else if (e.key === 'ArrowRight') lbStep(1);
+    });
+    let _tx = null;
+    $('lb').addEventListener('touchstart', e => { _tx = e.touches[0].clientX; }, { passive: true });
+    $('lb').addEventListener('touchend', e => {
+      if (_tx === null) return;
+      const dx = e.changedTouches[0].clientX - _tx; _tx = null;
+      if (Math.abs(dx) > 50) lbStep(dx < 0 ? 1 : -1);
+    }, { passive: true });
+    window.addEventListener('resize', syncHeader);
+
+    auth.onAuthStateChanged(async user => {
+      _user = user; syncHeader();
+      await loadMe();
+      paintJoin(); paintAbout(); paintFab();
+      if (_feedOnce) loadFeed(true);                 // sign-in changes who can see minutes
+    });
+
+    /* ── Start ─────────────────────────────────────── */
+    paintHero(); syncHeader(); paintJoin(); paintAbout();
+    _membersReady = loadMembers().catch(e => {
+      console.warn('[members]', e);
+      $('memberGrid').innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="big">⚠️</div><b>Could not load members</b>Check your connection and try again.</div>';
+    });
+    loadInfo(); loadGallery(); loadActs();
+    const start = (location.hash || '').replace('#', '');
+    setTab(['about', 'feed', 'members', 'gallery'].includes(start) ? start : 'about');
+  })();
   </script>
 </body>
 </html>

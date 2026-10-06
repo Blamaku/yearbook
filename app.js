@@ -34,22 +34,210 @@ window.clearCacheAndReload = async function() {
 
 // ── Dynamic graduation year (auto-updates Jan 1) ───
 const GRAD_YEAR = new Date().getFullYear();
-const GRAD_DATE = new Date(`${GRAD_YEAR}-11-27T09:00:00`).getTime();
+// Graduation ceremony date for each year (YYYY-MM-DD). Change it here and every countdown and label follows.
+const GRAD_DATES = { 2026: '2026-11-20' };
+const GRAD_DATE = new Date(`${GRAD_DATES[GRAD_YEAR] || GRAD_YEAR + '-11-20'}T09:00:00`).getTime();
 window.GRAD_YEAR = GRAD_YEAR;
+window.GRAD_DATE = GRAD_DATE;
+
+// ── Class levels — a new intake joins every September ──────────
+//   Jan–Aug : Y (final year, graduating Nov) … Y+3 (1st year)
+//   Sep–Dec : Y (graduating Nov) … Y+4 (brand-new 1st-year intake)
+// Every page reads its class list from here, so it updates itself each year.
+const INTAKE_MONTH = 8;   // 0 = January … 8 = September (change if your intake month differs)
+
+window.studentClassYears = function () {
+  const years = [GRAD_YEAR, GRAD_YEAR + 1, GRAD_YEAR + 2, GRAD_YEAR + 3];
+  if (new Date().getMonth() >= INTAKE_MONTH) years.push(GRAD_YEAR + 4);
+  return years;
+};
+
+window.classLevelInfo = function (year) {
+  year = Number(year);
+  const afterIntake = new Date().getMonth() >= INTAKE_MONTH;
+  const study = 4 - (year - (afterIntake ? GRAD_YEAR + 1 : GRAD_YEAR));   // year of study, 1–4
+  if (year === GRAD_YEAR) return { icon: '🎓', badge: 'Graduating!', sub: `Final Year — Graduating November ${GRAD_YEAR}` };
+  if (study === 4) return { icon: '📕', badge: 'Final Year', sub: 'Final Year' };
+  if (study === 3) return { icon: '📘', badge: '3rd Year',   sub: 'Third Year' };
+  if (study === 2) return { icon: '📗', badge: '2nd Year',   sub: 'Second Year' };
+  if (study === 1) return { icon: '🌟', badge: '1st Year',   sub: `First Year — Class of ${year} Freshers` };
+  return { icon: '📘', badge: '', sub: '' };
+};
+
+// ── Alumni years — a class year only appears once someone has a profile for it ──
+// Returns [{year:'2025', count:12}, …] newest first, built from the profiles table.
+window.getAlumniYears = async function () {
+  const counts = {};
+  const PAGE = 1000;                                   // Supabase returns at most 1000 rows per request
+  for (let from = 0; from < 50000; from += PAGE) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('classyear')
+      .lte('classyear', String(GRAD_YEAR - 1))         // alumni = graduation year before this year
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    (data || []).forEach(r => {
+      const y = String(r.classyear || '').trim();
+      if (/^\d{4}$/.test(y)) counts[y] = (counts[y] || 0) + 1;
+    });
+    if (!data || data.length < PAGE) break;
+  }
+  return Object.keys(counts).sort((a, b) => b - a).map(y => ({ year: y, count: counts[y] }));
+};
 
 // ── GLUK Clubs ──────────────────────────────────────
-const GLUK_CLUBS = [
-  'GLUK Students Association','Red Cross Club','Drama Club',
-  'Christian Union','Environmental Club','Catholic Association',
-  'Choir','Health Club','GLUSNA',
-  'CLIMSA GLUK','Debate Club','Integrity Club','Transparency and Integrity Club',
-  'Art Club','Chess Club','Rotaract Club',
-  'Photography Club','Toastmasters Club','Entrepreneurship Club','Science Club',
-  'Theology Club','Agribusiness Club','Biocosmos','Public Health Club',
-  'Medical Students Association','Sports Medicine Club','Student Teacher Association',
-  'Mathematics Club','Music Band','IT Society','SASCO','Peer Counselling Club',
+// Single source of truth for every club: name, icon, colour, category, one-line description.
+// The clubs list, each club page, the profile form and the admin panel all read from here.
+const CLUB_CATEGORIES = ['Faith', 'Health', 'Arts and media', 'Leadership', 'Academic', 'Community', 'Sports and games'];
+const CLUB_CATALOG = [
+  { name:'GLUK Students Association',       icon:'🏫', color:'#0f4c81', cat:'Leadership',       desc:'Student governance & representation' },
+  { name:'Red Cross Club',                  icon:'🚑', color:'#dc2626', cat:'Health',           desc:'Humanitarian service & first aid' },
+  { name:'Drama Club',                      icon:'🎭', color:'#7c3aed', cat:'Arts and media',   desc:'Theatre, performance & storytelling' },
+  { name:'Christian Union',                 icon:'✝️', color:'#1d4ed8', cat:'Faith',            desc:'Faith, fellowship & outreach' },
+  { name:'Environmental Club',              icon:'🌿', color:'#16a34a', cat:'Community',        desc:'Green campus & sustainability' },
+  { name:'Catholic Association',            icon:'⛪', color:'#b45309', cat:'Faith',            desc:'Catholic faith & community' },
+  { name:'Choir',                           icon:'🎵', color:'#c026d3', cat:'Arts and media',   desc:'Singing, harmony & performance' },
+  { name:'Health Club',                     icon:'💪', color:'#0891b2', cat:'Health',           desc:'Wellness, fitness & healthy living' },
+  { name:'GLUSNA',                          icon:'💉', color:'#e11d48', cat:'Academic',         desc:'GLUK Student Nurses Association' },
+  { name:'CLIMSA GLUK',                     icon:'🩺', color:'#0e7490', cat:'Academic',         desc:'Clinical Medicine Students Association' },
+  { name:'Debate Club',                     icon:'🗣️', color:'#4f46e5', cat:'Leadership',       desc:'Public speaking & critical thinking' },
+  { name:'Integrity Club',                  icon:'⚖️', color:'#0369a1', cat:'Leadership',       desc:'Ethics, leadership & accountability' },
+  { name:'Transparency and Integrity Club', icon:'🔍', color:'#155e75', cat:'Leadership',       desc:'Transparency, accountability & good governance' },
+  { name:'Art Club',                        icon:'🎨', color:'#ea580c', cat:'Arts and media',   desc:'Visual arts, painting & crafts' },
+  { name:'Chess Club',                      icon:'♟️', color:'#374151', cat:'Sports and games', desc:'Strategy, mind games & tournaments' },
+  { name:'Rotaract Club',                   icon:'🌍', color:'#b45f06', cat:'Community',        desc:'Community service & leadership' },
+  { name:'Photography Club',                icon:'📷', color:'#475569', cat:'Arts and media',   desc:'Photography, film & visual media' },
+  { name:'Toastmasters Club',               icon:'🎤', color:'#a16207', cat:'Leadership',       desc:'Communication & leadership skills' },
+  { name:'Entrepreneurship Club',           icon:'💡', color:'#65a30d', cat:'Leadership',       desc:'Innovation, business & startups' },
+  { name:'Science Club',                    icon:'🔬', color:'#0284c7', cat:'Academic',         desc:'Research, experiments & STEM' },
+  { name:'Theology Club',                   icon:'📖', color:'#92400e', cat:'Faith',            desc:'Theology, Bible study & ministry' },
+  { name:'Agribusiness Club',               icon:'🌾', color:'#4d7c0f', cat:'Academic',         desc:'Agriculture, food & agribusiness' },
+  { name:'Biocosmos',                       icon:'🧬', color:'#0d9488', cat:'Academic',         desc:'Biology, nature & life sciences' },
+  { name:'Public Health Club',              icon:'🌐', color:'#059669', cat:'Health',           desc:'Community health & public policy' },
+  { name:'Medical Students Association',    icon:'🏥', color:'#b91c1c', cat:'Academic',         desc:'Medical education & clinical training' },
+  { name:'Sports Medicine Club',            icon:'🏃', color:'#0f766e', cat:'Sports and games', desc:'Sports health & exercise science' },
+  { name:'Student Teacher Association',     icon:'📚', color:'#6d28d9', cat:'Academic',         desc:'Education practice & pedagogy' },
+  { name:'Mathematics Club',                icon:'➕', color:'#2563eb', cat:'Academic',         desc:'Maths, statistics & problem solving' },
+  { name:'Music Band',                      icon:'🎸', color:'#db2777', cat:'Arts and media',   desc:'Instruments, concerts & music' },
+  { name:'IT Society',                      icon:'💻', color:'#1e40af', cat:'Academic',         desc:'Technology, coding & digital skills' },
+  { name:'SASCO',                           icon:'🤝', color:'#57534e', cat:'Community',        desc:'Student Academic Support Community' },
+  { name:'Peer Counselling Club',           icon:'🧠', color:'#9333ea', cat:'Health',           desc:'Mental health & peer support' },
+  { name:'Football Club',                   icon:'⚽', color:'#15803d', cat:'Sports and games', desc:'Soccer training, matches & tournaments' },
+  { name:'Basketball Club',                 icon:'🏀', color:'#c2410c', cat:'Sports and games', desc:'Basketball training, matches & tournaments' },
+  { name:'Volleyball Club',                 icon:'🏐', color:'#0891b2', cat:'Sports and games', desc:'Volleyball training, matches & tournaments' },
+  { name:'Frisbee Club',                    icon:'🥏', color:'#65a30d', cat:'Sports and games', desc:'Ultimate frisbee, throwing & tournaments' },
+  { name:'Rugby Club',                      icon:'🏉', color:'#7c2d12', cat:'Sports and games', desc:'Rugby training, matches & tournaments' },
+  { name:'Netball Club',                    icon:'🏵️', color:'#be185d', cat:'Sports and games', desc:'Netball training, matches & tournaments' },
+  { name:'Athletics Club',                  icon:'🏅', color:'#b45309', cat:'Sports and games', desc:'Track & field, running & competitions' },
+  { name:'Innovation Club',                 icon:'🚀', color:'#4338ca', cat:'Leadership',       desc:'Ideas, prototyping & innovation challenges' },
+  { name:'Academic Writers Club',           icon:'✍️', color:'#0d9488', cat:'Academic',         desc:'Research writing, essays & publishing skills' },
+  { name:'Booklovers Club',                 icon:'📚', color:'#7e22ce', cat:'Arts and media',   desc:'Reading circles, book discussions & reviews' },
 ];
+const GLUK_CLUBS = CLUB_CATALOG.map(c => c.name);
 window.GLUK_CLUBS = GLUK_CLUBS;
+window.CLUB_CATALOG = CLUB_CATALOG;
+window.CLUB_CATEGORIES = CLUB_CATEGORIES;
+window.clubMeta = name => CLUB_CATALOG.find(c => c.name === name) || null;
+
+// ── Club helpers (shared by clubs.html, club.html and the admin panel) ──
+window.escHtml = esc;                                   // escapes & < > " '  — safe inside text AND attributes
+
+// Only allow full http(s) links (blocks javascript:, data:, empty and relative values)
+window.safeUrl = function (u) {
+  const s = String(u == null ? '' : u).trim();
+  if (!/^https?:\/\//i.test(s)) return '';               // empty, relative, javascript:, data: ... all rejected
+  try { return new URL(s).href; } catch (e) { return ''; }
+};
+
+// profiles.clubs can be a real array, a "a, b" string, or a Postgres "{a,\"b c\"}" literal
+window.parseClubField = function (v) {
+  if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean);
+  if (typeof v !== 'string' || !v.trim()) return [];
+  let s = v.trim();
+  if (s.startsWith('{') && s.endsWith('}')) {
+    s = s.slice(1, -1);
+    const out = [], re = /"((?:[^"\\]|\\.)*)"|([^,]+)/g;
+    let m;
+    while ((m = re.exec(s))) out.push((m[1] !== undefined ? m[1].replace(/\\(.)/g, '$1') : m[2]).trim());
+    return out.filter(Boolean);
+  }
+  return s.split(',').map(x => x.trim()).filter(Boolean);
+};
+
+// "0712 345 678" / "+254712345678" / "712345678"  ->  https://wa.me/254712345678   ('' if it doesn't look like a number)
+window.waLink = function (raw) {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('0') && d.length === 10) d = '254' + d.slice(1);
+  else if (d.length === 9 && /^[71]/.test(d)) d = '254' + d;
+  return (d.length >= 11 && d.length <= 15) ? 'https://wa.me/' + d : '';
+};
+
+// Kenyan numbers written 07…, 01…, 7…, 1… or 254…  ->  +254712345678.  Other formats are left exactly as typed.
+// The birthday field uses a native date picker for a good mobile experience, but only the
+// month and day are ever stored or sent to the server — the year is discarded on purpose.
+window.birthdayFromInput = function (v) {
+  const m = /^\d{4}-(\d{2}-\d{2})$/.exec(String(v || '').trim());
+  return m ? m[1] : '';
+};
+window.birthdayToInput = function (stored) {
+  const m = /^(\d{2}-\d{2})$/.exec(String(stored || '').trim());
+  return m ? '2000-' + m[1] : '';                      // 2000 is a leap year, so 29 Feb round-trips too
+};
+
+window.normalizePhone = function (raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  const d = s.replace(/\D/g, '');
+  if (!s || !d) return s;
+  if (s.startsWith('+')) return '+' + d;                               // already international
+  if (d.startsWith('00')) return '+' + d.slice(2);                     // 0044… -> +44…
+  if (/^0?[17]\d{8}$/.test(d)) return '+254' + d.replace(/^0/, '');    // 0712345678 / 0112345678 / 712345678
+  if (/^254[17]\d{8}$/.test(d)) return '+' + d;                       // 254712345678
+  return s;
+};
+
+// Friendly "how active is this club" label for the clubs list
+window.clubActivityLabel = function (iso) {
+  if (!iso) return { text: 'No posts yet', fresh: false };
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days < 1)  return { text: 'New post today',   fresh: true };
+  if (days < 7)  return { text: 'Active this week', fresh: true };
+  if (days < 30) { const w = Math.floor(days / 7);  return { text: `Last post ${w} week${w === 1 ? '' : 's'} ago`,  fresh: false }; }
+  const mo = Math.floor(days / 30);
+  return { text: `Last post ${mo} month${mo === 1 ? '' : 's'} ago`, fresh: false };
+};
+
+// Member counts + last post date per club (cached for 5 minutes so browsing back and forth stays fast)
+window.getClubStats = async function (force) {
+  const KEY = 'gluk-club-stats';
+  if (!force) {
+    try {
+      const c = JSON.parse(sessionStorage.getItem(KEY) || 'null');
+      if (c && Date.now() - c.t < 300000) return c.d;
+    } catch (e) {}
+  }
+  const members = {}, last = {}, PAGE = 1000;
+  for (let from = 0; from < 50000; from += PAGE) {
+    const { data, error } = await supabase
+      .from('profiles').select('clubs,isanonymous')
+      .order('id', { ascending: true }).range(from, from + PAGE - 1);
+    if (error) throw error;
+    (data || []).forEach(r => {
+      if (r.isanonymous) return;                        // anonymous profiles aren't listed on club pages
+      window.parseClubField(r.clubs).forEach(c => { members[c] = (members[c] || 0) + 1; });
+    });
+    if (!data || data.length < PAGE) break;
+  }
+  try {                                                  // newest post per club (ignore errors: table may not exist yet)
+    const { data } = await supabase.from('club_posts').select('club_name,created_at')
+      .order('created_at', { ascending: false }).limit(1000);
+    (data || []).forEach(r => { if (!last[r.club_name]) last[r.club_name] = r.created_at; });
+  } catch (e) {}
+  const out = { members, last };
+  try { sessionStorage.setItem(KEY, JSON.stringify({ t: Date.now(), d: out })); } catch (e) {}
+  return out;
+};
 
 // ── Kenya Counties ───────────────────────────────────
 const KENYA_COUNTIES = [
@@ -138,6 +326,14 @@ window.normalizeProfile = normalizeProfile;
 // ── Service Worker + Auto-Update Banner ──────────────
 (function initSW() {
   if (!('serviceWorker' in navigator)) return;
+
+  // Local testing (Live Server, localhost): never keep a service worker there — it serves saved copies
+  // of your pages and hides the edits you just made. Remove any that is already installed.
+  if (['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+    if (window.caches) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {});
+    return;
+  }
 
   const banner = document.createElement('div');
   banner.id = 'swUpdateBanner';
@@ -354,6 +550,72 @@ function observeImages() {
   document.querySelectorAll('img[loading="lazy"]').forEach(img=>obs.observe(img));
 }
 
+// ══ Secure API client ═══════════════════════════════════════════
+// Every change to your data goes through the "api" function in Supabase, which checks who is asking.
+// While rolling out, if the function cannot be reached the app quietly uses the old direct write instead
+// (window.GLUK_API.strict = true turns that fallback off — do that once the database is locked).
+window.GLUK_API = window.GLUK_API || { url: SUPABASE_URL + '/functions/v1/api', strict: true };
+
+window.gApi = async function (action, payload) {
+  const user = auth.currentUser;
+  if (!user) { const e = new Error('Please sign in first.'); e.code = 'auth'; throw e; }
+  let token;
+  try { token = await user.getIdToken(); }
+  catch (e) { const er = new Error('Please sign in again.'); er.code = 'auth'; throw er; }
+  let res, body = null;
+  try {
+    res = await fetch(window.GLUK_API.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-firebase-token': token, 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY },
+      body: JSON.stringify(Object.assign({ action }, payload || {})),
+    });
+  } catch (e) { const er = new Error('Could not reach the secure service.'); er.unreachable = true; throw er; }
+  try { body = await res.json(); } catch (e) { body = null; }
+  if (!body || typeof body.ok !== 'boolean') {              // not our function answering (not deployed yet, or the platform is busy)
+    const er = new Error('The secure service is not available.'); er.unreachable = true; er.status = res.status; throw er;
+  }
+  if (!body.ok) { const er = new Error(body.error || 'The request failed.'); er.code = body.code; er.status = res.status; er.data = body; throw er; }
+  return body;
+};
+
+// Try the secure service first; only if it is unreachable (and not in strict mode) run the old direct write.
+window.apiWrite = async function (action, payload, direct) {
+  try { return await window.gApi(action, payload); }
+  catch (e) {
+    if (e.unreachable && !window.GLUK_API.strict && typeof direct === 'function') { console.warn('[api] service unreachable, using the direct path for', action); return direct(); }
+    throw e;
+  }
+};
+
+// Upload a file to a one-time slot. Uses the storage library when it has the method, else sends the file itself.
+window.putToSlot = async function (bucket, slot, file, contentType) {
+  const st = supabase.storage.from(bucket);
+  if (typeof st.uploadToSignedUrl === 'function') return st.uploadToSignedUrl(slot.path, slot.token, file, { contentType });
+  if (!slot.signedUrl) return { error: { message: 'The storage library on this page is too old for secure uploads.' } };
+  const fd = new FormData(); fd.append('cacheControl', '3600'); fd.append('', file);
+  try {
+    const res = await fetch(slot.signedUrl, { method: 'PUT', body: fd, headers: { 'x-upsert': 'false' } });
+    return res.ok ? { error: null } : { error: { message: 'Upload failed (' + res.status + ')' } };
+  } catch (e) { return { error: { message: 'Could not reach storage.' } }; }
+};
+
+async function createProfileRecord(rec) {
+  const res = await window.apiWrite('profile.create', { profile: rec }, async () => {
+    const { data, error } = await supabase.from('profiles').insert([rec]).select();
+    if (error) throw error;
+    return { profile: data && data[0] };
+  });
+  return res.profile ? [res.profile] : [];
+}
+async function updateProfileRecord(id, patch) {
+  await window.apiWrite('profile.update', { id, patch }, async () => {
+    const { error } = await supabase.from('profiles').update(patch).eq('id', id);
+    if (error) throw error;
+    return {};
+  });
+}
+// ══ end Secure API client ═══════════════════════════════════════
+
 // ── Image compress → {blob, preview} ─────────────────
 function compressImage(dataUrl, max=700, q=0.72) {
   return new Promise(res=>{
@@ -373,6 +635,20 @@ function compressImage(dataUrl, max=700, q=0.72) {
 // Returns the public CDN URL of the uploaded photo.
 // Throws a descriptive Error on any failure so callers can surface it.
 async function uploadPhoto(blob, uid, tag) {
+  // 1) ask the secure service for a one-time upload slot in this person's own folder
+  let slot = null;
+  try {
+    slot = await window.gApi('upload.sign', { bucket: 'profile-photos', contentType: 'image/jpeg', tag, size: blob.size });
+  } catch (e) {
+    if (!(e.unreachable && !window.GLUK_API.strict)) throw new Error(`Upload failed: ${e.message}`);
+  }
+  if (slot) {
+    const { error } = await window.putToSlot('profile-photos', slot, blob, 'image/jpeg');
+    if (error) throw new Error(`Upload failed: ${error.message || error.error || JSON.stringify(error)}`);
+    return slot.publicUrl;
+  }
+
+  // 2) service not reachable yet (rollout): the old direct upload
   const path = `${uid}/${Date.now()}_${tag}.jpg`;
 
   const { data, error } = await supabase.storage
@@ -531,16 +807,24 @@ async function initProfilesPage(){
   const fw=document.getElementById('filterChips');
   const fwLbl=document.getElementById('yearFilterLbl');
   if(fw){
-    let years;
+    const renderYearChips = (years) => {
+      // keep whichever chip is currently selected (the alumni list arrives a moment after the page)
+      const keep = document.querySelector('.chip[data-filtertype="year"].active')?.dataset.year || 'All';
+      const activeYr = years.map(String).includes(keep) ? keep : 'All';
+      fw.innerHTML = years.map(y =>
+        `<button class="chip ${String(y)===activeYr?'active':''}" data-year="${y}" data-filtertype="year"
+          onclick="filterYear('${y}',this)">${y==='All'?'All Years':'Class of '+y}</button>`
+      ).join('');
+    };
     if(isAlumni){
-      years=['All', GRAD_YEAR-1, GRAD_YEAR-2, GRAD_YEAR-3, GRAD_YEAR-4];
+      // Alumni classes appear only once someone has created a profile for that year
+      renderYearChips(['All']);
+      window.getAlumniYears()
+        .then(list => renderYearChips(['All', ...list.map(a => a.year)]))
+        .catch(e => console.warn('[alumni year chips]', e));
     } else {
-      years=['All', GRAD_YEAR, GRAD_YEAR+1, GRAD_YEAR+2, GRAD_YEAR+3];
+      renderYearChips(['All', ...window.studentClassYears()]);
     }
-    fw.innerHTML=years.map((y,i)=>
-      `<button class="chip ${i===0?'active':''}" data-year="${y}" data-filtertype="year"
-        onclick="filterYear('${y}',this)">${y==='All'?'All Years':'Class of '+y}</button>`
-    ).join('');
     if(fwLbl) fwLbl.style.display='block';
   }
 
@@ -813,11 +1097,10 @@ window.submitAnonymousProfile = async function() {
       setTimeout(() => window.location.href = `profile.html?id=${existing[0].id}`, 800);
       return;
     }
-    const { data: inserted, error } = await supabase.from('profiles').insert([{
+    const inserted = await createProfileRecord({
       uid: currentUser.uid, name, reg, dept: deptVal, course: courseVal,
       classyear: yearVal, isanonymous: true,
-    }]).select();
-    if (error) throw error;
+    });
     closeAddModal();
     showToast('Anonymous profile saved! 🕵️', 3000);
     if (inserted?.[0]?.id) {
@@ -866,6 +1149,291 @@ window.closeAddModal=function(){
   document.getElementById('addModal')?.classList.add('hidden');
   document.body.style.overflow='';
   _photoData=[null,null,null,null];
+};
+
+// ══ Notifications (in-app bell) ══════════════════════════════════
+// Built from real data every time — there are no notification records to store, fake or clean up:
+//   • new comments on MY profile              (Firestore: comments)
+//   • replies to comments I wrote             (Firestore: comments.lastReply*)
+//   • new posts in clubs I joined             (Supabase: club_posts)
+//   • new classmates (same class + course)    (Supabase: profiles)
+// "Read" is one timestamp per person: Firestore userState/{uid}.notifSeenAt (this device is the fallback).
+window.gNotif = (function () {
+  const DAYS = 14, FRESH_MS = 180000, POLL_MS = 300000, MAX = 40;
+  let _uid = null, _items = [], _seenAt = 0, _unread = 0, _noProfile = false, _busy = null, _timer = null, _loaded = false;
+
+  const ms = t => {
+    try {
+      if (!t) return 0;
+      if (typeof t.toMillis === 'function') return t.toMillis();
+      const v = new Date(t).getTime();
+      return Number.isFinite(v) ? v : 0;
+    } catch (e) { return 0; }
+  };
+  const snip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+  const ckey = () => 'gluk-notif:' + _uid;
+  const skey = () => 'gluk-notif-seen:' + _uid;
+  const iso  = t => new Date(t).toISOString();
+
+  function readCache() {
+    try { const c = JSON.parse(sessionStorage.getItem(ckey()) || 'null'); return (c && Date.now() - c.t < FRESH_MS) ? c : null; }
+    catch (e) { return null; }
+  }
+  function writeCache() {
+    try { sessionStorage.setItem(ckey(), JSON.stringify({ t: Date.now(), items: _items, seenAt: _seenAt, noProfile: _noProfile })); } catch (e) {}
+  }
+  const recount = () => { _unread = _items.filter(it => it.at > _seenAt).length; };
+
+  /* ── where "read" is remembered ── */
+  async function loadSeenAt() {
+    try {
+      const ref = db.collection('userState').doc(_uid);
+      const snap = await ref.get();
+      const t = snap.exists ? ms(snap.data().notifSeenAt) : 0;
+      if (t) return t;
+      const now = Date.now();                                    // first visit: start with a clean slate
+      ref.set({ notifSeenAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+      try { localStorage.setItem(skey(), String(now)); } catch (e) {}
+      return now;
+    } catch (e) {                                                // rules not updated yet: remember it on this device instead
+      let t = 0;
+      try { t = Number(localStorage.getItem(skey())) || 0; } catch (e2) {}
+      if (!t) { t = Date.now(); try { localStorage.setItem(skey(), String(t)); } catch (e3) {} }
+      return t;
+    }
+  }
+
+  /* ── sources ── */
+  async function myProfile() {
+    const { data, error } = await supabase.from('profiles').select('id,name,classyear,course,dept,clubs,birthday').eq('uid', _uid).limit(1);
+    if (error) throw error;
+    return data && data[0] ? data[0] : null;
+  }
+
+  async function commentsOnMe(p, since) {
+    const base = db.collection('comments').where('studentId', '==', String(p.id));
+    let docs;
+    try { docs = (await base.orderBy('timestamp', 'desc').limit(20).get()).docs; }
+    catch (e) { docs = (await base.limit(100).get()).docs; }      // the index is not created yet: read a few and sort here
+    return docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(c => c.authorUid !== _uid && ms(c.timestamp) >= since)
+      .map(c => ({ type: 'comment', key: 'c' + c.id, at: ms(c.timestamp), who: c.authorName, text: c.text, studentId: String(p.id) }));
+  }
+
+  async function repliesToMe(since) {
+    const base = db.collection('comments').where('authorUid', '==', _uid);
+    let docs;
+    try { docs = (await base.orderBy('lastReplyAt', 'desc').limit(20).get()).docs; }
+    catch (e) { docs = (await base.limit(100).get()).docs; }
+    return docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(c => c.lastReplyAt && c.lastReplyUid !== _uid && ms(c.lastReplyAt) >= since)
+      .map(c => ({ type: 'reply', key: 'r' + c.id, at: ms(c.lastReplyAt), who: c.lastReplyBy, text: c.text, studentId: String(c.studentId || '') }));
+  }
+
+  async function clubPosts(p, since) {
+    const clubs = window.parseClubField ? window.parseClubField(p.clubs) : [];
+    if (!clubs.length) return [];
+    const { data, error } = await supabase.from('club_posts')
+      .select('id,club_name,type,title,body,author_name,created_by,created_at')
+      .in('club_name', clubs).gt('created_at', iso(since)).order('created_at', { ascending: false }).limit(20);
+    if (error) return [];
+    return (data || []).filter(r => r.created_by !== _uid)
+      .map(r => ({ type: 'club', key: 'p' + r.id, at: ms(r.created_at), club: r.club_name, kind: r.type, title: r.title, text: r.body }));
+  }
+
+  async function classmates(p, since, seenAt) {
+    if (!p.classyear) return [];
+    let q = supabase.from('profiles').select('created_at').eq('classyear', p.classyear).neq('uid', _uid)
+      .gt('created_at', iso(since)).or('isanonymous.is.null,isanonymous.eq.false');
+    q = p.course ? q.eq('course', p.course) : (p.dept ? q.eq('dept', p.dept) : q);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(50);
+    if (error || !data || !data.length) return [];
+    const times = data.map(r => ms(r.created_at));
+    return [{ type: 'class', key: 'k', at: times[0], n: times.length, fresh: times.filter(t => t > seenAt).length,
+              year: p.classyear, course: p.course || '', dept: p.dept || '' }];
+  }
+
+  async function nameTargets(list, p) {
+    const own = p ? String(p.id) : '';
+    const ids = [...new Set(list.map(x => x.studentId).filter(id => /^\d+$/.test(id) && id !== own))].map(Number);
+    let map = {};
+    if (ids.length) {
+      const { data } = await supabase.from('profiles').select('id,name').in('id', ids);
+      (data || []).forEach(r => { map[String(r.id)] = r.name; });
+    }
+    list.forEach(x => { x.target = x.studentId === own ? 'your profile' : (map[x.studentId] ? map[x.studentId] + '’s profile' : 'a profile'); });
+  }
+
+  async function compute() {
+    const since = Date.now() - DAYS * 864e5;
+    const [seenAt, profile] = await Promise.all([loadSeenAt(), myProfile().catch(() => null)]);
+    const safe = pr => Promise.resolve(pr).catch(e => { console.warn('[notif]', e); return []; });
+    const [c, r, k, m] = await Promise.all([
+      profile ? safe(commentsOnMe(profile, since)) : [],
+      safe(repliesToMe(since)),
+      profile ? safe(clubPosts(profile, since)) : [],
+      profile ? safe(classmates(profile, since, seenAt)) : [],
+    ]);
+    try { await nameTargets(r, profile); } catch (e) { r.forEach(x => { x.target = 'a profile'; }); }
+    _seenAt = seenAt;
+    _noProfile = !profile;
+    // A standing reminder, not a time-bound event — it keeps showing (though not re-badging once seen)
+    // until the birthday is actually added, however long that takes.
+    const bday = (profile && !profile.birthday)
+      ? [{ type: 'birthday', key: 'bday-' + profile.id, at: Date.now() + 100 * 365 * 864e5 }] : [];
+    _items = [].concat(c, r, k, m, bday).sort((a, b) => b.at - a.at).slice(0, MAX);
+    _loaded = true;
+    recount(); writeCache();
+  }
+
+  /* ── badge + refresh ── */
+  function paintBadge() {
+    const b = document.getElementById('notifBadge');
+    if (b) { b.textContent = _unread > 9 ? '9+' : String(_unread); b.style.display = _unread ? 'flex' : 'none'; }
+    const bell = document.getElementById('ubBell');
+    if (bell) bell.setAttribute('aria-label', _unread ? 'Notifications, ' + _unread + ' new' : 'Notifications');
+  }
+
+  function refresh(force) {
+    if (!_uid) return Promise.resolve();
+    if (_busy) return _busy;
+    if (!force) {
+      const c = readCache();
+      if (c) { _items = c.items; _seenAt = c.seenAt; _noProfile = c.noProfile; _loaded = true; recount(); paintBadge(); return Promise.resolve(); }
+    }
+    const uid = _uid;
+    _busy = compute().catch(e => console.warn('[notif] could not load', e)).then(() => { _busy = null; if (uid === _uid) paintBadge(); });
+    return _busy;
+  }
+
+  function stop() {
+    _uid = null; _items = []; _unread = 0; _seenAt = 0; _loaded = false;
+    if (_timer) { clearInterval(_timer); _timer = null; }
+    paintBadge();
+  }
+
+  function start(user) {
+    if (!user || !document.getElementById('userBar')) { stop(); return; }   // signed out, or a page without the user bar (admin)
+    if (_uid !== user.uid) { _uid = user.uid; _items = []; _seenAt = 0; _unread = 0; _loaded = false; }
+    refresh(false);
+    if (!_timer) _timer = setInterval(() => { if (document.visibilityState !== 'hidden') refresh(true); }, POLL_MS);
+  }
+
+  /* ── the panel ── */
+  const KIND = { notice: 'New notice', activity: 'New activity', minutes: 'New minutes', photo: 'New photos' };
+  function itemHTML(it) {
+    const meta = it.type === 'club' && window.clubMeta ? window.clubMeta(it.club) : null;
+    let ico, title, sub, href;
+    if (it.type === 'comment') {
+      ico = '💬'; title = `<b>${esc(it.who || 'Someone')}</b> commented on your profile`; sub = '“' + esc(snip(it.text, 80)) + '”';
+      href = 'profile.html?id=' + encodeURIComponent(it.studentId) + '#comments';
+    } else if (it.type === 'reply') {
+      ico = '↩️'; title = `<b>${esc(it.who || 'Someone')}</b> replied to your comment`; sub = 'on ' + esc(it.target || 'a profile');
+      href = 'profile.html?id=' + encodeURIComponent(it.studentId) + '#comments';
+    } else if (it.type === 'club') {
+      ico = meta ? meta.icon : '🏛'; title = `<b>${esc(it.club)}</b> · ${esc(KIND[it.kind] || 'New post')}`;
+      sub = esc(snip(it.title || it.text, 90));
+      href = 'club.html?club=' + encodeURIComponent(it.club) + '#feed';
+    } else if (it.type === 'birthday') {
+      ico = '🎂'; title = `Add your birthday`; sub = 'Let classmates celebrate with you — it only takes a second.';
+      href = 'profile.html?id=' + encodeURIComponent(it.key.replace('bday-', '')) + '#edit';
+    } else {
+      ico = '👥'; title = `<b>${it.n}</b> new ${it.n === 1 ? 'classmate' : 'classmates'} joined`;
+      sub = 'Class of ' + esc(it.year) + (it.course ? ' · ' + esc(it.course) : '');
+      href = 'profiles.html?dept=' + encodeURIComponent(it.dept) + '&course=' + encodeURIComponent(it.course) + '&class=' + encodeURIComponent(it.year);
+    }
+    const unread = it.at > _seenAt;
+    return `<a class="notif-item${unread ? ' unread' : ''}" href="${esc(href)}">
+      <span class="notif-ico">${ico}</span>
+      <span class="notif-main"><span class="notif-t">${title}</span>${sub ? `<span class="notif-s">${sub}</span>` : ''}</span>
+      <span class="notif-when">${esc(ago(it.at))}</span></a>`;
+  }
+  function panelHTML() {
+    if (!_items.length) {
+      return _noProfile
+        ? `<div class="notif-empty"><div class="notif-empty-ico">🔔</div><b>Create your profile to get notifications</b>Comments, club posts and new classmates show up here once you have a yearbook profile.<br><a class="btn-primary" href="profiles.html?action=add" style="display:block;max-width:220px;margin:14px auto 0;text-decoration:none;text-align:center">Create my profile</a></div>`
+        : `<div class="notif-empty"><div class="notif-empty-ico">🎉</div><b>You’re all caught up</b>Comments, replies, club posts and new classmates will appear here.</div>`;
+    }
+    return `<div class="notif-list">${_items.map(itemHTML).join('')}</div>`;
+  }
+  function ensurePanel() {
+    let ov = document.getElementById('notifOv');
+    if (ov && ov.__ready) return ov;
+    ov = document.createElement('div');
+    ov.id = 'notifOv'; ov.className = 'notif-ov'; ov.__ready = true;
+    ov.innerHTML = `<div class="notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
+      <div class="modal-handle"></div>
+      <div class="notif-head"><div class="notif-title">Notifications</div><button type="button" class="notif-x" id="notifClose" aria-label="Close">✕</button></div>
+      <div id="notifBody"></div></div>`;
+    document.documentElement.appendChild(ov);
+    ov.addEventListener('click', e => { if (e.target === ov || (e.target.closest && e.target.closest('#notifClose'))) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    return ov;
+  }
+  function markSeen() {
+    if (!_uid || !_unread) return;
+    _seenAt = Date.now(); _unread = 0; paintBadge(); writeCache();
+    try { localStorage.setItem(skey(), String(_seenAt)); } catch (e) {}
+    db.collection('userState').doc(_uid).set({ notifSeenAt: firebase.firestore.FieldValue.serverTimestamp() })
+      .catch(e => console.warn('[notif] could not save read state', e));
+  }
+  async function open() {
+    if (!currentUser) { openAuthModal(null, 'login'); return; }
+    const ov = ensurePanel(), body = document.getElementById('notifBody');
+    body.innerHTML = _loaded ? panelHTML() : '<div class="notif-empty">Loading…</div>';
+    ov.classList.add('notif-open'); document.documentElement.style.overflow = 'hidden';
+    await refresh(true);
+    body.innerHTML = panelHTML();          // unread items stay highlighted while the panel is open …
+    markSeen();                            // … and count as read from now on
+  }
+  function close() {
+    const ov = document.getElementById('notifOv');
+    if (ov) ov.classList.remove('notif-open');
+    document.documentElement.style.overflow = '';
+  }
+
+  // Notification links to a profile's comments jump straight to them
+  if (location.hash === '#comments') {
+    const jump = () => { const el = document.getElementById('commentsCard'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    setTimeout(jump, 900); setTimeout(jump, 2200);
+  }
+
+  return { start, stop, refresh, open, close, paintBadge };
+})();
+window.openNotifications = () => window.gNotif.open();
+
+// ── My Profile shortcut (top-bar icon on the students page) ───
+// Signed out  -> opens the sign-in box, then continues automatically
+// Has profile -> jumps straight to it
+// No profile  -> starts the create-profile flow (consent -> form)
+window.goToMyProfile = function () {
+  requireAuth(async () => {
+    // The admin's "profile" is the admin panel
+    if (typeof ADMIN_EMAIL !== 'undefined' && currentUser &&
+        String(currentUser.email || '').toLowerCase() === String(ADMIN_EMAIL).toLowerCase()) {
+      window.location.href = 'admin.html';
+      return;
+    }
+    showToast('Finding your profile…');
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id,dept,course')
+        .eq('uid', currentUser.uid)
+        .limit(1);
+      if (error) throw error;
+      if (data && data.length > 0) {
+        const p = data[0];
+        window.location.href = `profile.html?id=${p.id}&dept=${encodeURIComponent(p.dept || '')}&course=${encodeURIComponent(p.course || '')}`;
+      } else {
+        showToast('No profile yet - let\'s create yours 🎓');
+        openConsentModal();
+      }
+    } catch (e) {
+      console.warn('[goToMyProfile]', e);
+      showToast('Could not check your profile. Please try again.');
+    }
+  }, 'login');
 };
 
 // ── Submit new profile ────────────────────────────────
@@ -988,7 +1556,8 @@ window.submitProfile=async function(e){
       constituency:  (fd.get('constituency')||'').trim(),
       currentcounty:   (fd.get('currentcounty')||'').trim(),
       currentlocation: (fd.get('currentlocation')||'').trim(),
-      whatsapp:      (fd.get('whatsapp')||'').trim(),
+      whatsapp:      window.normalizePhone(fd.get('whatsapp')),
+      birthday:      window.birthdayFromInput(fd.get('birthday')),
       email:         (fd.get('email')||currentUser.email||'').trim(),
       bio:           (fd.get('bio')||'').trim(),
       hobbies:       (fd.get('hobbies')||'').split(',').map(x=>x.trim()).filter(Boolean).join(', '),
@@ -1001,8 +1570,7 @@ window.submitProfile=async function(e){
       photos:        photoUrls,
     };
 
-    const{data:inserted,error}=await supabase.from('profiles').insert([profile]).select();
-    if(error) throw error;
+    const inserted = await createProfileRecord(profile);
 
     // Close modal and reset form FIRST
     closeAddModal();
@@ -1058,6 +1626,13 @@ function initProfilePage(){
       }
       _refreshEditBtn(currentUser); // check immediately (auth may already be resolved)
       auth.onAuthStateChanged(_refreshEditBtn); // also watch for sign-in/out
+      // A notification (e.g. "add your birthday") can link straight to the edit form — opens once only
+      if (location.hash === '#edit') {
+        let _editOpened = false;
+        const tryOpen = u => { if (!_editOpened && u && u.uid === data.uid) { _editOpened = true; window.openEditMyProfile(); } };
+        tryOpen(currentUser);
+        auth.onAuthStateChanged(tryOpen);
+      }
     })
     .catch(err=>{console.error(err);showToast('Could not load profile.');});
 }
@@ -1135,8 +1710,7 @@ function paintProfile(s){
 
   document.title = `${s.name||'Profile'} — GLUK Yearbook ${GRAD_YEAR}`;
 
-  const wa=document.getElementById('whatsappBtn');
-  if(wa){ if(!isAnon&&s.whatsapp) wa.href=`https://wa.me/${s.whatsapp.replace(/\D/g,'')}?text=Hi%20${encodeURIComponent(s.name||'')}%2C%20I%20saw%20your%20GLUK%20Yearbook%20profile!`; else wa.style.display='none'; }
+  paintWhatsappButtons(s, isAnon);
   const em=document.getElementById('emailBtn');
   if(em){ if(!isAnon&&s.email) em.href=`mailto:${s.email}`; else em.style.display='none'; }
 
@@ -1147,8 +1721,15 @@ function paintProfile(s){
 
   initCarousel(photoList);
 
-  const waS=document.getElementById('waShareBtn');
-  if(wa&&waS&&wa.href&&wa.href!=='#') waS.href=wa.href;
+}
+
+// Both "chat on WhatsApp" buttons on a profile: hidden when there is no usable number.
+function paintWhatsappButtons(s, isAnon) {
+  const wa = document.getElementById('whatsappBtn'), waS = document.getElementById('waShareBtn');
+  const link = (!isAnon && s.whatsapp) ? window.waLink(s.whatsapp) : '';
+  const href = link ? `${link}?text=Hi%20${encodeURIComponent(s.name || '')}%2C%20I%20saw%20your%20GLUK%20Yearbook%20profile!` : '';
+  if (wa)  { if (href) wa.href = href;  else wa.style.display = 'none'; }
+  if (waS) { if (href) waS.href = href; else waS.style.display = 'none'; }
 }
 
 // ── Edit own profile ──────────────────────────────────
@@ -1162,7 +1743,8 @@ window.openEditMyProfile=function(){
   const q=n=>form.querySelector(`[name="${n}"]`);
   if(q('name'))            q('name').value=s.name||'';
   if(q('reg'))             q('reg').value=s.reg||'';
-  if(q('whatsapp'))        q('whatsapp').value=s.whatsapp||'';
+  if(q('whatsapp'))        q('whatsapp').value=window.normalizePhone(s.whatsapp);   // old numbers show (and get saved) in +254 form
+  if(q('birthday'))        q('birthday').value=window.birthdayToInput(s.birthday);
   if(q('email'))           q('email').value=s.email||'';
   if(q('constituency'))    q('constituency').value=s.constituency||'';
   if(q('currentlocation')) q('currentlocation').value=s.currentlocation||'';
@@ -1262,7 +1844,8 @@ window.saveMyProfile=async function(e){
     const update={
       name:          (fd.get('name')||'').trim(),
       reg:           (fd.get('reg')||'').trim(),
-      whatsapp:      (fd.get('whatsapp')||'').trim(),
+      whatsapp:      window.normalizePhone(fd.get('whatsapp')),
+      birthday:      window.birthdayFromInput(fd.get('birthday')),
       email:         (fd.get('email')||'').trim(),
       county:        fd.get('county')||'',
       constituency:  (fd.get('constituency')||'').trim(),
@@ -1279,8 +1862,7 @@ window.saveMyProfile=async function(e){
       photos:        photoUrls,
       updated_at:    new Date().toISOString(),
     };
-    const { error } = await supabase.from('profiles').update(update).eq('id', _currentProfile.id);
-    if (error) throw error;
+    await updateProfileRecord(_currentProfile.id, update);
 
     closeEditMyModal();
     showToast('Profile updated! ✅', 3000);
@@ -1358,7 +1940,10 @@ function startComments(profileId) {
         console.warn('[Comments onSnapshot]', err.code, err.message);
         db.collection('comments').where('studentId', '==', String(profileId)).get()
           .then(snap => paintComments(sortComments(snap.docs.map(d => ({ id: d.id, ...d.data() }))), profileId))
-          .catch(e2 => { if (box) box.innerHTML = `<p style="text-align:center;color:#8a97b8;font-size:.8rem;padding:20px">Comments unavailable.</p>`; });
+          .catch(e2 => {
+            console.error('[Comments get]', e2.code, e2.message);
+            if (box) box.innerHTML = `<p style="text-align:center;color:#8a97b8;font-size:.8rem;padding:20px">Comments unavailable.<br><small>(${esc(e2.code || 'unknown error')})</small></p>`;
+          });
       }
     );
   } catch(e) { console.warn('[Comments try/catch]', e); if (box) box.innerHTML = ''; }
@@ -1496,6 +2081,9 @@ window.submitReply = async function(commentId, profileId) {
     });
     await db.collection('comments').doc(commentId).update({
       replyCount: firebase.firestore.FieldValue.increment(1),
+      lastReplyAt: firebase.firestore.FieldValue.serverTimestamp(),   // lets the comment's author see "X replied to your comment"
+      lastReplyBy: authorName,
+      lastReplyUid: currentUser.uid,
     });
     if (input) input.value = '';
     document.getElementById(`ria-${commentId}`)?.classList.add('hidden');

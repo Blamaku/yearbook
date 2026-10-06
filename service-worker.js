@@ -1,10 +1,15 @@
 // =====================================================
-//  GLUK YEARBOOK 2026 — SERVICE WORKER (Phase 6+)
-//  Cache: gluk-v4  (bump this string on every deploy)
+//  GLUK YEARBOOK 2026 — SERVICE WORKER
+//  Cache: gluk-v30  (bump this string on every deploy)
+//
+//  • Pages, scripts and styles: NETWORK-FIRST. When you are online you always get
+//    the newest version; the saved copy is only used when you are offline.
+//  • Images and CDN libraries: cache-first (fast, they rarely change).
+//  • One missing file can no longer stop the worker from installing.
 // =====================================================
-const CACHE = 'gluk-v5';
+const CACHE = 'gluk-v30';
 
-// App-shell files — all must be present on install
+// App-shell files saved for offline use
 const SHELL = [
   '/',
   '/index.html',
@@ -13,89 +18,102 @@ const SHELL = [
   '/class.html',
   '/profiles.html',
   '/profile.html',
+  '/club.html',
+  '/clubs.html',
   '/admin.html',
   '/style.css',
   '/app.js',
   '/auth.js',
   '/firebase-config.js',
-  '/supabase.js',        // ← was missing; needed for offline init
+  '/supabase.js',
   '/manifest.json',
+  '/logo.png',
+  '/logo-128.png',
+  '/logo-64.png',
+  '/icon-192.png',
+  '/favicon.ico',
 ];
 
-// CDN hosts whose responses we cache after first fetch
+// CDN hosts whose (versioned) files we keep after the first download
 const CDN_HOSTS = [
   'www.gstatic.com',
-  'cdn.jsdelivr.net',    // Supabase JS library
+  'cdn.jsdelivr.net',
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE)
-      .then(c => c.addAll(SHELL))
-      .then(() => self.skipWaiting())
-  );
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    // Save files one by one; a missing file is skipped instead of failing the whole install.
+    // cache:'reload' skips the browser's own cache so we never save a stale copy.
+    await Promise.all(SHELL.map(async url => {
+      try { await cache.add(new Request(url, { cache: 'reload' })); }
+      catch (err) { console.warn('[SW] could not save', url, err && err.message); }
+    }));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys()
-      .then(keys =>
-        Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-      )
-      .then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
+// Pages, scripts, styles and data files from this site
+function isCode(req, url) {
+  return url.origin === self.location.origin &&
+    (req.mode === 'navigate' || url.pathname === '/' || /\.(html|js|css|json)$/i.test(url.pathname));
+}
 
-  // Skip non-GET requests entirely
-  if (e.request.method !== 'GET') return;
+// Saved under the page address WITHOUT ?query, so profile.html?id=7 and ?id=8 share one saved page
+const keyFor = url => url.origin + url.pathname;
 
-  // Firebase live API calls — always network-only (never cache auth / Firestore data)
-  if (
-    url.hostname.includes('firestore.googleapis.com') ||
-    url.hostname.includes('identitytoolkit.googleapis.com') ||
-    url.hostname.includes('securetoken.googleapis.com') ||
-    url.hostname.includes('apis.google.com')
-  ) return;
-
-  // Supabase API calls — always network-only
-  if (url.hostname.includes('supabase.co')) return;
-
-  // CDN libraries (Firebase SDK, Supabase JS) — cache after first fetch
-  if (CDN_HOSTS.includes(url.hostname)) {
-    e.respondWith(
-      caches.open(CACHE).then(c =>
-        c.match(e.request).then(hit => {
-          if (hit) return hit;
-          return fetch(e.request).then(r => {
-            if (r.ok) c.put(e.request, r.clone());
-            return r;
-          });
-        })
-      )
-    );
-    return;
+async function networkFirst(req, url) {
+  const cache = await caches.open(CACHE);
+  try {
+    const res = await fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }));
+    if (res.redirected && req.mode === 'navigate') return Response.redirect(res.url, 302);
+    if (res.ok && !res.redirected) cache.put(keyFor(url), res.clone());
+    return res;
+  } catch (err) {
+    const hit = await cache.match(keyFor(url));
+    if (hit) return hit;
+    if (req.mode === 'navigate') {
+      const home = await cache.match(url.origin + '/index.html');
+      if (home) return home;
+    }
+    return new Response('You are offline.', { status: 503, statusText: 'Offline', headers: { 'Content-Type': 'text/plain' } });
   }
+}
 
-  // App shell — cache-first; fallback to network, then index.html for navigation
-  e.respondWith(
-    caches.match(e.request).then(hit => {
-      if (hit) return hit;
-      return fetch(e.request).then(r => {
-        if (r.ok) {
-          const clone = r.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return r;
-      }).catch(() => {
-        if (e.request.mode === 'navigate') return caches.match('/index.html');
-      });
-    })
-  );
+async function cacheFirst(req) {
+  const cache = await caches.open(CACHE);
+  const hit = await cache.match(req.url);
+  if (hit) return hit;
+  const res = await fetch(req);
+  if (res && res.ok) cache.put(req.url, res.clone());
+  return res;
+}
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+
+  // Sign-in, database and storage traffic: never touch it
+  if (/(firestore|identitytoolkit|securetoken)\.googleapis\.com$/.test(url.hostname) ||
+      url.hostname.includes('apis.google.com') ||
+      url.hostname.includes('firebaseapp.com') ||
+      url.hostname.includes('supabase.co')) return;
+
+  if (isCode(req, url))                 { e.respondWith(networkFirst(req, url)); return; }   // newest files first
+  if (CDN_HOSTS.includes(url.hostname)) { e.respondWith(cacheFirst(req));        return; }   // library files
+  if (url.origin === self.location.origin) { e.respondWith(cacheFirst(req));     return; }   // images, icons
+  // everything else (other websites): leave to the browser
 });
 
 self.addEventListener('message', e => {
-  if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });

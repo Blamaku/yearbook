@@ -5,56 +5,138 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#061020">
   <title>Admin — GLUK Yearbook 2026</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
   <style>
-    .admin-gate  { position:fixed;inset:0;background:var(--off-white);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center; }
-    .admin-stats { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:16px 16px 0; }
-    .a-stat      { background:var(--white);border-radius:var(--radius-md);padding:16px 8px;text-align:center;box-shadow:var(--shadow-sm);border:1px solid rgba(46,114,200,.08); }
-    .a-stat .num { font-size:1.5rem;font-weight:900;color:var(--blue); }
-    .a-stat .lbl { font-size:.6rem;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;margin-top:3px;font-weight:700; }
-    .admin-tabs  { display:flex;border-bottom:2px solid var(--gray-200);background:var(--white);position:sticky;top:0;z-index:10;padding:0 16px;gap:4px; }
-    .a-tab       { padding:12px 14px;font-size:.8rem;font-weight:700;color:var(--gray-600);border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;font-family:inherit; }
-    .a-tab.active{ color:var(--blue);border-bottom-color:var(--blue); }
-    .filter-section { background:var(--off-white);padding:10px 16px;border-bottom:1px solid var(--gray-100); }
-    .filter-section-title { font-size:.6rem;font-weight:800;color:var(--gray-400);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px; }
-    .a-chips { display:flex;gap:6px;flex-wrap:wrap; }
-    .a-chip  { padding:5px 12px;border-radius:50px;font-size:.7rem;border:2px solid var(--gray-200);background:var(--white);cursor:pointer;font-weight:600;font-family:inherit;transition:all .2s;white-space:nowrap; }
-    .a-chip.active { background:var(--blue);border-color:var(--blue);color:var(--white); }
-    .export-panel { background:linear-gradient(135deg,rgba(26,74,143,.06),rgba(26,74,143,.02));border-bottom:1px solid var(--gray-100);padding:10px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
-    .exp-btn { padding:8px 16px;border-radius:var(--radius-full);border:none;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;transition:all .2s; }
-    .exp-btn.excel { background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;box-shadow:0 2px 10px rgba(22,163,74,.3); }
-    .exp-btn:active { transform:scale(.96); }
-    .exp-count { font-size:.68rem;color:var(--gray-400);font-weight:600;margin-left:auto; }
-    .a-search { padding:10px 16px 4px; }
-    .a-search input { width:100%;padding:10px 14px;border:2px solid var(--gray-100);border-radius:var(--radius-full);font-size:.82rem;font-family:inherit;background:var(--white);color:var(--gray-800);transition:all .2s; }
-    .a-search input:focus { outline:none;border-color:var(--blue-light);box-shadow:0 0 0 3px var(--blue-glow); }
-    .a-list  { padding:8px 16px 80px; }
-    .a-item  { background:var(--white);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow-sm);border:1px solid rgba(46,114,200,.06);display:flex;align-items:center;gap:10px; }
-    .a-item-av { width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-vivid));display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--white);font-size:.9rem;flex-shrink:0;overflow:hidden;border:2px solid rgba(46,114,200,.15); }
-    .a-item-av img { width:100%;height:100%;object-fit:cover; }
-    .a-item-info { flex:1;min-width:0; }
-    .a-item-name { font-weight:800;color:var(--navy);font-size:.875rem; }
-    .a-item-sub  { font-size:.68rem;color:var(--gray-400);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-    .a-actions   { display:flex;gap:5px;flex-shrink:0;flex-direction:column;align-items:flex-end; }
-    .a-btn       { padding:5px 10px;border-radius:var(--radius-sm);border:none;font-size:.68rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s; }
-    .a-btn.edit  { background:var(--gold-pale);color:var(--blue); }
-    .a-btn.del   { background:#fef2f2;color:var(--danger); }
-    .a-btn.pdf   { background:#f0fdf4;color:#16a34a; }
-    .a-btn:active { transform:scale(.95); }
-    .a-empty { text-align:center;padding:48px 20px;color:var(--gray-400);font-size:.85rem; }
-    .edit-ov     { position:fixed;inset:0;background:rgba(4,13,30,.78);backdrop-filter:blur(6px);z-index:5000;display:none;align-items:flex-end; }
-    .edit-ov.open{ display:flex; }
-    .edit-sheet  { background:var(--white);border-radius:var(--radius-xl) var(--radius-xl) 0 0;width:100%;max-height:92dvh;overflow-y:auto;padding:24px 20px 44px;animation:slideUp .32s cubic-bezier(.34,1.2,.64,1);border-top:2px solid rgba(245,197,24,.2); }
-    @keyframes slideUp { from{transform:translateY(100%);opacity:.5} to{transform:none;opacity:1} }
+    .admin-gate { position:fixed;inset:0;background:var(--off-white);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center; }
+    body.a-body { background:var(--off-white); }
+    body.a-body .top-bar { position:sticky; top:0; }
+    .a-banner { background:#fef2f2; color:#b91c1c; font-size:.78rem; padding:10px 16px; line-height:1.5; }
+
+    .a-view { display:none; padding:14px 16px 100px; }
+    .a-view.active { display:block; }
+    .a-sec { font-size:.66rem; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--gray-400); margin:18px 2px 8px; }
+    .a-sec:first-child { margin-top:0; }
+
+    .a-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .a-stat { background:var(--white); border:1px solid var(--gray-100); border-radius:var(--radius-md); padding:12px 14px; box-shadow:var(--shadow-sm); text-align:left; font-family:inherit; cursor:pointer; }
+    .a-stat b { display:block; font-size:1.3rem; font-weight:900; color:var(--navy); }
+    .a-stat span { font-size:.72rem; color:var(--gray-600); }
+    .a-card { background:var(--white); border:1px solid var(--gray-100); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); overflow:hidden; }
+    .a-qa { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .a-qa button, .a-more { padding:12px; border-radius:var(--radius-md); border:1.5px solid var(--gray-200); background:var(--white); color:var(--navy); font-weight:700; font-size:.78rem; font-family:inherit; cursor:pointer; }
+    .a-more { width:100%; margin-top:10px; }
+
+    .a-row { display:flex; align-items:center; gap:12px; width:100%; padding:12px 14px; border:none; border-bottom:1px solid var(--gray-100); background:none; text-align:left; font-family:inherit; font-size:.84rem; color:var(--navy); cursor:pointer; }
+    .a-row:last-child { border-bottom:none; }
+    .a-row.static { cursor:default; }
+    .grow { flex:1; min-width:0; }
+    .a-name { display:block; font-weight:800; font-size:.86rem; color:var(--navy); text-decoration:none; }
+    .a-sub { display:block; font-size:.7rem; color:var(--gray-400); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .a-sub.inline { display:inline; white-space:normal; }
+    .a-sub.warnT { color:#b45309; }
+    .a-sub a { color:var(--blue); }
+    .chev { color:var(--gray-400); font-size:1.2rem; }
+    .a-tile { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex-shrink:0; background:var(--gray-100); }
+    .a-av { width:40px; height:40px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:800; font-size:.8rem; color:#fff; background:linear-gradient(135deg,var(--blue),var(--blue-vivid,#3b82e6)); }
+    .a-av img { width:100%; height:100%; object-fit:cover; }
+    .a-av.big { width:68px; height:68px; font-size:1.2rem; margin:0 auto 8px; }
+    .a-badge { display:inline-block; font-size:.62rem; font-weight:800; padding:2px 8px; border-radius:20px; background:var(--gray-100); color:var(--gray-600); margin-left:4px; vertical-align:middle; }
+    .a-badge.warn { background:#fef3c7; color:#92400e; }
+    .a-empty { text-align:center; padding:44px 20px; color:var(--gray-400); font-size:.85rem; line-height:1.6; }
+    .a-warn { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; border-radius:var(--radius-md); padding:11px 14px; font-size:.78rem; line-height:1.5; margin-bottom:12px; }
+
+    .a-seg { display:grid; grid-template-columns:1fr 1fr; background:var(--gray-100); border-radius:var(--radius-md); padding:3px; margin-bottom:12px; }
+    .a-seg button { padding:8px 0; border:none; border-radius:8px; background:none; font-family:inherit; font-size:.78rem; font-weight:700; color:var(--gray-600); cursor:pointer; }
+    .a-seg button.on { background:var(--white); color:var(--navy); box-shadow:var(--shadow-sm); }
+    .a-tools { display:flex; gap:8px; margin-bottom:10px; }
+    .a-tools input { flex:1; min-width:0; padding:11px 14px; border:1.5px solid var(--gray-200); border-radius:var(--radius-md); font-size:.84rem; font-family:inherit; background:var(--white); color:var(--navy); box-sizing:border-box; outline:none; }
+    .a-tools input:focus { border-color:var(--blue-light); }
+    .a-fbtn { padding:0 14px; border-radius:var(--radius-md); border:1.5px solid var(--gray-200); background:var(--white); color:var(--navy); font-weight:700; font-size:.78rem; font-family:inherit; cursor:pointer; white-space:nowrap; }
+    .a-fbtn em { font-style:normal; background:var(--blue); color:#fff; border-radius:20px; padding:1px 7px; font-size:.66rem; margin-left:4px; }
+    .a-chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .a-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:50px; border:1.5px solid var(--gray-200); background:var(--white); color:var(--gray-600); font-size:.72rem; font-weight:600; font-family:inherit; cursor:pointer; }
+    .a-chip.on { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .a-chip-x { border:none; background:none; color:inherit; font-size:.7rem; cursor:pointer; padding:0; line-height:1; }
+    .a-link { border:none; background:none; color:var(--blue); font-weight:700; font-size:.72rem; font-family:inherit; cursor:pointer; padding:5px 4px; }
+    #activeChips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+    #activeChips:empty { display:none; }
+    .a-meta { display:flex; align-items:center; gap:8px; margin:6px 2px 8px; font-size:.74rem; color:var(--gray-600); }
+    .a-meta select { border:none; background:none; color:var(--gray-600); font-family:inherit; font-size:.74rem; }
+    .a-mini { padding:5px 10px; border-radius:var(--radius-sm); border:1.5px solid var(--gray-200); background:var(--white); color:var(--navy); font-size:.68rem; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap; }
+    .a-mini.danger { color:var(--danger); border-color:#fecaca; background:#fef2f2; }
+    .a-mini.light { background:rgba(255,255,255,.15); color:#fff; border-color:rgba(255,255,255,.35); }
+
+    .a-item { background:var(--white); border:1px solid var(--gray-100); border-radius:var(--radius-lg); padding:12px 14px; margin-bottom:10px; box-shadow:var(--shadow-sm); }
+    .a-item-top { display:flex; gap:10px; align-items:flex-start; }
+    .a-item-acts { display:flex; gap:6px; justify-content:flex-end; margin-top:8px; }
+    .a-text { font-size:.82rem; line-height:1.5; color:var(--gray-600); margin-top:2px; word-break:break-word; }
+    .a-replies { margin-top:8px; }
+    .a-reply { display:flex; gap:8px; align-items:flex-start; font-size:.78rem; line-height:1.5; padding:8px 0 0 12px; margin-left:12px; border-left:2px solid var(--gray-100); }
+
+    .a-nav { position:fixed; left:0; right:0; bottom:0; z-index:200; display:grid; grid-template-columns:repeat(4,1fr); background:var(--white); border-top:1px solid var(--gray-100); padding-bottom:env(safe-area-inset-bottom,0px); box-shadow:0 -4px 16px rgba(0,0,0,.06); }
+    .a-nav button { display:flex; flex-direction:column; align-items:center; gap:2px; padding:9px 0 8px; border:none; background:none; font-family:inherit; font-size:.66rem; font-weight:700; color:var(--gray-400); cursor:pointer; }
+    .a-nav button i { font-style:normal; font-size:1.15rem; }
+    .a-nav button.on { color:var(--blue); }
+
+    .a-ov { position:fixed; inset:0; z-index:5000; display:none; align-items:flex-end; background:rgba(4,13,30,.78); }
+    .a-ov.open { display:flex; }
+    .a-sheet { background:var(--white); width:100%; max-height:92dvh; overflow-y:auto; border-radius:var(--radius-xl) var(--radius-xl) 0 0; padding:18px 18px 40px; box-sizing:border-box; }
+    .a-sheet-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .a-x { width:34px; height:34px; border-radius:50%; border:none; background:var(--gray-100); color:var(--gray-600); font-size:.9rem; cursor:pointer; }
+    .a-f-title { font-size:.66rem; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--gray-400); margin:14px 0 6px; }
+    .a-btns { display:flex; gap:10px; margin-top:18px; }
+    .a-btns .btn-primary, .a-btns .btn-secondary { flex:1; margin:0; }
+    .d-head { text-align:center; padding-top:2px; }
+    .d-name { font-size:1.05rem; font-weight:900; color:var(--navy); }
+    .d-clubs { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:8px; }
+    .d-contact { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 6px; }
+    .a-btn2 { display:block; text-align:center; text-decoration:none; padding:11px 8px; border-radius:var(--radius-md); border:1.5px solid var(--gray-200); background:var(--white); color:var(--navy); font-size:.78rem; font-weight:700; }
+    .a-btn2.off { color:var(--gray-400); background:var(--gray-100); border-color:transparent; }
+    .a-act { display:flex; align-items:center; gap:12px; width:100%; padding:13px 2px; border:none; border-bottom:1px solid var(--gray-100); background:none; text-align:left; text-decoration:none; font-family:inherit; font-size:.86rem; color:var(--navy); cursor:pointer; }
+    .a-act .a-ico { width:26px; text-align:center; font-size:1.05rem; }
+    .a-act.danger { color:var(--danger); border-bottom:none; }
+    body.a-body .gluk-toast { white-space:normal; max-width:calc(100vw - 32px); text-align:center; border-radius:16px; }
+    [data-theme="dark"] .a-badge.warn { background:#3b2f0a; color:#fcd34d; }
+    [data-theme="dark"] .a-warn { background:#3b2410; color:#fdba74; border-color:#7c2d12; }
+    [data-theme="dark"] .a-mini.danger { background:#3b1212; border-color:#7f1d1d; }
+    [data-theme="dark"] .a-banner { background:#3b1212; color:#fca5a5; }
+
+    /* Desktop only (860px+): cap and centre the content and the bottom nav's
+       buttons, and turn the sheets into centred dialogs. */
+    @media (min-width: 860px) {
+      .a-view {
+        max-width: var(--content-max, 920px);
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .a-stats { grid-template-columns: repeat(3, 1fr); }
+      .a-nav {
+        padding-left: max(28px, calc((100% - var(--content-max, 920px)) / 2));
+        padding-right: max(28px, calc((100% - var(--content-max, 920px)) / 2));
+      }
+      .a-ov { align-items: center; padding: 20px; }
+      .a-sheet {
+        width: 100%; max-width: 640px; margin: 0 auto;
+        border-radius: var(--radius-xl);
+        max-height: calc(100dvh - 40px);
+        animation: authIn .32s cubic-bezier(.34,1.2,.64,1) both;
+      }
+    }
   </style>
 </head>
-<body>
+<body class="a-body">
 
   <div class="admin-gate" id="adminGate">
     <div style="font-size:3.5rem">🔐</div>
     <h2 style="color:var(--navy);font-size:1.3rem">Admin Access</h2>
     <p style="color:var(--gray-600);font-size:.875rem;max-width:280px">Sign in with the admin account to manage the GLUK Yearbook.</p>
     <button class="btn-primary" style="max-width:240px;width:100%" onclick="openAuthModal(null,'login')">Sign In as Admin</button>
+    <p id="gateMsg" style="color:#dc2626;font-size:.78rem;max-width:300px;line-height:1.5;margin:0"></p>
+    <p id="gateInfo" style="color:var(--gray-400);font-size:.72rem;max-width:300px;line-height:1.5;margin:0">Loading scripts…</p>
+    <p style="color:var(--gray-400);font-size:.6rem;margin:0;opacity:.7">Admin page build 20</p>
     <a href="index.html" style="font-size:.8rem;color:var(--gray-400);margin-top:8px">← Back to Yearbook</a>
   </div>
 
@@ -62,425 +144,1040 @@
     <div style="font-size:3rem">🚫</div>
     <h2 style="color:var(--navy)">Access Denied</h2>
     <p style="color:var(--gray-600);font-size:.875rem">This page is only for the yearbook admin.</p>
+    <p id="deniedEmail" style="color:var(--gray-600);font-size:.78rem;max-width:300px;line-height:1.5;margin:0"></p>
+    <button class="btn-secondary" style="max-width:200px" onclick="logOut()">Sign out</button>
     <a href="index.html" class="btn-primary" style="max-width:200px;display:block;text-align:center">Go Home</a>
   </div>
 
+    <script>
+  /* Admin sign-in screen watchdog. It runs before every other script and needs nothing from them, so if a
+     script is slow, blocked or crashes, this screen says so instead of sitting on "Loading…" forever. */
+  (function () {
+    var say = function (id, t) { var el = document.getElementById(id); if (el) el.textContent = t || ''; };
+    window.__adminLoaded = false;
+    window.addEventListener('error', function (e) {
+      var t = e && e.target;
+      if (t && t !== window && t.tagName === 'SCRIPT') {
+        say('gateMsg', 'Could not load ' + String(t.src || 'a script').split('/').pop().split('?')[0] + '. Check your internet connection, then reload this page.');
+      } else if (e && e.message) {
+        say('gateMsg', 'Something went wrong loading this page: ' + e.message);
+      }
+    }, true);
+    function missing() {
+      var m = [];
+      if (typeof firebase === 'undefined') m.push('Firebase');
+      if (typeof auth === 'undefined') m.push('sign-in (firebase-config.js)');
+      if (typeof supabase === 'undefined' || !supabase || !supabase.from) m.push('the database library (Supabase)');
+      if (typeof esc !== 'function') m.push('app.js');
+      if (!window.__adminLoaded) m.push('the admin page script');
+      return m;
+    }
+    [8000, 20000].forEach(function (ms) {
+      setTimeout(function () {
+        if (window.__adminLoaded) return;
+        var m = missing();
+        say('gateInfo', 'Still loading… waiting for: ' + (m.length ? m.join(', ') : 'the page') + '. This is usually a slow or blocked connection.');
+      }, ms);
+    });
+  })();
+  </script>
+
   <div id="adminContent" style="display:none">
 
-    <div style="background:linear-gradient(90deg,var(--navy),var(--navy-mid));padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-md);position:sticky;top:0;z-index:100;border-bottom:1px solid rgba(245,197,24,.15)">
-      <a href="index.html" class="back-btn" style="text-decoration:none;display:flex;align-items:center;justify-content:center">‹</a>
-      <div style="flex:1;color:var(--white);font-size:.95rem;font-weight:800">🛠 Admin Panel</div>
-      <span style="background:linear-gradient(135deg,var(--gold),var(--gold-bright));color:var(--navy);font-size:.65rem;font-weight:900;padding:3px 10px;border-radius:20px">Admin</span>
-      <button onclick="logOut()" style="background:rgba(255,100,100,.15);border:1px solid rgba(255,100,100,.3);color:rgba(255,130,130,.9);font-size:.72rem;font-weight:700;padding:6px 12px;border-radius:20px;cursor:pointer;font-family:inherit">Sign Out</button>
-    </div>
+    <nav class="top-bar">
+      <button class="back-btn" data-act="site" aria-label="Back to the yearbook">‹</button>
+      <div style="flex:1"><h1 id="aTitle">Overview<span class="subtitle">GLUK Yearbook 2026</span></h1></div>
+      <button class="a-mini light" data-act="signout">Sign out</button>
+    </nav>
+    <div id="aBanner" class="a-banner" style="display:none"></div>
 
-    <div class="admin-stats">
-      <div class="a-stat"><div class="num" id="aStat1">--</div><div class="lbl">Profiles</div></div>
-      <div class="a-stat"><div class="num" id="aStat2">--</div><div class="lbl">Comments</div></div>
-      <div class="a-stat"><div class="num">6</div><div class="lbl">Schools</div></div>
-    </div>
+    <!-- ── Home ── -->
+    <section class="a-view active" id="v-home">
+      <div class="a-sec">Overview</div>
+      <div class="a-stats">
+        <button type="button" class="a-stat" data-act="stat" data-v="students"><b id="stProfiles">–</b><span>Profiles</span></button>
+        <button type="button" class="a-stat" data-act="stat" data-v="students"><b id="stNew">–</b><span>New this week</span></button>
+        <button type="button" class="a-stat" data-act="stat" data-v="students"><b id="stStudents">–</b><span>Students</span></button>
+        <button type="button" class="a-stat" data-act="stat" data-v="students"><b id="stAlumni">–</b><span>Alumni</span></button>
+        <button type="button" class="a-stat" data-act="stat" data-v="comments"><b id="stComments">–</b><span>Comments</span></button>
+        <button type="button" class="a-stat" data-act="stat" data-v="clubs"><b id="stClubs">–</b><span>Clubs with officials</span></button>
+      </div>
+      <div class="a-sec">Needs attention</div>
+      <div class="a-card" id="attnBox"><div class="a-empty" style="padding:22px 16px">Checking…</div></div>
+      <div class="a-sec">Security</div>
+      <div class="a-card" id="secBox"><div class="a-empty" style="padding:22px 16px">Checking the secure service…</div></div>
+      <div class="a-sec">Quick actions</div>
+      <div class="a-qa">
+        <button type="button" data-act="qa-export">📊 Export to Excel</button>
+        <button type="button" data-act="go" data-v="clubs">➕ Add official</button>
+      </div>
+    </section>
 
-    <div class="admin-tabs" style="margin-top:14px">
-      <button class="a-tab active" onclick="switchTab('students',this)">👥 Students</button>
-      <button class="a-tab"        onclick="switchTab('comments',this)">💬 Comments</button>
-    </div>
+    <!-- ── Students ── -->
+    <section class="a-view" id="v-students">
+      <div class="a-seg"><button type="button" id="seg-active" class="on" data-act="view" data-v="active">Active</button><button type="button" id="seg-archived" data-act="view" data-v="archived">Archived</button></div>
+      <div class="a-tools">
+        <input type="search" id="sSearch" placeholder="Search name, reg or email" autocomplete="off">
+        <button type="button" class="a-fbtn" data-act="open-filters">⚙ Filters <em id="filtersBadge" style="display:none"></em></button>
+      </div>
+      <div id="activeChips"></div>
+      <div class="a-meta"><span id="sCount"></span><span style="flex:1"></span>
+        <select id="sSort" aria-label="Sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="name">Name A–Z</option><option value="year">Class year</option></select>
+        <button type="button" class="a-mini" data-act="export">⬇ Excel</button>
+      </div>
+      <div id="sList"></div>
+    </section>
 
-    <div id="studentsView">
-      <div class="filter-section">
-        <div class="filter-section-title">School / Faculty</div>
-        <div class="a-chips" id="deptChips">
-          <button class="a-chip active" onclick="setDeptFilter('',this)">All Schools</button>
-          <button class="a-chip" onclick="setDeptFilter('School of Medicine',this)">Medicine</button>
-          <button class="a-chip" onclick="setDeptFilter('School of Nursing and Midwifery',this)">Nursing</button>
-          <button class="a-chip" onclick="setDeptFilter('School of Public Health',this)">Public Health</button>
-          <button class="a-chip" onclick="setDeptFilter('Faculty of Education',this)">Education</button>
-          <button class="a-chip" onclick="setDeptFilter('Faculty of Agribusiness and Technology',this)">Agribusiness</button>
-          <button class="a-chip" onclick="setDeptFilter('School of Business Administration',this)">Business</button>
-        </div>
+    <!-- ── Moderation ── -->
+    <section class="a-view" id="v-mod">
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button></div>
+      <div id="mod-comments"><div id="cList"></div></div>
+      <div id="mod-posts" style="display:none">
+        <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
+        <div id="pList"></div><div id="pMore"></div>
       </div>
-      <div class="filter-section" style="padding-top:6px">
-        <div class="filter-section-title">Class Year</div>
-        <div class="a-chips" id="yearChips">
-          <button class="a-chip active" onclick="setYearFilter('',this)">All Years</button>
-        </div>
-      </div>
-      <div class="filter-section" style="padding-top:6px">
-        <div class="filter-section-title">Club / Society</div>
-        <div class="a-chips" id="clubChips" style="overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;scrollbar-width:none">
-          <button class="a-chip active" onclick="setClubFilter('',this)">All Clubs</button>
-        </div>
-      </div>
-      <div class="filter-section" style="padding-top:6px">
-        <div class="filter-section-title">Home County</div>
-        <div class="a-chips" id="countyChips" style="overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;scrollbar-width:none">
-          <button class="a-chip active" onclick="setCountyFilter('',this)">All Counties</button>
-        </div>
-      </div>
-      <div class="export-panel">
-        <button class="exp-btn excel" onclick="exportExcel()">📊 Export to Excel</button>
-        <span class="exp-count" id="exportCount"></span>
-      </div>
-      <div class="a-search">
-        <input type="search" id="aSearchInput" placeholder="🔍  Search name, reg or email…" autocomplete="off">
-      </div>
-    </div>
+    </section>
 
-    <div class="a-list" id="aList"><div class="a-empty">Loading…</div></div>
+    <!-- ── Clubs ── -->
+    <section class="a-view" id="v-clubs">
+      <div id="cluNote"></div>
+      <div class="a-tools"><input type="search" id="cSearch" placeholder="Search clubs" autocomplete="off"></div>
+      <div class="a-seg"><button type="button" id="cf-all" class="on" data-act="club-filter" data-v="all">All clubs</button><button type="button" id="cf-none" data-act="club-filter" data-v="none">No officials</button></div>
+      <div id="cluList"></div>
+    </section>
+
+    <nav class="a-nav" aria-label="Admin sections">
+      <button type="button" id="nav-home" class="on" data-act="go" data-v="home"><i>🏠</i>Home</button>
+      <button type="button" id="nav-students" data-act="go" data-v="students"><i>👥</i>Students</button>
+      <button type="button" id="nav-mod" data-act="go" data-v="mod"><i>🛡</i>Moderation</button>
+      <button type="button" id="nav-clubs" data-act="go" data-v="clubs"><i>🏛</i>Clubs</button>
+    </nav>
   </div>
 
-  <div class="edit-ov" id="editOv" onclick="if(event.target===this)closeEdit()">
-    <div class="edit-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-title">✏️ Edit Profile</div>
-      <form id="editForm" onsubmit="saveEdit(event)">
-        <input type="hidden" id="eId">
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" type="text" id="eName"></div>
-          <div class="form-group"><label class="form-label">Reg Number</label><input class="form-input" type="text" id="eReg"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Home County</label><input class="form-input" type="text" id="eCounty"></div>
-          <div class="form-group"><label class="form-label">Class Year</label><select class="form-select" id="eYear"></select></div>
-        </div>
-        <div class="form-group"><label class="form-label">School / Faculty</label><input class="form-input" type="text" id="eDept"></div>
-        <div class="form-group"><label class="form-label">Programme</label><input class="form-input" type="text" id="eCourse"></div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" id="eEmail"></div>
-          <div class="form-group"><label class="form-label">WhatsApp</label><input class="form-input" type="tel" id="eWhatsapp"></div>
-        </div>
-        <div class="form-group"><label class="form-label">Bio</label><textarea class="form-textarea" id="eBio" rows="4" maxlength="600"></textarea></div>
-        <div class="form-group"><label class="form-label">Best Memory</label><textarea class="form-textarea" id="eMemory" rows="3" maxlength="400"></textarea></div>
-        <div class="form-group"><label class="form-label">Biggest Lesson</label><textarea class="form-textarea" id="eLesson" rows="2" maxlength="200"></textarea></div>
-        <div class="form-group"><label class="form-label">Most Likely To</label><input class="form-input" type="text" id="eLikely"></div>
-        <button type="submit" class="btn-primary">💾 &nbsp; Save Changes</button>
-        <button type="button" class="btn-secondary" onclick="closeEdit()">Cancel</button>
-      </form>
+  <!-- ── Filters sheet ── -->
+  <div class="a-ov" id="filtersOv" data-act="backdrop"><div class="a-sheet">
+    <div class="modal-handle"></div>
+    <div class="a-sheet-head"><div class="modal-title" style="margin:0">Filters</div><button type="button" class="a-x" data-act="close" data-v="filtersOv" aria-label="Close">✕</button></div>
+    <div class="a-f-title">School</div><div class="a-chips" id="fDept"></div>
+    <div class="a-f-title">Class</div><div class="a-chips" id="fYear"></div>
+    <div class="a-f-title">Club</div><select class="form-select" id="fClub"></select>
+    <div class="a-f-title">Home county</div><select class="form-select" id="fCounty"></select>
+    <div class="a-f-title">Photo</div><div class="a-chips"><button type="button" class="a-chip" id="fNoPhoto" data-act="f-nophoto">Only profiles without a photo</button></div>
+    <div class="a-btns"><button type="button" class="btn-secondary" data-act="f-reset">Reset</button><button type="button" class="btn-primary" id="fApply" data-act="f-apply">Show students</button></div>
+  </div></div>
+
+  <!-- ── Student detail sheet ── -->
+  <div class="a-ov" id="detailOv" data-act="backdrop"><div class="a-sheet">
+    <div class="modal-handle"></div>
+    <div class="a-sheet-head"><span></span><button type="button" class="a-x" data-act="close" data-v="detailOv" aria-label="Close">✕</button></div>
+    <div id="detailBody"></div>
+  </div></div>
+
+  <!-- ── Edit sheet ── -->
+  <div class="a-ov" id="editOv" data-act="backdrop"><div class="a-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✏️ Edit profile</div>
+    <form id="editForm">
+      <input type="hidden" id="eId">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" for="eName">Full name</label><input class="form-input" type="text" id="eName"></div>
+        <div class="form-group"><label class="form-label" for="eReg">Reg number</label><input class="form-input" type="text" id="eReg"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" for="eCounty">Home county</label><input class="form-input" type="text" id="eCounty"></div>
+        <div class="form-group"><label class="form-label" for="eYear">Class year</label><select class="form-select" id="eYear"></select></div>
+      </div>
+      <div class="form-group"><label class="form-label" for="eDept">School / faculty</label><input class="form-input" type="text" id="eDept"></div>
+      <div class="form-group"><label class="form-label" for="eCourse">Programme</label><input class="form-input" type="text" id="eCourse"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" for="eEmail">Email</label><input class="form-input" type="email" id="eEmail"></div>
+        <div class="form-group"><label class="form-label" for="eWhatsapp">WhatsApp</label><input class="form-input" type="tel" id="eWhatsapp"></div>
+      </div>
+      <div class="form-group"><label class="form-label" for="eBirthday">Birthday <span style="font-weight:400;color:var(--gray-400)">(month &amp; day only)</span></label><input class="form-input" type="date" id="eBirthday"></div>
+      <div class="form-group"><label class="form-label" for="eBio">Bio</label><textarea class="form-textarea" id="eBio" rows="4" maxlength="600"></textarea></div>
+      <div class="form-group"><label class="form-label" for="eMemory">Best memory</label><textarea class="form-textarea" id="eMemory" rows="3" maxlength="400"></textarea></div>
+      <div class="form-group"><label class="form-label" for="eLesson">Biggest lesson</label><textarea class="form-textarea" id="eLesson" rows="2" maxlength="200"></textarea></div>
+      <div class="form-group"><label class="form-label" for="eLikely">Most likely to</label><input class="form-input" type="text" id="eLikely"></div>
+      <button type="submit" class="btn-primary">💾 &nbsp; Save changes</button>
+      <button type="button" class="btn-secondary" data-act="close" data-v="editOv">Cancel</button>
+    </form>
+  </div></div>
+
+  <!-- ── Club officials sheet ── -->
+  <div class="a-ov" id="clubOv" data-act="backdrop"><div class="a-sheet">
+    <div class="modal-handle"></div>
+    <div class="a-sheet-head"><div class="modal-title" style="margin:0" id="clubTitle">Club</div><button type="button" class="a-x" data-act="close" data-v="clubOv" aria-label="Close">✕</button></div>
+    <p style="font-size:.74rem;color:var(--gray-600);line-height:1.5;margin:0 0 12px">Officials can post notices, activities, minutes and photos for this club, pin posts and edit its About details. They must sign in with the email you enter here (Google sign-in is easiest) and verify it.</p>
+    <div id="ocList"></div>
+    <div class="a-card" style="padding:14px;margin-top:14px">
+      <div class="a-f-title" style="margin-top:0">Add an official</div>
+      <div class="form-group">
+        <label class="form-label" for="ocSearch">Find a student</label>
+        <input class="form-input" type="text" id="ocSearch" placeholder="Search by name or reg number…" autocomplete="off">
+        <div id="ocResults"></div>
+      </div>
+      <p class="a-sub" style="margin:-2px 0 10px">Pick a match above to fill in their details, or type them in yourself below (for a patron who isn't a student, for example).</p>
+      <div class="form-group"><label class="form-label" for="ocName">Name</label><input class="form-input" type="text" id="ocName" maxlength="80" placeholder="e.g. Achieng Otieno"></div>
+      <div class="form-group"><label class="form-label" for="ocEmail">Email they sign in with</label><input class="form-input" type="email" id="ocEmail" maxlength="120" placeholder="name@gmail.com"></div>
+      <div class="form-group"><label class="form-label" for="ocRole">Role</label><select class="form-select" id="ocRole"></select><div id="ocRoleNote" class="a-warn" style="display:none;margin:8px 0 0"></div></div>
+      <button type="button" class="btn-primary" data-act="add-official">➕ Add official</button>
     </div>
-  </div>
+  </div></div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="auth.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
   <script src="supabase.js"></script>
   <script src="app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-  'use strict';
-  let _tab='students', _deptFilter='', _yearFilter='', _clubFilter='', _countyFilter='', _searchTerm='', _allStudents=[];
-
-  (function(){
-    const GY=new Date().getFullYear();
-    const yc=document.getElementById('yearChips');
-    const eY=document.getElementById('eYear');
-    [GY,GY+1,GY+2,GY+3].forEach(y=>{
-      const b=document.createElement('button');
-      b.className='a-chip'; b.textContent='Class of '+y;
-      b.onclick=()=>setYearFilter(String(y),b);
-      yc.appendChild(b);
-      const o=document.createElement('option');
-      o.value=String(y); o.textContent=String(y);
-      eY.appendChild(o);
+  (function () {
+    'use strict';
+  
+    const $     = id => document.getElementById(id);
+    const E     = s => esc(s);
+    const toast = (m, d) => showToast(m, d);
+  
+    /* ══ Admin gate ─ registered FIRST, so nothing below can leave you stuck on the sign-in screen ══ */
+    function gateMsg(t)  { const el = $('gateMsg');  if (el) el.textContent = t || ''; }
+    function gateInfo(t) { const el = $('gateInfo'); if (el) el.textContent = t || ''; }
+    function banner(t)   { const el = $('aBanner');  if (el) { el.textContent = t || ''; el.style.display = t ? 'block' : 'none'; } }
+    gateInfo('Checking your sign-in…');
+    window.addEventListener('error', e => {
+      const m = 'Something went wrong on this page: ' + (e.message || 'unknown error');
+      gateMsg(m); banner(m);
     });
-    // Populate club chips
-    const cc=document.getElementById('clubChips');
-    if(cc&&window.GLUK_CLUBS){
-      window.GLUK_CLUBS.forEach(club=>{
-        const b=document.createElement('button');
-        b.className='a-chip'; b.textContent=club;
-        b.onclick=()=>setClubFilter(club,b);
-        cc.appendChild(b);
-      });
+  
+    let _started = false, _admin = null;
+    auth.onAuthStateChanged(user => {
+      const gate = $('adminGate'), denied = $('adminDenied'), content = $('adminContent');
+      if (!user) {
+        gate.style.display = 'flex'; denied.style.display = 'none'; content.style.display = 'none';
+        gateInfo('You are not signed in on this page yet. Tap the button above to sign in.');
+        return;
+      }
+      gateInfo('');
+      if (String(user.email || '').toLowerCase() !== String(ADMIN_EMAIL).toLowerCase()) {
+        gate.style.display = 'none'; denied.style.display = 'flex'; content.style.display = 'none';
+        const de = $('deniedEmail');
+        if (de) de.textContent = 'You are signed in as ' + (user.email || 'an account with no email') + '. Sign out, then sign in with the admin account.';
+        return;
+      }
+      gate.style.display = 'none'; denied.style.display = 'none'; content.style.display = 'block';
+      _admin = user;
+      start();
+    });
+  
+    /* ══ Helpers ══ */
+    const SCHOOLS = ['School of Medicine', 'School of Nursing and Midwifery', 'School of Public Health', 'Faculty of Education',
+      'Faculty of Humanities and Social Sciences', 'Faculty of Agribusiness and Technology', 'School of Business Administration'];
+    const ROLES_GENERIC = ['Patron', 'Chairperson', 'Vice chairperson', 'Secretary', 'Treasurer', 'Organizing secretary', 'Officer'];
+    // GLUK Students Association: full executive + Students Legislative Council structure.
+    const ROLES_GLUKSA = [
+      'Chairperson', 'Vice Chairperson', 'Secretary General', 'Finance Minister',
+      'Academic Minister', 'Sports and Entertainment Minister', 'Gender and Social Welfare Minister',
+      'Speaker (SLC)', 'Deputy Speaker (SLC)',
+      'Campus Representative – Milimani', 'Campus Representative – Kibos', 'Campus Representative – Nairobi',
+      'Patron',
+    ];
+    // Governance rules for GLUKSA's special-group seats. These need a document or a human judgement
+    // call the system can't verify, so they are shown here as a reminder — not enforced automatically.
+    const ROLE_NOTES = {
+      'Vice Chairperson': 'Constitution: must be the opposite gender to the Chairperson. Check who currently holds Chairperson before confirming.',
+      'Gender and Social Welfare Minister': 'Constitution: reserved for a female student. A male student may hold this seat only with supporting documentation from the PWD office — check this outside the system before adding him here.',
+    };
+    const ROLES = ROLES_GENERIC; // kept for anywhere still referencing the old name
+    const rolesFor = club => club === 'GLUK Students Association' ? ROLES_GLUKSA : ROLES_GENERIC;
+    const MISSING = /schema cache|does not exist|PGRST205|42P01/i;
+    const STEP = 50;
+  
+    const GY        = () => window.GRAD_YEAR || new Date().getFullYear();
+    const isMissing = e => !!e && MISSING.test(((e.message || '') + ' ' + (e.code || '')));
+    const initials  = n => (String(n || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2) || '?').toUpperCase();
+    const shortDept = d => String(d || '').replace(/School of |Faculty of /g, '');
+    const hasPhoto  = s => !!String(s.photo_url || '').trim();       // same rule as the dashboard count: empty = no photo
+    const emailOk   = s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s || '');
+    const nfmt      = v => (v === null || v === undefined) ? '–' : Number(v).toLocaleString('en');
+    const plural    = (n, one, many) => n === 1 ? one : many;
+    const clubsOf   = s => window.parseClubField ? window.parseClubField(s.clubs)
+      : (Array.isArray(s.clubs) ? s.clubs : String(s.clubs || '').split(',').map(x => x.trim()).filter(Boolean));
+    const fmtDate   = d => { try { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } };
+    const yearLabel = y => Number(y) >= GY() ? 'Class of ' + y : y + ' alumni';
+    const uniq      = a => [...new Set(a)];
+    function tsDate(t) { try { return t && t.toDate ? t.toDate() : (t ? new Date(t) : null); } catch (e) { return null; } }
+    function ago(t) {
+      const d = tsDate(t); if (!d) return '';
+      const s = Math.floor((Date.now() - d.getTime()) / 1000);
+      if (s < 60) return 'just now';
+      if (s < 3600) return Math.floor(s / 60) + ' min ago';
+      if (s < 86400) { const h = Math.floor(s / 3600); return h + ' hour' + (h === 1 ? '' : 's') + ' ago'; }
+      if (s < 604800) { const dd = Math.floor(s / 86400); return dd === 1 ? 'yesterday' : dd + ' days ago'; }
+      return fmtDate(d);
     }
-    // Populate county chips
-    const kc=document.getElementById('countyChips');
-    if(kc&&window.KENYA_COUNTIES){
-      window.KENYA_COUNTIES.forEach(county=>{
-        const b=document.createElement('button');
-        b.className='a-chip'; b.textContent=county;
-        b.onclick=()=>setCountyFilter(county,b);
-        kc.appendChild(b);
-      });
+    function lock(on) { document.documentElement.style.overflow = on ? 'hidden' : ''; }
+    function openSheet(id)  { $(id).classList.add('open'); lock(true); }
+    function closeSheet(id) { $(id).classList.remove('open'); if (!document.querySelector('.a-ov.open')) lock(false); }
+    function closeAllSheets() { ['filtersOv', 'detailOv', 'editOv', 'clubOv'].forEach(id => $(id).classList.remove('open')); lock(false); }
+  
+    async function fetchAll(table) {                       // reads every page (Supabase returns at most 1,000 rows per request)
+      const PAGE = 1000, rows = [];
+      for (let from = 0; from < 50000; from += PAGE) {
+        let data, error;
+        if (table === 'profiles_archive') {                // locked to the public key: read through the secure service
+          try { data = (await window.gApi('admin.archive.list', { from })).rows; }
+          catch (e) {
+            if (!(e.unreachable || e.code === 'unknown_action')) throw e;   // function not redeployed yet: old direct read
+            ({ data, error } = await supabase.from(table).select('*')
+              .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + PAGE - 1));
+          }
+        } else {
+          ({ data, error } = await supabase.from(table).select('*')
+            .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + PAGE - 1));
+        }
+        if (error) throw error;
+        rows.push(...(data || []));
+        if (!data || data.length < PAGE) break;
+      }
+      return rows;
     }
-  })();
-
-  document.getElementById('aSearchInput').addEventListener('input',function(){
-    _searchTerm=this.value.toLowerCase().trim();
-    renderStudentList(_allStudents);
-  });
-
-  auth.onAuthStateChanged(user=>{
-    const gate=document.getElementById('adminGate');
-    const denied=document.getElementById('adminDenied');
-    const content=document.getElementById('adminContent');
-    if(!user){gate.style.display='flex';denied.style.display='none';content.style.display='none';return;}
-    if(user.email!==ADMIN_EMAIL){gate.style.display='none';denied.style.display='flex';content.style.display='none';return;}
-    gate.style.display='none';denied.style.display='none';content.style.display='block';
-    loadStats(); loadStudents();
-  });
-
-  async function loadStats(){
-    try{
-      const[{count},snap]=await Promise.all([
-        supabase.from('profiles').select('id',{count:'exact',head:true}),
-        db.collection('comments').get(),
+  
+    /* ══ Navigation ══ */
+    const VIEWS = { home: 'Overview', students: 'Students', mod: 'Moderation', clubs: 'Clubs' };
+    let _view = 'home';
+    function go(v) {
+      if (!VIEWS[v]) v = 'home';
+      _view = v;
+      Object.keys(VIEWS).forEach(k => {
+        $('v-' + k).classList.toggle('active', k === v);
+        $('nav-' + k).classList.toggle('on', k === v);
+      });
+      $('aTitle').innerHTML = E(VIEWS[v]) + '<span class="subtitle">GLUK Yearbook 2026</span>';
+      try { history.replaceState(null, '', '#' + v); } catch (e) {}
+      window.scrollTo(0, 0);
+      if (v === 'home')     loadDashboard();
+      if (v === 'students') ensureStudents();
+      if (v === 'mod')      ensureMod();
+      if (v === 'clubs')    ensureClubs();
+    }
+  
+    /* ══ Dashboard ══ */
+    let _dashT = 0, _officialsMissing = false;
+    async function loadDashboard(force) {
+      if (!force && Date.now() - _dashT < 20000) return;
+      _dashT = Date.now();
+      const count = q => q.then(r => (r.error ? null : r.count));
+      const head  = () => supabase.from('profiles').select('id', { count: 'exact', head: true });
+      const gy = GY(), since = new Date(Date.now() - 7 * 864e5).toISOString();
+      const [total, week, studs, alum, nophoto] = await Promise.all([
+        count(head()), count(head().gte('created_at', since)),
+        count(head().gte('classyear', String(gy))), count(head().lte('classyear', String(gy - 1))),
+        count(head().or('photo_url.is.null,photo_url.eq.')),
       ]);
-      document.getElementById('aStat1').textContent=count??'--';
-      document.getElementById('aStat2').textContent=snap.size;
-    }catch(e){console.warn('[loadStats]',e);}
-  }
-
-  async function loadStudents(){
-    document.getElementById('aList').innerHTML='<div class="a-empty">Loading…</div>';
-    try{
-      let query=supabase.from('profiles')
-        .select('id,uid,name,reg,dept,course,classYear,county,constituency,email,whatsapp,bio,hobbies,clubs,bestMemory,biggestLesson,mostLikelyTo,photo_url,photos,created_at')
-        .order('created_at',{ascending:false});
-      if(_deptFilter) query=query.eq('dept',_deptFilter);
-      if(_yearFilter) query=query.eq('classYear',_yearFilter);
-      const{data,error}=await query;
-      if(error) throw error;
-      _allStudents=data||[];
-      renderStudentList(_allStudents);
-    }catch(e){
-      console.error('[loadStudents]',e);
-      document.getElementById('aList').innerHTML=`<div class="a-empty">Error: ${e.message}</div>`;
+      $('stProfiles').textContent = nfmt(total);  $('stNew').textContent = nfmt(week);
+      $('stStudents').textContent = nfmt(studs);  $('stAlumni').textContent = nfmt(alum);
+  
+      let comments = null, today = 0;
+      try {
+        const snap = await db.collection('comments').get();
+        comments = snap.size;
+        const start = new Date(); start.setHours(0, 0, 0, 0);
+        snap.docs.forEach(d => { const t = tsDate(d.data().timestamp); if (t && t >= start) today++; });
+      } catch (e) { console.warn('[dashboard comments]', e); }
+      $('stComments').textContent = nfmt(comments);
+  
+      const totalClubs = (window.GLUK_CLUBS || []).length || 32;
+      let withOfficials = null;
+      try {
+        const r = await supabase.from('club_officers').select('club_name').limit(5000);
+        if (r.error) throw r.error;
+        withOfficials = new Set((r.data || []).map(o => o.club_name)).size;
+        _officialsMissing = false;
+      } catch (e) { _officialsMissing = isMissing(e); }
+      $('stClubs').textContent = withOfficials === null ? '–' : withOfficials + ' of ' + totalClubs;
+  
+      const rows = [];
+      if (nophoto > 0) rows.push({ ico: '📷', txt: nfmt(nophoto) + ' ' + plural(nophoto, 'profile', 'profiles') + ' without a photo', v: 'nophoto' });
+      if (withOfficials !== null && totalClubs - withOfficials > 0) {
+        const n = totalClubs - withOfficials;
+        rows.push({ ico: '🏛', txt: n + ' ' + plural(n, 'club has', 'clubs have') + ' no officials', v: 'clubs' });
+      }
+      if (today > 0) rows.push({ ico: '💬', txt: today + ' new ' + plural(today, 'comment', 'comments') + ' today', v: 'comments' });
+      loadSecurity();
+    $('attnBox').innerHTML = rows.length
+        ? rows.map(r => `<button type="button" class="a-row" data-act="attn" data-v="${E(r.v)}"><span class="a-tile">${r.ico}</span><span class="grow">${E(r.txt)}</span><span class="chev">›</span></button>`).join('')
+        : '<div class="a-empty" style="padding:22px 16px">✅ Nothing needs your attention right now.</div>';
     }
-  }
+  
+    async function loadSecurity() {
+      const box = $('secBox'); if (!box) return;
+      const row = (ico, title, sub, extra) => `<div class="a-row static"><span class="a-tile">${ico}</span><span class="grow"><span class="a-name">${E(title)}</span><span class="a-sub" style="white-space:normal">${E(sub)}</span></span>${extra || ''}</div>`;
+      try {
+        const w = await window.gApi('whoami');
+        box.innerHTML = w.isAdmin
+          ? row('🔒', 'Secure service connected', 'Your changes are checked on the server before they are saved.')
+          : row('⚠️', 'Connected, but you are not recognised as admin', 'Sign in with the admin account and make sure its email is verified.');
+      } catch (e) {
+        box.innerHTML = e.unreachable
+          ? row('⚠️', 'Secure service not reachable', 'Changes still work, but they use the older direct path. Deploy the “api” function in Supabase (see the setup steps), then check again.', '<button type="button" class="a-mini" data-act="sec-check">Check again</button>')
+          : row('❌', 'Secure service problem', e.message || 'Unknown problem', '<button type="button" class="a-mini" data-act="sec-check">Check again</button>');
+      }
+    }
 
-  function renderStudentList(list){
-    let filtered=list;
-    if(_searchTerm) filtered=filtered.filter(s=>(s.name||'').toLowerCase().includes(_searchTerm)||(s.reg||'').toLowerCase().includes(_searchTerm)||(s.email||'').toLowerCase().includes(_searchTerm));
-    if(_clubFilter) filtered=filtered.filter(s=>{const clubs=Array.isArray(s.clubs)?s.clubs:(s.clubs||'').split(',').map(x=>x.trim());return clubs.includes(_clubFilter);});
-    if(_countyFilter) filtered=filtered.filter(s=>(s.county||'').toLowerCase()===_countyFilter.toLowerCase());
-    const n=filtered.length;
-    const dLabel=_deptFilter?(' · '+((_deptFilter).replace(/School of |Faculty of /g,''))):'';
-    const yLabel=_yearFilter?(' · Class of '+_yearFilter):'';
-    const cLabel=_clubFilter?(' · '+_clubFilter):'';
-    const coLabel=_countyFilter?(' · '+_countyFilter):'';
-    document.getElementById('exportCount').textContent=`${n} student${n!==1?'s':''}${dLabel}${yLabel}${cLabel}${coLabel}`;
-    if(!filtered.length){document.getElementById('aList').innerHTML='<div class="a-empty">No students match this filter.</div>';return;}
-    document.getElementById('aList').innerHTML=filtered.map(s=>{
-      const init=(s.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
-      const av=s.photo_url?`<img src="${s.photo_url}" alt="${init}" onerror="this.style.display='none';this.parentNode.textContent='${init}'">`:init;
-      const school=(s.dept||'').replace(/School of |Faculty of /g,'');
-      return `<div class="a-item" id="ai-${s.id}">
-        <div class="a-item-av">${av}</div>
-        <div class="a-item-info">
-          <div class="a-item-name">${s.name||'Unnamed'}</div>
-          <div class="a-item-sub">${s.reg||'—'} · ${school||'—'} · Class of ${s.classYear||'?'}</div>
+    /* ══ Students ══ */
+    const S = { view: 'active', all: [], arch: [], loaded: { active: false, archived: false }, err: '',
+                q: '', sort: 'new', shown: STEP, f: { dept: '', year: '', club: '', county: '', noPhoto: false }, d: null };
+    const NOFILTER = () => ({ dept: '', year: '', club: '', county: '', noPhoto: false });
+    const cur = () => S.view === 'active' ? S.all : S.arch;
+    const findStudent = id => S.all.find(x => x.id === id) || S.arch.find(x => x.id === id);
+  
+    function filtered(list, f, q) {
+      list = list || cur(); f = f || S.f; q = (q === undefined ? S.q : q);
+      let out = list.filter(s => {
+        if (f.dept && s.dept !== f.dept) return false;
+        if (f.year && String(s.classyear) !== f.year) return false;
+        if (f.club && !clubsOf(s).includes(f.club)) return false;
+        if (f.county && String(s.county || '').toLowerCase() !== f.county.toLowerCase()) return false;
+        if (f.noPhoto && hasPhoto(s)) return false;
+        if (q && !(String(s.name || '') + ' ' + String(s.reg || '') + ' ' + String(s.email || '') + ' ' + String(s.course || '')).toLowerCase().includes(q)) return false;
+        return true;
+      });
+      const by = { old: (a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')),
+                   name: (a, b) => String(a.name || '').localeCompare(String(b.name || '')),
+                   year: (a, b) => (Number(b.classyear) || 0) - (Number(a.classyear) || 0) || String(a.name || '').localeCompare(String(b.name || '')) }[S.sort];
+      if (by) out = out.slice().sort(by);                  // 'new' keeps the order we loaded (newest first)
+      return out;
+    }
+  
+    async function ensureStudents(force) {
+      const key = S.view;
+      if (S.loaded[key] && !force) { renderStudents(); return; }
+      $('sList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try {
+        const rows = await fetchAll(key === 'active' ? 'profiles' : 'profiles_archive');
+        if (key === 'active') S.all = rows; else S.arch = rows;
+        S.loaded[key] = true; S.err = '';
+      } catch (e) {
+        console.error('[students]', e);
+        S.err = (key === 'archived' && isMissing(e)) ? 'archive-missing' : (e.message || 'Could not load');
+      }
+      renderStudents();
+    }
+  
+    function filterChipLabel(k, v) {
+      return k === 'dept' ? shortDept(v) : k === 'year' ? yearLabel(v) : k === 'noPhoto' ? 'No photo' : v;
+    }
+  
+    function rowHTML(s) {
+      const id = Number(s.id), photo = window.safeUrl(s.photo_url);
+      return `<button type="button" class="a-row" data-act="open" data-id="${id}">
+        <span class="a-av" data-init="${E(initials(s.name))}">${photo ? `<img src="${E(photo)}" alt="">` : E(initials(s.name))}</span>
+        <span class="grow"><span class="a-name">${E(s.name || 'Unnamed')}</span><span class="a-sub">${E(s.reg || '—')} · Class of ${E(s.classyear || '?')}</span></span>
+        ${(S.view === 'active' && !hasPhoto(s)) ? '<span class="a-badge warn">No photo</span>' : ''}<span class="chev">›</span></button>`;
+    }
+  
+    function renderStudents() {
+      $('seg-active').classList.toggle('on', S.view === 'active');
+      $('seg-archived').classList.toggle('on', S.view === 'archived');
+      const nf = Object.keys(S.f).filter(k => S.f[k]);
+      $('filtersBadge').textContent = nf.length ? String(nf.length) : '';
+      $('filtersBadge').style.display = nf.length ? 'inline-block' : 'none';
+      $('activeChips').innerHTML = nf.map(k => `<span class="a-chip on">${E(filterChipLabel(k, S.f[k]))} <button type="button" class="a-chip-x" data-act="clear-f" data-k="${k}" aria-label="Remove filter">✕</button></span>`).join('')
+        + (nf.length > 1 ? '<button type="button" class="a-link" data-act="clear-all">Clear all</button>' : '');
+  
+      if (S.err) {
+        $('sCount').textContent = '';
+        $('sList').innerHTML = S.err === 'archive-missing'
+          ? '<div class="a-empty">The archive isn’t set up yet.<br>Run <b>admin-upgrade.sql</b> in Supabase (SQL Editor), then reopen this list.</div>'
+          : `<div class="a-empty">Error: ${E(S.err)}</div>`;
+        return;
+      }
+      if (!S.loaded[S.view]) return;
+      const list = filtered();
+      $('sCount').textContent = list.length.toLocaleString('en') + ' ' + (S.view === 'archived' ? 'archived' : plural(list.length, 'student', 'students'));
+      if (!list.length) {
+        $('sList').innerHTML = `<div class="a-empty">${S.view === 'archived' && !cur().length ? 'No archived profiles.' : 'No students match.'}</div>`;
+        return;
+      }
+      const shown = list.slice(0, S.shown);
+      $('sList').innerHTML = `<div class="a-card">${shown.map(rowHTML).join('')}</div>` +
+        (list.length > shown.length ? `<button type="button" class="a-more" data-act="more">Show more (${list.length - shown.length} left)</button>` : '');
+    }
+  
+    /* — filters sheet — */
+    function yearOptions() {
+      const set = new Set((window.studentClassYears ? window.studentClassYears() : []).map(String));
+      S.all.concat(S.arch).forEach(s => { if (s.classyear) set.add(String(s.classyear)); });
+      return [...set].sort((a, b) => b - a);
+    }
+    const chipHTML = (k, v, label, on) => `<button type="button" class="a-chip${on ? ' on' : ''}" data-act="f-pick" data-k="${k}" data-v="${E(v)}">${E(label)}</button>`;
+    function buildFilterSheet() {
+      const depts = uniq(SCHOOLS.concat(S.all.map(s => s.dept).filter(Boolean)));
+      $('fDept').innerHTML = depts.map(d => chipHTML('dept', d, shortDept(d), S.d.dept === d)).join('');
+      $('fYear').innerHTML = yearOptions().map(y => chipHTML('year', y, yearLabel(y), S.d.year === y)).join('');
+      $('fClub').innerHTML = '<option value="">Any club</option>' + (window.GLUK_CLUBS || []).map(c => `<option value="${E(c)}"${S.d.club === c ? ' selected' : ''}>${E(c)}</option>`).join('');
+      $('fCounty').innerHTML = '<option value="">Any county</option>' + (window.KENYA_COUNTIES || []).map(c => `<option value="${E(c)}"${S.d.county === c ? ' selected' : ''}>${E(c)}</option>`).join('');
+      $('fNoPhoto').classList.toggle('on', !!S.d.noPhoto);
+      const n = filtered(cur(), S.d).length;
+      $('fApply').textContent = 'Show ' + n.toLocaleString('en') + ' ' + plural(n, 'student', 'students');
+    }
+    function openFilters() { S.d = { ...S.f }; buildFilterSheet(); openSheet('filtersOv'); }
+  
+    /* — student detail — */
+    function detailHTML(s) {
+      const arch = S.view === 'archived', id = Number(s.id), photo = window.safeUrl(s.photo_url);
+      const wa = window.waLink ? window.waLink(s.whatsapp) : '';
+      const mail = emailOk(s.email) ? s.email : '';
+      const pub = 'profile.html?id=' + id + '&dept=' + encodeURIComponent(s.dept || '') + '&course=' + encodeURIComponent(s.course || '');
+      const clubs = clubsOf(s);
+      const row = (act, ico, label, sub, cls) => `<button type="button" class="a-act ${cls || ''}" data-act="${act}" data-id="${id}"><span class="a-ico">${ico}</span><span class="grow">${label}${sub ? `<span class="a-sub">${sub}</span>` : ''}</span></button>`;
+      return `
+        <div class="d-head">
+          <div class="a-av big" data-init="${E(initials(s.name))}">${photo ? `<img src="${E(photo)}" alt="">` : E(initials(s.name))}</div>
+          <div class="d-name">${E(s.name || 'Unnamed')}</div>
+          <div class="a-sub">${E(s.reg || '—')} · Class of ${E(s.classyear || '?')}</div>
+          <div class="a-sub">${E(shortDept(s.dept) || '—')} · ${E(s.course || '—')}</div>
+          ${clubs.length ? `<div class="d-clubs">${clubs.map(c => `<span class="a-chip">${E(c)}</span>`).join('')}</div>` : ''}
+          ${arch ? '<div class="a-badge warn" style="margin-top:8px">Archived · hidden from the yearbook</div>' : ''}
         </div>
-        <div class="a-actions">
-          <div style="display:flex;gap:4px">
-            <button class="a-btn edit" onclick="openEdit(${s.id})">✏️ Edit</button>
-            <button class="a-btn pdf" onclick="downloadPDF(${s.id})">📄 PDF</button>
-          </div>
-          <button class="a-btn del" style="width:100%;margin-top:3px" onclick="delStudent(${s.id},'${(s.name||'').replace(/'/g,"\\'")}')">🗑 Delete Profile</button>
-        </div></div>`;
-    }).join('');
-  }
-
-  async function loadComments(){
-    document.getElementById('aList').innerHTML='<div class="a-empty">Loading…</div>';
-    try{
-      const snap=await db.collection('comments').orderBy('timestamp','desc').get();
-      const list=snap.docs.map(d=>({id:d.id,...d.data()}));
-      if(!list.length){document.getElementById('aList').innerHTML='<div class="a-empty">No comments yet.</div>';return;}
-      document.getElementById('aList').innerHTML=list.map(c=>{
-        const ts=c.timestamp?.toDate?c.timestamp.toDate().toLocaleString():'–';
-        return `<div class="a-item" id="ai-${c.id}">
-          <div class="a-item-av" style="font-size:1.1rem;background:var(--gray-100);color:var(--navy)">💬</div>
-          <div class="a-item-info"><div class="a-item-name">${c.authorName||'Anonymous'}</div><div class="a-item-sub">${(c.text||'').slice(0,70)} · ${ts}</div></div>
-          <div class="a-actions"><button class="a-btn del" onclick="delComment('${c.id}')">🗑 Delete</button></div>
-        </div>`;
-      }).join('');
-    }catch(e){document.getElementById('aList').innerHTML=`<div class="a-empty">Error: ${e.message}</div>`;}
-  }
-
-  async function openEdit(id){
-    const s=_allStudents.find(x=>x.id===id);
-    if(!s){const{data,error}=await supabase.from('profiles').select('*').eq('id',id).single();if(error||!data){showToast('Could not load profile');return;}_fillEditForm(data);}
-    else _fillEditForm(s);
-  }
-  function _fillEditForm(s){
-    document.getElementById('eId').value=s.id;
-    document.getElementById('eName').value=s.name||'';
-    document.getElementById('eReg').value=s.reg||'';
-    document.getElementById('eCounty').value=s.county||'';
-    document.getElementById('eYear').value=s.classYear||String(new Date().getFullYear());
-    document.getElementById('eDept').value=s.dept||'';
-    document.getElementById('eCourse').value=s.course||'';
-    document.getElementById('eEmail').value=s.email||'';
-    document.getElementById('eWhatsapp').value=s.whatsapp||'';
-    document.getElementById('eBio').value=s.bio||'';
-    document.getElementById('eMemory').value=s.bestMemory||'';
-    document.getElementById('eLesson').value=s.biggestLesson||'';
-    document.getElementById('eLikely').value=s.mostLikelyTo||'';
-    document.getElementById('editOv').classList.add('open');
-    document.body.style.overflow='hidden';
-  }
-  function closeEdit(){document.getElementById('editOv').classList.remove('open');document.body.style.overflow='';}
-
-  async function saveEdit(e){
-    e.preventDefault();
-    const id=Number(document.getElementById('eId').value);
-    const btn=e.target.querySelector('button[type=submit]');
-    if(btn){btn.disabled=true;btn.textContent='Saving…';}
-    try{
-      const update={
-        name:document.getElementById('eName').value.trim(),
-        reg:document.getElementById('eReg').value.trim(),
-        county:document.getElementById('eCounty').value.trim(),
-        classYear:document.getElementById('eYear').value,
-        dept:document.getElementById('eDept').value.trim(),
-        course:document.getElementById('eCourse').value.trim(),
-        email:document.getElementById('eEmail').value.trim(),
-        whatsapp:document.getElementById('eWhatsapp').value.trim(),
-        bio:document.getElementById('eBio').value.trim(),
-        bestMemory:document.getElementById('eMemory').value.trim(),
-        biggestLesson:document.getElementById('eLesson').value.trim(),
-        mostLikelyTo:document.getElementById('eLikely').value.trim(),
-        updated_at:new Date().toISOString(),
-      };
-      const{error}=await supabase.from('profiles').update(update).eq('id',id);
-      if(error) throw error;
-      const idx=_allStudents.findIndex(x=>x.id===id);
-      if(idx>-1) _allStudents[idx]={..._allStudents[idx],...update};
-      closeEdit(); showToast('Profile updated ✅');
-      renderStudentList(_allStudents); loadStats();
-    }catch(err){showToast('❌ Update failed: '+err.message);}
-    finally{if(btn){btn.disabled=false;btn.textContent='💾  Save Changes';}}
-  }
-
-  async function delStudent(id,name){
-    if(!confirm(`⚠️ Delete profile for:\n\n"${name}"\n\nThis permanently removes their yearbook profile and cannot be undone.`)) return;
-    const el=document.getElementById('ai-'+id);
-    const btns=el?.querySelectorAll('.a-btn');
-    btns?.forEach(b=>{b.disabled=true;});
-    try{
-      const{error}=await supabase.from('profiles').delete().eq('id',id);
-      if(error) throw error;
-      _allStudents=_allStudents.filter(s=>s.id!==id);
-      if(el){el.style.transition='all .3s ease';el.style.opacity='0';el.style.transform='scale(.96)';setTimeout(()=>el.remove(),300);}
-      showToast(`"${name}" deleted from yearbook 🗑`,3000);
-      loadStats();
-      renderStudentList(_allStudents);
-    }catch(e){
-      console.error('[delStudent]',e);
-      showToast('❌ Delete failed: '+e.message,4000);
-      btns?.forEach(b=>{b.disabled=false;});
+        <div class="d-contact">
+          ${wa ? `<a class="a-btn2" href="${E(wa)}" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>` : '<span class="a-btn2 off">No WhatsApp</span>'}
+          ${mail ? `<a class="a-btn2" href="mailto:${E(mail)}">✉️ Email</a>` : '<span class="a-btn2 off">No email</span>'}
+        </div>
+        <div class="d-actions">
+          ${arch ? '' : row('edit', '✏️', 'Edit profile')}
+          ${row('pdf', '📄', 'Download PDF')}
+          ${arch ? '' : `<a class="a-act" href="${E(pub)}" target="_blank" rel="noopener noreferrer"><span class="a-ico">↗</span><span class="grow">View public profile</span></a>`}
+          ${arch ? row('restore', '↩️', 'Restore profile', 'Puts it back in the yearbook.') : row('archive', '🗄', 'Archive profile', 'Hides it from the yearbook. You can restore it.')}
+          ${row('delete', '🗑', 'Delete permanently', '', 'danger')}
+        </div>
+        <div class="a-sub" style="text-align:center;margin-top:10px">${s.created_at ? 'Joined ' + E(fmtDate(s.created_at)) : ''}</div>`;
     }
-  }
+    function openDetail(id) {
+      const s = findStudent(id); if (!s) return;
+      $('detailBody').innerHTML = detailHTML(s);
+      openSheet('detailOv');
+    }
+  
+    /* — edit — */
+    function fillEditForm(s) {
+      $('eId').value = s.id; $('eName').value = s.name || ''; $('eReg').value = s.reg || ''; $('eCounty').value = s.county || '';
+      const yr = String(s.classyear || GY());
+      $('eYear').innerHTML = uniq(yearOptions().concat([yr])).sort((a, b) => b - a).map(y => `<option value="${E(y)}">${E(y)}</option>`).join('');
+      $('eYear').value = yr;
+      $('eDept').value = s.dept || ''; $('eCourse').value = s.course || ''; $('eEmail').value = s.email || ''; $('eWhatsapp').value = window.normalizePhone ? window.normalizePhone(s.whatsapp) : (s.whatsapp || '');
+      $('eBirthday').value = window.birthdayToInput ? window.birthdayToInput(s.birthday) : '';
+      $('eBio').value = s.bio || ''; $('eMemory').value = s.bestmemory || ''; $('eLesson').value = s.biggestlesson || ''; $('eLikely').value = s.mostlikelyto || '';
+      closeSheet('detailOv'); openSheet('editOv');
+    }
+    async function openEdit(id) {
+      const s = S.all.find(x => x.id === id);
+      if (s) { fillEditForm(s); return; }
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
+      if (error || !data) { toast('Could not load that profile'); return; }
+      fillEditForm(data);
+    }
+    async function saveEdit(e) {
+      e.preventDefault();
+      const id = Number($('eId').value);
+      const btn = e.target.querySelector ? e.target.querySelector('button[type=submit]') : null;
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+      try {
+        const update = {
+          name: $('eName').value.trim(), reg: $('eReg').value.trim(), county: $('eCounty').value.trim(),
+          classyear: $('eYear').value || undefined,               // never overwrite with a blank year
+          dept: $('eDept').value.trim(), course: $('eCourse').value.trim(), email: $('eEmail').value.trim(), whatsapp: window.normalizePhone ? window.normalizePhone($('eWhatsapp').value) : $('eWhatsapp').value.trim(),
+          birthday: window.birthdayFromInput ? window.birthdayFromInput($('eBirthday').value) : '',
+          bio: $('eBio').value.trim(), bestmemory: $('eMemory').value.trim(), biggestlesson: $('eLesson').value.trim(), mostlikelyto: $('eLikely').value.trim(),
+          updated_at: new Date().toISOString(),
+        };
+        await window.apiWrite('profile.update', { id, patch: update }, async () => {
+          const { error } = await supabase.from('profiles').update(update).eq('id', id);
+          if (error) throw error;
+          return {};
+        });
+        const i = S.all.findIndex(x => x.id === id);
+        if (i > -1) S.all[i] = { ...S.all[i], ...update };
+        closeSheet('editOv'); toast('Profile updated ✅'); renderStudents();
+      } catch (err) { toast('❌ Update failed: ' + err.message); }
+      finally { if (btn) { btn.disabled = false; btn.textContent = '💾  Save changes'; } }
+    }
+  
+    /* — archive / restore / delete — */
+    async function archiveStudent(id) {
+      const s = S.all.find(x => x.id === id); if (!s) return;
+      if (!confirm('Archive ' + (s.name || 'this profile') + '?\n\nTheir profile will be hidden from the yearbook. You can restore it from the Archived list.')) return;
+      try {
+        const rec = { ...s, archived_at: new Date().toISOString(), archived_by: _admin ? _admin.email : null };
+        await window.apiWrite('admin.profile.archive', { id }, async () => {
+          const full = await supabase.from('profiles').select('*').eq('id', id).single();
+          if (full.error || !full.data) throw full.error || new Error('Profile not found');
+          const ins = await supabase.from('profiles_archive').insert({ ...full.data, archived_at: rec.archived_at, archived_by: rec.archived_by });
+          if (ins.error) throw ins.error;
+          const del = await supabase.from('profiles').delete().eq('id', id);
+          if (del.error) { await supabase.from('profiles_archive').delete().eq('id', id); throw del.error; }
+          return {};
+        });
+        S.all = S.all.filter(x => x.id !== id);
+        if (S.loaded.archived) S.arch.unshift(rec);
+        closeSheet('detailOv'); renderStudents(); loadDashboard(true);
+        toast((s.name || 'Profile') + ' archived 🗄', 3000);
+      } catch (e) {
+        console.error('[archive]', e);
+        toast((e.code === 'archive_missing' || isMissing(e)) ? 'Run admin-upgrade.sql in Supabase first.' : '❌ Could not archive: ' + (e.message || 'try again'), 4000);
+      }
+    }
+    async function restoreStudent(id) {
+      const s = S.arch.find(x => x.id === id); if (!s) return;
+      if (!confirm('Restore ' + (s.name || 'this profile') + ' to the yearbook?')) return;
+      try {
+        const { archived_at, archived_by, ...rest } = s;
+        await window.apiWrite('admin.profile.restore', { id }, async () => {
+          if (s.uid) {
+            const ex = await supabase.from('profiles').select('id').eq('uid', s.uid).limit(1);
+            if (ex.data && ex.data.length) { const er = new Error('This person already has a new profile, so this one can’t be restored.'); er.code = 'exists'; throw er; }
+          }
+          const ins = await supabase.from('profiles').insert(rest);           // same id, so comments and club membership come back
+          if (ins.error) throw ins.error;
+          const del = await supabase.from('profiles_archive').delete().eq('id', id);
+          if (del.error) console.warn('[restore] could not remove the archive copy', del.error);
+          return {};
+        });
+        S.arch = S.arch.filter(x => x.id !== id);
+        if (S.loaded.active) { S.all.unshift(rest); S.all.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))); }
+        closeSheet('detailOv'); renderStudents(); loadDashboard(true);
+        toast((s.name || 'Profile') + ' restored ✅', 3000);
+      } catch (e) {
+        console.error('[restore]', e);
+        if (e.code === 'exists') { toast(e.message, 4500); return; }
+        toast('❌ Could not restore: ' + (e.message || 'try again'), 4000);
+      }
+    }
+    async function deleteStudent(id) {
+      const arch = S.view === 'archived';
+      const s = (arch ? S.arch : S.all).find(x => x.id === id); if (!s) return;
+      if (!confirm('⚠️ Delete ' + (s.name || 'this profile') + ' permanently?\n\nThis removes their yearbook profile and cannot be undone.' +
+        (arch ? '' : '\n\nTip: Archive hides a profile but keeps it safe if you might need it again.'))) return;
+      try {
+        await window.apiWrite('admin.profile.delete', { id, archived: arch }, async () => {
+          const { error } = await supabase.from(arch ? 'profiles_archive' : 'profiles').delete().eq('id', id);
+          if (error) throw error;
+          return {};
+        });
+        if (arch) S.arch = S.arch.filter(x => x.id !== id); else S.all = S.all.filter(x => x.id !== id);
+        closeSheet('detailOv'); renderStudents(); loadDashboard(true);
+        toast((s.name || 'Profile') + ' deleted 🗑', 3000);
+      } catch (e) { console.error('[delete]', e); toast('❌ Delete failed: ' + (e.message || 'try again'), 4000); }
+    }
+  
+    /* — Excel — (the library is downloaded only when you export, so a slow connection can never block the page) — */
+    let _xlsxP = null;
+    function loadXlsx() {
+      if (window.XLSX) return Promise.resolve(window.XLSX);
+      if (_xlsxP) return _xlsxP;
+      _xlsxP = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload  = () => window.XLSX ? resolve(window.XLSX) : (_xlsxP = null, reject(new Error('The Excel library did not start')));
+        s.onerror = () => { _xlsxP = null; reject(new Error('Could not download the Excel library')); };
+        document.head.appendChild(s);
+      });
+      return _xlsxP;
+    }
+    async function exportExcel() {
+      const list = filtered();
+      if (!list.length) { toast('No students to export'); return; }
+      toast('Preparing Excel… 📊');
+      let X;
+      try { X = await loadXlsx(); }
+      catch (e) { toast('❌ ' + (e.message || 'Could not load Excel') + '. Check your connection and try again.', 4500); return; }
+      const rows = list.map((s, i) => ({
+        '#': i + 1, 'Full Name': s.name || '', 'Reg Number': s.reg || '', 'School / Faculty': s.dept || '', 'Programme': s.course || '',
+        'Class Year': s.classyear || '', 'Home County': s.county || '', 'Constituency': s.constituency || '', 'Email': s.email || '', 'WhatsApp': s.whatsapp || '',
+        'Hobbies': Array.isArray(s.hobbies) ? s.hobbies.join(', ') : (s.hobbies || ''), 'Clubs': clubsOf(s).join(', '),
+        'Bio': s.bio || '', 'Best Memory': s.bestmemory || '', 'Biggest Lesson': s.biggestlesson || '', 'Most Likely To': s.mostlikelyto || '',
+        'Profile URL': `${window.location.origin}/profile.html?id=${s.id}`, 'Date Added': s.created_at ? new Date(s.created_at).toLocaleDateString('en-KE') : '',
+      }));
+      const ws = X.utils.json_to_sheet(rows);
+      ws['!cols'] = [{ wch: 4 }, { wch: 24 }, { wch: 22 }, { wch: 34 }, { wch: 44 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 28 }, { wch: 16 }, { wch: 28 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 12 }];
+      const wb = X.utils.book_new();
+      const sheet = (S.f.dept ? shortDept(S.f.dept) : (S.view === 'archived' ? 'Archived' : 'All Students')).slice(0, 28);
+      X.utils.book_append_sheet(wb, ws, sheet);
+      const d = S.f.dept ? shortDept(S.f.dept).replace(/\s+/g, '_') : (S.view === 'archived' ? 'Archived' : 'All');
+      const y = S.f.year ? '_' + S.f.year : '';
+      X.writeFile(wb, `GLUK_Yearbook_${d}${y}_${new Date().getFullYear()}.xlsx`);
+      toast('Exported ' + rows.length + ' students ✅');
+    }
+  
+    /* — PDF (print window) — */
+      async function downloadPDF(id){
+      const s=findStudent(id);
+      if(!s){showToast('Profile not in current view');return;}
+      const clubs=Array.isArray(s.clubs)?s.clubs.filter(Boolean):(s.clubs||'').split(',').map(x=>x.trim()).filter(Boolean);
+      const init=(s.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+      const photoHtml=window.safeUrl(s.photo_url)
+        ?`<img src="${esc(window.safeUrl(s.photo_url))}" alt="${esc(s.name || 'Profile photo')}" crossorigin="anonymous" style="width:130px;height:130px;border-radius:50%;object-fit:cover;border:4px solid #f5c518;display:block;margin:0 auto 16px">`
+        :`<div style="width:130px;height:130px;border-radius:50%;background:linear-gradient(135deg,#1e5aaa,#3b82e6);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:2.8rem;font-weight:900;color:#fff;border:4px solid #f5c518">${init}</div>`;
+      const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>GLUK — ${esc(s.name||'Profile')}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f3f6fb;print-color-adjust:exact;-webkit-print-color-adjust:exact}.page{max-width:620px;margin:0 auto;background:#fff}.hdr{background:linear-gradient(160deg,#040d1e,#0a1e3d,#0d2555);padding:40px 28px 28px;text-align:center}.badge{display:inline-block;background:linear-gradient(135deg,#d4a017,#f5c518);color:#040d1e;font-size:.65rem;font-weight:900;padding:4px 14px;border-radius:20px;margin-top:10px}.nm{color:#fff;font-size:1.6rem;font-weight:900;margin:8px 0 4px}.rg{color:rgba(255,255,255,.45);font-size:.78rem}.sec{padding:16px 24px;border-bottom:1px solid #edf0f8}.sec h3{font-size:.62rem;font-weight:800;color:#8896b3;text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px}.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f6fb;font-size:.82rem}.row:last-child{border-bottom:none}.lbl{color:#8896b3;font-weight:600}.val{color:#18213a;font-weight:700;text-align:right;max-width:65%;word-break:break-word}.qt{background:#eef4ff;border-left:3px solid #1e5aaa;border-radius:8px;padding:12px 14px;font-style:italic;font-size:.82rem;color:#1a4a8f;line-height:1.65}.pill{display:inline-block;background:#fffae8;color:#1a4a8f;border:1px solid rgba(212,160,23,.25);font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:20px;margin:2px}.ft{background:linear-gradient(135deg,#040d1e,#061828);color:rgba(255,255,255,.35);text-align:center;padding:18px;font-size:.68rem}@media print{body{background:#fff}.page{box-shadow:none}}</style></head><body>
+  <div class="page">
+  <div class="hdr"><img src="${location.origin}/logo-128.png" alt="GLUK" style="height:50px;width:auto;display:block;margin:0 auto 12px">${photoHtml}<div class="nm">${esc(s.name||'—')}</div><div class="rg">${esc(s.reg||'')}</div><span class="badge">${esc((s.dept||'GLUK').replace(/School of |Faculty of /g,''))} · Class of ${esc(s.classyear||new Date().getFullYear())}</span></div>
+  <div class="sec"><h3>📋 Personal Info</h3>
+  <div class="row"><span class="lbl">Programme</span><span class="val">${esc(s.course||'—')}</span></div>
+  <div class="row"><span class="lbl">County</span><span class="val">${esc(s.county||'—')}</span></div>
+  <div class="row"><span class="lbl">Constituency</span><span class="val">${esc(s.constituency||'—')}</span></div>
+  <div class="row"><span class="lbl">Email</span><span class="val">${esc(s.email||'—')}</span></div>
+  <div class="row"><span class="lbl">WhatsApp</span><span class="val">${esc(s.whatsapp||'—')}</span></div></div>
+  ${s.bio?`<div class="sec"><h3>👤 About</h3><p style="font-size:.82rem;color:#485370;line-height:1.68">${esc(s.bio)}</p></div>`:''}
+  ${s.bestmemory?`<div class="sec"><h3>✨ Best Memory</h3><div class="qt">${esc(s.bestmemory)}</div></div>`:''}
+  ${s.biggestlesson?`<div class="sec"><h3>💡 Biggest Lesson</h3><p style="font-size:.82rem;color:#485370;line-height:1.68">${esc(s.biggestlesson)}</p></div>`:''}
+  ${s.mostlikelyto?`<div class="sec"><h3>🔮 Most Likely To</h3><p style="text-align:center;font-size:.9rem;font-weight:800;color:#d4a017;padding:8px 0">${esc(s.mostlikelyto)}</p></div>`:''}
+  ${clubs.length?`<div class="sec"><h3>🏛 Clubs</h3><div>${clubs.map(c=>`<span class="pill">${esc(c)}</span>`).join('')}</div></div>`:''}
+  <div class="ft">GLUK Yearbook ${new Date().getFullYear()} · Great Lakes University of Kisumu<br>P.O. Box 2224 – 40100, Kisumu · Generated ${new Date().toLocaleDateString()}</div>
+  </div><script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>`;
+      const win=window.open('','_blank','width=700,height=950');
+      if(!win){showToast('⚠️ Allow popups to print PDF');return;}
+      win.document.write(html); win.document.close();
+      showToast('Opening print dialog… 📄');
+    }
+  
+    /* ══ Moderation ══ */
+    const M = { tab: 'comments', comments: [], names: {}, loadedC: false, posts: [], from: 0, done: false, loadedP: false, club: '', errC: '', errP: '' };
+    function ensureMod() {
+      $('mod-comments').style.display = M.tab === 'comments' ? 'block' : 'none';
+      $('mod-posts').style.display    = M.tab === 'posts' ? 'block' : 'none';
+      $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
+      if (M.tab === 'comments' && !M.loadedC) loadComments();
+      if (M.tab === 'posts' && !M.loadedP) loadPosts(true);
+    }
+  
+    async function loadComments() {
+      $('cList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try {
+        const snap = await db.collection('comments').orderBy('timestamp', 'desc').limit(100).get();
+        M.comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const ids = uniq(M.comments.map(c => Number(c.studentId)).filter(n => Number.isFinite(n) && n > 0));
+        M.names = {};
+        if (ids.length) {
+          const r = await supabase.from('profiles').select('id,name').in('id', ids);
+          (r.data || []).forEach(p => { M.names[p.id] = p.name; });
+        }
+        M.loadedC = true; M.errC = '';
+      } catch (e) { console.error('[comments]', e); M.errC = e.message || 'Could not load comments'; }
+      renderComments();
+    }
+    function commentHTML(c) {
+      const sid = Number(c.studentId), nm = M.names[sid];
+      const n = Number(c.replyCount) || 0;
+      return `<div class="a-item" id="ci-${E(c.id)}">
+        <div class="a-item-top">
+          <span class="a-av" data-init="${E(initials(c.authorName))}">${E(initials(c.authorName))}</span>
+          <div class="grow"><div><span class="a-name">${E(c.authorName || 'Anonymous')}</span>${nm ? ` <span class="a-sub inline">on <a href="profile.html?id=${sid}" target="_blank" rel="noopener noreferrer">${E(nm)}</a></span>` : ''}</div>
+            <div class="a-text">${E(c.text || '')}</div>
+            <div class="a-sub">${n ? n + ' ' + plural(n, 'reply', 'replies') + ' · ' : ''}${E(ago(c.timestamp))}</div></div>
+        </div>
+        <div class="a-item-acts">
+          ${n ? `<button type="button" class="a-mini" data-act="c-replies" data-cid="${E(c.id)}">Replies (${n})</button>` : ''}
+          <button type="button" class="a-mini danger" data-act="c-del" data-cid="${E(c.id)}">Delete</button>
+        </div>
+        <div class="a-replies" id="rep-${E(c.id)}"></div>
+      </div>`;
+    }
+    function renderComments() {
+      $('cList').innerHTML = M.errC ? `<div class="a-empty">Error: ${E(M.errC)}</div>`
+        : (M.comments.length ? M.comments.map(commentHTML).join('') : '<div class="a-empty">No comments yet.</div>');
+    }
+    async function toggleReplies(cid) {
+      const box = $('rep-' + cid); if (!box) return;
+      if (box.dataset.open === '1') { box.innerHTML = ''; box.dataset.open = ''; return; }
+      box.innerHTML = '<div class="a-sub">Loading…</div>';
+      try {
+        const snap = await db.collection('comments').doc(cid).collection('replies').orderBy('timestamp').get();
+        box.dataset.open = '1';
+        box.innerHTML = snap.docs.length ? snap.docs.map(d => { const r = d.data(); return `<div class="a-reply"><div class="grow"><b>${E(r.authorName || 'Anonymous')}</b> ${E(r.text || '')}<div class="a-sub">${E(ago(r.timestamp))}</div></div><button type="button" class="a-mini danger" data-act="r-del" data-cid="${E(cid)}" data-rid="${E(d.id)}">Delete</button></div>`; }).join('')
+          : '<div class="a-sub">No replies.</div>';
+      } catch (e) { box.innerHTML = '<div class="a-sub">Could not load replies.</div>'; }
+    }
+    async function deleteComment(cid) {
+      if (!confirm('Delete this comment and all its replies? This cannot be undone.')) return;
+      try {
+        const ref = db.collection('comments').doc(cid);
+        const reps = await ref.collection('replies').get();
+        const batch = db.batch();
+        reps.docs.forEach(d => batch.delete(d.ref));
+        batch.delete(ref);
+        await batch.commit();
+        M.comments = M.comments.filter(c => c.id !== cid); renderComments();
+        toast('Comment deleted 🗑'); loadDashboard(true);
+      } catch (e) { console.error('[delete comment]', e); toast('❌ Delete failed.'); }
+    }
+    async function deleteReply(cid, rid) {
+      if (!confirm('Delete this reply?')) return;
+      try {
+        const ref = db.collection('comments').doc(cid);
+        const batch = db.batch();
+        batch.delete(ref.collection('replies').doc(rid));
+        batch.update(ref, { replyCount: firebase.firestore.FieldValue.increment(-1) });
+        await batch.commit();
+        const c = M.comments.find(x => x.id === cid); if (c) c.replyCount = Math.max(0, (Number(c.replyCount) || 1) - 1);
+        renderComments(); toast('Reply deleted 🗑');
+      } catch (e) { console.error('[delete reply]', e); toast('❌ Delete failed.'); }
+    }
+  
+    async function loadPosts(reset) {
+      if (reset) { M.from = 0; M.posts = []; M.done = false; $('pList').innerHTML = '<div class="a-empty">Loading…</div>'; }
+      try {
+        let q = supabase.from('club_posts').select('*').order('created_at', { ascending: false }).range(M.from, M.from + 19);
+        if (M.club) q = q.eq('club_name', M.club);
+        const { data, error } = await q;
+        if (error) throw error;
+        M.posts = M.posts.concat(data || []); M.from += (data || []).length; M.done = (data || []).length < 20;
+        M.loadedP = true; M.errP = '';
+      } catch (e) { console.error('[posts]', e); M.errP = isMissing(e) ? 'missing' : (e.message || 'Could not load posts'); }
+      renderPosts();
+    }
+    const TYPE = { notice: '📢 Notice', activity: '🎯 Activity', minutes: '📋 Minutes', photo: '📸 Photos' };
+    function postHTML(p) {
+      const meta = window.clubMeta ? window.clubMeta(p.club_name) : null, id = Number(p.id);
+      const files = Array.isArray(p.file_urls) ? p.file_urls.length : 0;
+      return `<div class="a-item" id="pi-${id}">
+        <div class="a-item-top">
+          <span class="a-tile" style="background:${E(meta ? meta.color + '22' : '')}">${meta ? meta.icon : '🏛'}</span>
+          <div class="grow"><div><a class="a-name" href="club.html?club=${encodeURIComponent(p.club_name || '')}" target="_blank" rel="noopener noreferrer">${E(p.club_name || 'Club')}</a>
+            <span class="a-badge">${E(TYPE[p.type] || p.type || '')}</span>${p.pinned ? ' <span class="a-badge warn">📌 Pinned</span>' : ''}</div>
+            ${p.title ? `<div class="a-text"><b>${E(p.title)}</b></div>` : ''}
+            ${p.body ? `<div class="a-text">${E(String(p.body).slice(0, 140))}${String(p.body).length > 140 ? '…' : ''}</div>` : ''}
+            <div class="a-sub">by ${E(p.author_name || 'Unknown')} · ${E(fmtDate(p.created_at))}${files ? ' · ' + files + ' ' + plural(files, 'file', 'files') : ''}</div></div>
+        </div>
+        <div class="a-item-acts">
+          <button type="button" class="a-mini" data-act="p-pin" data-id="${id}" data-pinned="${p.pinned ? 1 : 0}">${p.pinned ? 'Unpin' : '📌 Pin'}</button>
+          <button type="button" class="a-mini danger" data-act="p-del" data-id="${id}">Delete</button>
+        </div></div>`;
+    }
+    function renderPosts() {
+      if (M.errP) {
+        $('pList').innerHTML = M.errP === 'missing' ? '<div class="a-empty">Club posts aren’t set up yet.<br>Run <b>clubs-upgrade.sql</b> in Supabase (SQL Editor) first.</div>' : `<div class="a-empty">Error: ${E(M.errP)}</div>`;
+        $('pMore').innerHTML = ''; return;
+      }
+      $('pList').innerHTML = M.posts.length ? M.posts.map(postHTML).join('') : '<div class="a-empty">No club posts yet.</div>';
+      $('pMore').innerHTML = (!M.done && M.posts.length) ? '<button type="button" class="a-more" data-act="p-more">Load more</button>' : '';
+    }
+    async function togglePin(id, pinned) {
+      try {
+        await window.apiWrite('club.post.pin', { id, pinned: !pinned }, async () => {
+          const { error } = await supabase.from('club_posts').update({ pinned: !pinned }).eq('id', id);
+          if (error) throw error;
+          return {};
+        });
+      } catch (error) { toast(/pinn/i.test(error.message || '') ? 'Run clubs-upgrade.sql to turn on pinning.' : '❌ Could not pin.', 3500); return; }
+      const p = M.posts.find(x => x.id === id); if (p) p.pinned = !pinned; renderPosts();
+    }
+    async function deletePost(id) {
+      if (!confirm('Delete this club post? This cannot be undone.')) return;
+      try {
+        await window.apiWrite('club.post.delete', { id }, async () => {
+          const { error } = await supabase.from('club_posts').delete().eq('id', id);
+          if (error) throw error;
+          return {};
+        });
+      } catch (e) { toast('❌ Delete failed.'); return; }
+      M.posts = M.posts.filter(x => x.id !== id); renderPosts(); toast('Post deleted 🗑');
+    }
+  
+    /* ══ Clubs (officials) ══ */
+    const C = { officers: [], loaded: false, missing: false, filter: 'all', q: '', open: '', results: [] };
+    async function ensureClubs(force) {
+      if (C.loaded && !force) { renderClubs(); return; }
+      $('cluList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try {
+        const { data, error } = await supabase.from('club_officers').select('*').order('id', { ascending: true }).limit(5000);
+        if (error) throw error;
+        C.officers = data || []; C.missing = false; C.loaded = true;
+      } catch (e) { console.warn('[clubs]', e); C.missing = isMissing(e); C.officers = []; C.loaded = !C.missing; if (!C.missing) toast('Could not load officials'); }
+      renderClubs();
+    }
+    const officersOf = name => C.officers.filter(o => o.club_name === name);
+    function renderClubs() {
+      $('cluNote').innerHTML = C.missing ? '<div class="a-warn">The club tables aren’t set up yet. Run <b>clubs-upgrade.sql</b> in Supabase (SQL Editor), then reopen this tab.</div>' : '';
+      $('cf-all').classList.toggle('on', C.filter === 'all'); $('cf-none').classList.toggle('on', C.filter === 'none');
+      const q = C.q.toLowerCase();
+      const list = (window.CLUB_CATALOG || []).filter(c => (!q || c.name.toLowerCase().includes(q)) && (C.filter === 'all' || !officersOf(c.name).length));
+      $('cluList').innerHTML = list.length ? `<div class="a-card">${list.map(c => {
+        const os = officersOf(c.name);
+        return `<button type="button" class="a-row" data-act="club-open" data-club="${E(c.name)}">
+          <span class="a-tile" style="background:${E(c.color)}22">${c.icon}</span>
+          <span class="grow"><span class="a-name">${E(c.name)}</span><span class="a-sub${os.length ? '' : ' warnT'}">${os.length ? os.length + ' ' + plural(os.length, 'official', 'officials') + ' · ' + E(os.slice(0, 2).map(o => o.role).join(', ')) : 'No officials yet'}</span></span><span class="chev">›</span></button>`;
+      }).join('')}</div>` : '<div class="a-empty">No clubs match.</div>';
+    }
+    function openClub(name) {
+      C.open = name;
+      $('clubTitle').textContent = name;
+      $('ocRole').innerHTML = rolesFor(name).map(r => `<option value="${E(r)}">${E(r)}</option>`).join('');
+      updateRoleNote();
+      $('ocName').value = ''; $('ocEmail').value = ''; $('ocSearch').value = ''; C.results = []; renderOcResults();
+      renderOfficers(); openSheet('clubOv');
+    }
+    function updateRoleNote() {
+      const el = $('ocRoleNote'); if (!el) return;
+      const note = ROLE_NOTES[$('ocRole').value];
+      el.textContent = note || ''; el.style.display = note ? 'block' : 'none';
+    }
 
-  async function delComment(id){
-    if(!confirm('Delete this comment? Cannot be undone.')) return;
-    try{
-      await db.collection('comments').doc(id).delete();
-      const el=document.getElementById('ai-'+id);
-      if(el){el.style.transition='all .3s ease';el.style.opacity='0';setTimeout(()=>el.remove(),300);}
-      showToast('Comment deleted 🗑'); loadStats();
-    }catch(e){showToast('❌ Delete failed.');}
-  }
+    function renderOfficers() {
+      const os = officersOf(C.open);
+      $('ocList').innerHTML = os.length ? `<div class="a-card">${os.map(o => `
+        <div class="a-row static"><span class="a-av">${E(initials(o.officer_name || o.officer_email))}</span>
+          <span class="grow"><span class="a-name">${E(o.officer_name || o.officer_email)}</span><span class="a-sub">${E(o.role)} · ${E(o.officer_email)}</span></span>
+          <button type="button" class="a-mini danger" data-act="off-del" data-id="${Number(o.id)}">Remove</button></div>`).join('')}</div>`
+        : '<div class="a-empty" style="padding:22px 12px">No officials for this club yet.</div>';
+    }
+let _ocSearchT = null;
+    function searchOcTerm(q) {
+      clearTimeout(_ocSearchT);
+      if (q.length < 2) { C.results = []; renderOcResults(); return; }
+      _ocSearchT = setTimeout(async () => {
+        const cols = 'id,name,reg,email,classyear,course,photo_url,isanonymous';
+        try {
+          const [byName, byReg] = await Promise.all([
+            supabase.from('profiles').select(cols).ilike('name', `%${q}%`).limit(8),
+            supabase.from('profiles').select(cols).ilike('reg', `%${q}%`).limit(8),
+          ]);
+          const seen = new Set(); const rows = [];
+          (byName.data || []).concat(byReg.data || []).forEach(p => { if (!p.isanonymous && !seen.has(p.id)) { seen.add(p.id); rows.push(p); } });
+          C.results = rows.slice(0, 8);
+        } catch (e) { console.warn('[officer search]', e); C.results = []; }
+        renderOcResults();
+      }, 280);
+    }
+    function renderOcResults() {
+      const el = $('ocResults'); if (!el) return;
+      if (!C.results.length) { el.innerHTML = ''; return; }
+      el.innerHTML = `<div class="a-card" style="margin-top:6px">${C.results.map(p => {
+        const photo = window.safeUrl ? window.safeUrl(p.photo_url) : '';
+        return `<button type="button" class="a-row" data-act="oc-pick" data-id="${Number(p.id)}">
+          <span class="a-av" data-init="${E(initials(p.name))}">${photo ? `<img src="${E(photo)}" alt="">` : E(initials(p.name))}</span>
+          <span class="grow"><span class="a-name">${E(p.name || 'Unnamed')}</span><span class="a-sub">${E(p.reg || '—')} · Class of ${E(p.classyear || '?')}${p.email ? '' : ' · No email on file'}</span></span>
+        </button>`;
+      }).join('')}</div>`;
+    }
+    function pickOfficerCandidate(id) {
+      const p = C.results.find(x => Number(x.id) === id); if (!p) return;
+      $('ocName').value = p.name || ''; $('ocEmail').value = p.email || '';
+      $('ocSearch').value = ''; C.results = []; renderOcResults();
+      if (!p.email) toast('This student has no email on their profile yet — ask them to add one, or type it in below.', 4000);
+    }
 
-  async function downloadPDF(id){
-    const s=_allStudents.find(x=>x.id===id);
-    if(!s){showToast('Profile not in current view');return;}
-    const clubs=Array.isArray(s.clubs)?s.clubs.filter(Boolean):(s.clubs||'').split(',').map(x=>x.trim()).filter(Boolean);
-    const init=(s.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
-    const photoHtml=s.photo_url
-      ?`<img src="${s.photo_url}" crossorigin="anonymous" style="width:130px;height:130px;border-radius:50%;object-fit:cover;border:4px solid #f5c518;display:block;margin:0 auto 16px">`
-      :`<div style="width:130px;height:130px;border-radius:50%;background:linear-gradient(135deg,#1e5aaa,#3b82e6);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:2.8rem;font-weight:900;color:#fff;border:4px solid #f5c518">${init}</div>`;
-    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>GLUK — ${s.name||'Profile'}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f3f6fb;print-color-adjust:exact;-webkit-print-color-adjust:exact}.page{max-width:620px;margin:0 auto;background:#fff}.hdr{background:linear-gradient(160deg,#040d1e,#0a1e3d,#0d2555);padding:40px 28px 28px;text-align:center}.badge{display:inline-block;background:linear-gradient(135deg,#d4a017,#f5c518);color:#040d1e;font-size:.65rem;font-weight:900;padding:4px 14px;border-radius:20px;margin-top:10px}.nm{color:#fff;font-size:1.6rem;font-weight:900;margin:8px 0 4px}.rg{color:rgba(255,255,255,.45);font-size:.78rem}.sec{padding:16px 24px;border-bottom:1px solid #edf0f8}.sec h3{font-size:.62rem;font-weight:800;color:#8896b3;text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px}.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f6fb;font-size:.82rem}.row:last-child{border-bottom:none}.lbl{color:#8896b3;font-weight:600}.val{color:#18213a;font-weight:700;text-align:right;max-width:65%;word-break:break-word}.qt{background:#eef4ff;border-left:3px solid #1e5aaa;border-radius:8px;padding:12px 14px;font-style:italic;font-size:.82rem;color:#1a4a8f;line-height:1.65}.pill{display:inline-block;background:#fffae8;color:#1a4a8f;border:1px solid rgba(212,160,23,.25);font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:20px;margin:2px}.ft{background:linear-gradient(135deg,#040d1e,#061828);color:rgba(255,255,255,.35);text-align:center;padding:18px;font-size:.68rem}@media print{body{background:#fff}.page{box-shadow:none}}</style></head><body>
-<div class="page">
-<div class="hdr">${photoHtml}<div class="nm">${s.name||'—'}</div><div class="rg">${s.reg||''}</div><span class="badge">${(s.dept||'GLUK').replace(/School of |Faculty of /g,'')} · Class of ${s.classYear||new Date().getFullYear()}</span></div>
-<div class="sec"><h3>📋 Personal Info</h3>
-<div class="row"><span class="lbl">Programme</span><span class="val">${s.course||'—'}</span></div>
-<div class="row"><span class="lbl">County</span><span class="val">${s.county||'—'}</span></div>
-<div class="row"><span class="lbl">Constituency</span><span class="val">${s.constituency||'—'}</span></div>
-<div class="row"><span class="lbl">Email</span><span class="val">${s.email||'—'}</span></div>
-<div class="row"><span class="lbl">WhatsApp</span><span class="val">${s.whatsapp||'—'}</span></div></div>
-${s.bio?`<div class="sec"><h3>👤 About</h3><p style="font-size:.82rem;color:#485370;line-height:1.68">${s.bio}</p></div>`:''}
-${s.bestMemory?`<div class="sec"><h3>✨ Best Memory</h3><div class="qt">${s.bestMemory}</div></div>`:''}
-${s.biggestLesson?`<div class="sec"><h3>💡 Biggest Lesson</h3><p style="font-size:.82rem;color:#485370;line-height:1.68">${s.biggestLesson}</p></div>`:''}
-${s.mostLikelyTo?`<div class="sec"><h3>🔮 Most Likely To</h3><p style="text-align:center;font-size:.9rem;font-weight:800;color:#d4a017;padding:8px 0">${s.mostLikelyTo}</p></div>`:''}
-${clubs.length?`<div class="sec"><h3>🏛 Clubs</h3><div>${clubs.map(c=>`<span class="pill">${c}</span>`).join('')}</div></div>`:''}
-<div class="ft">GLUK Yearbook ${new Date().getFullYear()} · Great Lakes University of Kisumu<br>P.O. Box 2224 – 40100, Kisumu · Generated ${new Date().toLocaleDateString()}</div>
-</div><script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>`;
-    const win=window.open('','_blank','width=700,height=950');
-    if(!win){showToast('⚠️ Allow popups to print PDF');return;}
-    win.document.write(html); win.document.close();
-    showToast('Opening print dialog… 📄');
-  }
+    async function addOfficer() {
+      const name = $('ocName').value.trim(), email = $('ocEmail').value.trim().toLowerCase(), role = $('ocRole').value;
+      if (!emailOk(email)) { toast('Enter a valid email address.'); return; }
+      let error = null;
+      try {
+        await window.apiWrite('admin.officer.add', { club: C.open, email, name, role }, async () => {
+          const r = await supabase.from('club_officers').insert({ club_name: C.open, officer_email: email, officer_name: name || null, role }).select();
+          if (r.error) throw r.error;
+          return {};
+        });
+      } catch (e) { error = e; }
+      if (error) {
+        toast((error.code === '23505' || error.code === 'duplicate') ? 'That person is already an official of this club.'
+          : (error.code === 'club_tables_missing' || isMissing(error)) ? 'Run clubs-upgrade.sql in Supabase first.' : '❌ Could not add: ' + error.message, 3500);
+        return;
+      }
+      $('ocName').value = ''; $('ocEmail').value = '';
+      toast('Official added ✅');
+      await ensureClubs(true); renderOfficers(); loadDashboard(true);
+    }
+    async function removeOfficer(id) {
+      if (!confirm('Remove this official? They will no longer be able to post for the club.')) return;
+      try {
+        await window.apiWrite('admin.officer.remove', { id }, async () => {
+          const { error } = await supabase.from('club_officers').delete().eq('id', id);
+          if (error) throw error;
+          return {};
+        });
+      } catch (error) { toast('❌ Could not remove: ' + error.message, 3500); return; }
+      toast('Official removed 🗑');
+      await ensureClubs(true); renderOfficers(); loadDashboard(true);
+    }
+  
+    /* ══ Events (one handler per event type for the whole page) ══ */
+    document.addEventListener('click', e => {
+      const b = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+      if (!b) return;
+      const a = b.dataset.act, id = Number(b.dataset.id);
+      switch (a) {
+        case 'backdrop': if (e.target === b) closeAllSheets(); break;
+        case 'close':    closeSheet(b.dataset.v); break;
+        case 'go':       go(b.dataset.v); break;
+        case 'site':     location.href = 'index.html'; break;
+        case 'signout':  logOut(); break;
+        case 'stat':     if (b.dataset.v === 'comments') { M.tab = 'comments'; go('mod'); } else go(b.dataset.v); break;
+        case 'attn':
+          if (b.dataset.v === 'nophoto') { S.view = 'active'; S.f = NOFILTER(); S.f.noPhoto = true; S.q = ''; $('sSearch').value = ''; S.shown = STEP; go('students'); }
+          else if (b.dataset.v === 'clubs') { C.filter = 'none'; go('clubs'); }
+          else { M.tab = 'comments'; go('mod'); }
+          break;
+        case 'qa-export': S.view = 'active'; S.f = NOFILTER(); S.q = ''; go('students'); ensureStudents().then(exportExcel); break;
+        case 'view':     S.view = b.dataset.v; S.shown = STEP; S.err = ''; ensureStudents(); break;
+        case 'open':     openDetail(id); break;
+        case 'more':     S.shown += STEP; renderStudents(); break;
+        case 'export':   exportExcel(); break;
+        case 'open-filters': openFilters(); break;
+        case 'f-pick':   S.d[b.dataset.k] = (S.d[b.dataset.k] === b.dataset.v ? '' : b.dataset.v); buildFilterSheet(); break;
+        case 'f-nophoto': S.d.noPhoto = !S.d.noPhoto; buildFilterSheet(); break;
+        case 'f-reset':  S.d = NOFILTER(); buildFilterSheet(); break;
+        case 'f-apply':  S.f = { ...S.d }; S.shown = STEP; closeSheet('filtersOv'); renderStudents(); break;
+        case 'clear-f':  S.f[b.dataset.k] = b.dataset.k === 'noPhoto' ? false : ''; S.shown = STEP; renderStudents(); break;
+        case 'clear-all': S.f = NOFILTER(); S.shown = STEP; renderStudents(); break;
+        case 'edit':     openEdit(id); break;
+        case 'pdf':      downloadPDF(id); break;
+        case 'archive':  archiveStudent(id); break;
+        case 'restore':  restoreStudent(id); break;
+        case 'delete':   deleteStudent(id); break;
+        case 'mod-tab':  M.tab = b.dataset.v; ensureMod(); break;
+        case 'c-replies': toggleReplies(b.dataset.cid); break;
+        case 'c-del':    deleteComment(b.dataset.cid); break;
+        case 'r-del':    deleteReply(b.dataset.cid, b.dataset.rid); break;
+        case 'p-more':   loadPosts(false); break;
+        case 'p-pin':    togglePin(id, b.dataset.pinned === '1'); break;
+        case 'p-del':    deletePost(id); break;
+        case 'club-filter': C.filter = b.dataset.v; renderClubs(); break;
+        case 'club-open': openClub(b.dataset.club); break;
+      case 'oc-pick':   pickOfficerCandidate(Number(b.dataset.id)); break;
+        case 'add-official': addOfficer(); break;
+      case 'sec-check': loadSecurity(); break;
+        case 'off-del':  removeOfficer(id); break;
+      }
+    });
+    document.addEventListener('input', e => {
+      const t = e.target || {};
+      if (t.id === 'sSearch') { S.q = String(t.value || '').trim().toLowerCase(); S.shown = STEP; renderStudents(); }
+      else if (t.id === 'cSearch') { C.q = String(t.value || '').trim(); renderClubs(); }
+    else if (t.id === 'ocSearch') { searchOcTerm(String(t.value || '').trim()); }
+    });
+    document.addEventListener('change', e => {
+      const t = e.target || {};
+      if (t.id === 'sSort') { S.sort = t.value; S.shown = STEP; renderStudents(); }
+      else if (t.id === 'fClub')   { S.d.club = t.value;   buildFilterSheet(); }
+      else if (t.id === 'fCounty') { S.d.county = t.value; buildFilterSheet(); }
+      else if (t.id === 'postClub') { M.club = t.value; loadPosts(true); }
+    else if (t.id === 'ocRole') { updateRoleNote(); }
+    });
+    document.addEventListener('submit', e => { if (e.target && e.target.id === 'editForm') saveEdit(e); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllSheets(); });
+  
+    function start() {
+      if (_started) return;
+      _started = true;
+      $('postClub').innerHTML = '<option value="">All clubs</option>' + (window.GLUK_CLUBS || []).map(c => `<option value="${E(c)}">${E(c)}</option>`).join('');
+      const h = (location.hash || '').replace('#', '');
+      _dashT = 0;
+      go(VIEWS[h] ? h : 'home');
+    }
 
-  function exportExcel(){
-    let list=_allStudents;
-    if(_searchTerm) list=list.filter(s=>(s.name||'').toLowerCase().includes(_searchTerm)||(s.reg||'').toLowerCase().includes(_searchTerm));
-    if(_clubFilter) list=list.filter(s=>{const clubs=Array.isArray(s.clubs)?s.clubs:(s.clubs||'').split(',').map(x=>x.trim());return clubs.includes(_clubFilter);});
-    if(_countyFilter) list=list.filter(s=>(s.county||'').toLowerCase()===_countyFilter.toLowerCase());
-    if(!list.length){showToast('No students to export');return;}
-    showToast('Preparing Excel… 📊');
-    const rows=list.map((s,i)=>({
-      '#':i+1,
-      'Full Name':s.name||'',
-      'Reg Number':s.reg||'',
-      'School / Faculty':s.dept||'',
-      'Programme':s.course||'',
-      'Class Year':s.classYear||'',
-      'Home County':s.county||'',
-      'Constituency':s.constituency||'',
-      'Email':s.email||'',
-      'WhatsApp':s.whatsapp||'',
-      'Hobbies':Array.isArray(s.hobbies)?s.hobbies.join(', '):(s.hobbies||''),
-      'Clubs':Array.isArray(s.clubs)?s.clubs.filter(Boolean).join(', '):(s.clubs||''),
-      'Bio':s.bio||'',
-      'Best Memory':s.bestMemory||'',
-      'Biggest Lesson':s.biggestLesson||'',
-      'Most Likely To':s.mostLikelyTo||'',
-      'Profile URL':`${window.location.origin}/profile.html?id=${s.id}`,
-      'Date Added':s.created_at?new Date(s.created_at).toLocaleDateString('en-KE'):'',
-    }));
-    const ws=XLSX.utils.json_to_sheet(rows);
-    ws['!cols']=[{wch:4},{wch:24},{wch:22},{wch:34},{wch:44},{wch:10},{wch:16},{wch:16},{wch:28},{wch:16},{wch:28},{wch:40},{wch:40},{wch:40},{wch:40},{wch:40},{wch:40},{wch:12}];
-    const wb=XLSX.utils.book_new();
-    const sheet=(_deptFilter||'All Students').replace(/School of |Faculty of /g,'').slice(0,28);
-    XLSX.utils.book_append_sheet(wb,ws,sheet);
-    const d=_deptFilter?_deptFilter.replace(/School of |Faculty of /g,'').replace(/\s+/g,'_'):'All';
-    const y=_yearFilter?`_${_yearFilter}`:'';
-    XLSX.writeFile(wb,`GLUK_Yearbook_${d}${y}_${new Date().getFullYear()}.xlsx`);
-    showToast(`Exported ${rows.length} students ✅`);
-  }
-
-  function switchTab(tab,btn){
-    _tab=tab;
-    document.querySelectorAll('.a-tab').forEach(t=>t.classList.remove('active'));
-    btn.classList.add('active');
-    const sv=document.getElementById('studentsView');
-    if(sv) sv.style.display=tab==='students'?'block':'none';
-    if(tab==='students') loadStudents(); else loadComments();
-  }
-  function setDeptFilter(val,btn){
-    _deptFilter=val;
-    document.querySelectorAll('#deptChips .a-chip').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active'); loadStudents();
-  }
-  function setYearFilter(val,btn){
-    _yearFilter=val;
-    document.querySelectorAll('#yearChips .a-chip').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active'); loadStudents();
-  }
-  function setClubFilter(val,btn){
-    _clubFilter=val;
-    document.querySelectorAll('#clubChips .a-chip').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active'); renderStudentList(_allStudents);
-  }
-  function setCountyFilter(val,btn){
-    _countyFilter=val;
-    document.querySelectorAll('#countyChips .a-chip').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active'); renderStudentList(_allStudents);
-  }
+    window.__adminLoaded = true;      // the page script started: the watchdog can stand down
+  })();
   </script>
 </body>
 </html>

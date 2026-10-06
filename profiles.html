@@ -6,6 +6,18 @@
   <meta name="theme-color" content="#061020">
   <title>Students — GLUK Yearbook 2026</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="GLUK Yearbook 2026 — Great Lakes University of Kisumu">
+  <meta property="og:description" content="Browse student profiles, photos and memories from the Great Lakes University of Kisumu.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-page="profiles">
@@ -17,7 +29,7 @@
     <div style="flex:1">
       <h1 id="profilesTitle">Students<span class="subtitle" id="profilesSubtitle">GLUK Yearbook</span></h1>
     </div>
-    <div class="logo-sm">G</div>
+    <button class="profile-icon-btn" id="myProfileBtn" onclick="goToMyProfile()" title="My profile" aria-label="My profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></button>
   </nav>
 
   <div class="search-wrap">
@@ -203,6 +215,10 @@
 
         <div class="form-row">
           <div class="form-group">
+          <label class="form-label">Birthday <span style="font-weight:400;color:var(--gray-400)">(month &amp; day only — no year, so no one can work out your age)</span></label>
+          <input class="form-input" type="date" name="birthday">
+        </div>
+        <div class="form-group">
             <label class="form-label">WhatsApp</label>
             <input class="form-input" type="tel" name="whatsapp" placeholder="+254 7XX XXX XXX">
           </div>
@@ -422,7 +438,7 @@
       sel.innerHTML = '';
       const years = type === 'alumni'
         ? [GY-1,GY-2,GY-3,GY-4,GY-5,GY-6,GY-7,GY-8,GY-9,GY-10]
-        : [GY,GY+1,GY+2,GY+3];
+        : window.studentClassYears();
       years.forEach(y => {
         const o = document.createElement('option');
         o.value = String(y); o.textContent = `Class of ${y}`;
@@ -445,7 +461,7 @@
     const sel   = document.getElementById('f-classYear');
     const years = isAlumniCtx
       ? [GY-1,GY-2,GY-3,GY-4,GY-5,GY-6,GY-7,GY-8,GY-9,GY-10]
-      : [GY, GY+1, GY+2, GY+3];
+      : window.studentClassYears();
     years.forEach(y => {
       const o = document.createElement('option');
       o.value = String(y); o.textContent = `Class of ${y}`;

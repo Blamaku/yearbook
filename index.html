@@ -10,6 +10,18 @@
   <meta name="apple-mobile-web-app-title" content="GLUK Yearbook">
   <title>GLUK Yearbook 2026</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="GLUK Yearbook 2026 — Great Lakes University of Kisumu">
+  <meta property="og:description" content="Browse student profiles, photos and memories from the Great Lakes University of Kisumu.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-page="home">
@@ -17,10 +29,7 @@
   <div class="user-bar" id="userBar"></div>
 
   <section class="hero">
-    <div class="hero-crest">
-      <span class="crest-letter"><i>J</i></span>
-      <span class="crest-sub">GLUK</span>
-    </div>
+    <img class="hero-logo" src="logo.png" alt="Great Lakes University of Kisumu crest" width="132" height="120" fetchpriority="high">
     <h1>Great Lakes<br><span>University</span></h1>
     <p class="hero-sub">of Kisumu &mdash; Official Yearbook</p>
     <div class="divider-gold"></div>
@@ -46,11 +55,12 @@
   <script>
   (function(){
     var GY   = new Date().getFullYear();
-    var GDAT = new Date(GY + '-11-27T09:00:00').getTime();
+    var GDAT_FALLBACK = new Date(GY + '-11-20T09:00:00').getTime();   // used only until app.js has loaded; app.js owns the real date
+    function target(){ return window.GRAD_DATE || GDAT_FALLBACK; }
     function pad(n){ return String(n).padStart(2,'0'); }
     function set(id,v){ var el=document.getElementById('cd-'+id); if(el) el.textContent=v; }
     function tick(){
-      var diff = GDAT - Date.now();
+      var diff = target() - Date.now();
       if(diff<=0){ ['days','hours','minutes','seconds'].forEach(function(u){set(u,'00');}); return; }
       set('days',   pad(Math.floor(diff/86400000)));
       set('hours',  pad(Math.floor((diff%86400000)/3600000)));
@@ -125,7 +135,7 @@
                   display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">👥</div>
       <div style="flex:1">
         <div style="color:var(--white);font-weight:800;font-size:.9rem">All Students</div>
-        <div style="color:rgba(255,255,255,.4);font-size:.7rem;margin-top:2px">Current enrolled students · Classes of 2026–2029</div>
+        <div id="studentsRangeNote" style="color:rgba(255,255,255,.4);font-size:.7rem;margin-top:2px">Current enrolled students · Classes of 2026–2030</div>
       </div>
       <div style="color:var(--gold-bright);font-size:1.3rem">›</div>
     </a>
@@ -253,20 +263,45 @@
     </a>
 
     <script>
-    (function(){
-      const GY  = window.GRAD_YEAR || new Date().getFullYear();
+    // Alumni classes appear only once someone has created a profile for that graduation year.
+    // Runs after app.js / supabase.js have loaded.
+    document.addEventListener('DOMContentLoaded', async function () {
       const wrap = document.getElementById('alumniCards');
       if (!wrap) return;
-      const pastYears = [GY-1, GY-2, GY-3, GY-4];
-      const medals    = ['🥇','🥈','🥉','🏅'];
-      wrap.innerHTML  = pastYears.map((y, i) => `
+      const note = t => `<p style="text-align:center;color:#7c3aed;font-size:.78rem;padding:14px 0;margin:0">${t}</p>`;
+      wrap.innerHTML = note('Loading alumni classes…');
+
+      let list = [];
+      try { list = await window.getAlumniYears(); }
+      catch (e) {
+        console.warn('[alumni years]', e);
+        wrap.innerHTML = note('Could not load alumni classes right now. Tap “All Alumni Profiles” below.');
+        return;
+      }
+
+      if (!list.length) {
+        wrap.innerHTML = `
+          <div style="text-align:center;padding:22px 16px;background:linear-gradient(135deg,#faf5ff,#f3e8ff);
+                      border:1.5px dashed #d8b4fe;border-radius:var(--radius-lg)">
+            <div style="font-size:1.6rem">🏅</div>
+            <div style="color:#4c1d95;font-weight:800;font-size:.9rem;margin-top:6px">No alumni classes yet</div>
+            <div style="color:#7c3aed;font-size:.75rem;margin:4px 0 14px">Add your alumni profile and your graduation year will appear here.</div>
+            <a href="profiles.html?mode=alumni&action=add"
+              style="display:inline-block;padding:9px 18px;background:#7c3aed;color:#fff;border-radius:10px;
+                     text-decoration:none;font-size:.75rem;font-weight:700">✨ Add My Profile</a>
+          </div>`;
+        return;
+      }
+
+      const medals = ['🥇', '🥈', '🥉'];
+      wrap.innerHTML = list.map(({ year: y, count: n }, i) => `
         <div style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);border:1px solid #e9d5ff;
-                    border-radius:var(--radius-lg);padding:16px;animation:slideIn .4s ease ${i*.07}s both">
+                    border-radius:var(--radius-lg);padding:16px;animation:slideIn .4s ease ${Math.min(i, 8) * .07}s both">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <span style="font-size:1.6rem">${medals[i]}</span>
+            <span style="font-size:1.6rem">${medals[i] || '🏅'}</span>
             <div style="flex:1">
               <div style="color:#4c1d95;font-weight:800;font-size:.9rem">Class of ${y}</div>
-              <div style="color:#7c3aed;font-size:.7rem">GLUK Alumni · Graduated ${y}</div>
+              <div style="color:#7c3aed;font-size:.7rem">GLUK Alumni · Graduated ${y} · ${n} profile${n === 1 ? '' : 's'}</div>
             </div>
           </div>
           <div style="display:flex;gap:8px">
@@ -282,11 +317,12 @@
             </a>
           </div>
         </div>`).join('');
-    })();
+    });
     </script>
   </section>
 
   <footer>
+    <img src="logo-64.png" alt="" width="56" height="51" style="display:block;margin:0 auto 10px">
     <div style="color:var(--lime-bright);font-weight:700;margin-bottom:4px" id="footerTitle">GLUK Yearbook 2026</div>
     Great Lakes University of Kisumu<br>P.O. Box 2224 – 40100, Kisumu, Kenya
     <div style="margin-top:10px;font-size:.65rem">&copy; <span id="footerYear">2026</span> GLUK. All rights reserved.</div>
@@ -296,7 +332,7 @@
   </footer>
 
   <div class="install-banner" id="installBanner">
-    <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--gold),var(--gold-bright));display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--navy);font-size:1.25rem;flex-shrink:0;box-shadow:0 2px 10px rgba(212,160,23,.35)">G</div>
+    <img src="icon-192.png" alt="" width="40" height="40" style="border-radius:12px;flex-shrink:0;background:#fff;object-fit:contain">
     <p><strong>Install GLUK Yearbook</strong><br>Add to home screen for offline access</p>
     <button class="inst-btn" onclick="installApp()">Install</button>
     <button class="close-btn" id="dismissBtn" aria-label="Dismiss">✕</button>
@@ -316,10 +352,12 @@
   <script src="app.js"></script>
   <script>
     const GY = window.GRAD_YEAR || new Date().getFullYear();
-    document.getElementById('gradDateNote').textContent = `27 November ${GY} · Graduation Ceremony`;
+    document.getElementById('gradDateNote').textContent = `${new Date(window.GRAD_DATE).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} · Graduation Ceremony`;
     document.getElementById('gradYearStat').textContent = GY;
     document.getElementById('footerTitle').textContent  = `GLUK Yearbook ${GY}`;
     document.getElementById('footerYear').textContent   = GY;
+    const _yrs = window.studentClassYears();
+    document.getElementById('studentsRangeNote').textContent = `Current enrolled students · Classes of ${_yrs[0]}–${_yrs[_yrs.length - 1]}`;
 
     // Robust dismiss button — attach after DOM ready
     document.getElementById('dismissBtn').addEventListener('click', function(e) {

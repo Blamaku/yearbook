@@ -6,6 +6,18 @@
   <meta name="theme-color" content="#061020">
   <title>Course — GLUK Yearbook 2026</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="GLUK Yearbook 2026 — Great Lakes University of Kisumu">
+  <meta property="og:description" content="Browse student profiles, photos and memories from the Great Lakes University of Kisumu.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-page="course">
@@ -17,7 +29,7 @@
     <div style="flex:1">
       <h1 id="topBarTitle">Course<span class="subtitle">GLUK Yearbook 2026</span></h1>
     </div>
-    <div class="logo-sm">G</div>
+    <button class="profile-icon-btn" id="myProfileBtn" onclick="goToMyProfile()" title="My profile" aria-label="My profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></button>
   </nav>
 
   <div class="page-hero">
@@ -60,15 +72,12 @@
     // GY+1 = next year     = Third Year
     // GY+2 = year after    = Second Year
     // GY+3 = 3 years later = First Year (Freshers)
-    const GY = new Date().getFullYear();
-    const classes = [
-      {year:GY,   label:`Class of ${GY}`,   sub:`Final Year — Graduating November ${GY}`,       icon:'🎓', badge:'Graduating!'},
-      {year:GY+1, label:`Class of ${GY+1}`, sub:`Third Year`,                                   icon:'📘', badge:'3rd Year'},
-      {year:GY+2, label:`Class of ${GY+2}`, sub:`Second Year`,                                  icon:'📗', badge:'2nd Year'},
-      {year:GY+3, label:`Class of ${GY+3}`, sub:`First Year — Class of ${GY+3} Freshers`,       icon:'🌟', badge:'1st Year'},
-    ];
+    const classes = window.studentClassYears().map(y => {
+      const L = window.classLevelInfo(y);
+      return { year: y, label: `Class of ${y}`, sub: L.sub, icon: L.icon, badge: L.badge };
+    });
 
-    document.getElementById('courseDesc').textContent = '4 classes available';
+    document.getElementById('courseDesc').textContent = `${classes.length} classes available`;
     document.getElementById('classList').innerHTML = classes.map((c,i) => `
       <a class="list-item slide-in"
         href="class.html?dept=${encodeURIComponent(dept)}&course=${encodeURIComponent(course)}&class=${c.year}"
