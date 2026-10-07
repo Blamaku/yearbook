@@ -235,6 +235,17 @@ const ACTIONS = {
     return {};
   },
 
+  // Contact details and birthday are not in the public view (profiles_public).
+  // The owner and the admin get the whole row; other signed-in people get the
+  // contact details of non-anonymous profiles only. Birthday stays with the owner.
+  async 'profile.private'(ctx, body) {
+    const row = await getRow(ctx, 'profiles', body.id);
+    if (row.uid === ctx.user.uid || ctx.isAdmin) return { profile: row };
+    if (row.isanonymous) return { profile: {} };
+    return { profile: { email: row.email || '', whatsapp: row.whatsapp || '',
+      constituency: row.constituency || '', currentlocation: row.currentlocation || '' } };
+  },
+
   // ── one-time upload slots (the browser then uploads straight to storage) ──
   async 'upload.sign'(ctx, body) {
     const cfg = ctx.config, bucket = String(body.bucket || ''), ctype = String(body.contentType || '').toLowerCase();
@@ -312,7 +323,49 @@ const ACTIONS = {
     return {};
   },
 
+  // Officials' emails are not public, so the club page asks here whether the caller is listed.
+  // Listed-but-unverified is reported too (the page asks them to verify); posting still needs a verified email.
+  async 'club.officer.me'(ctx, body) {
+    const club = txt(body.club, 80, 'Club', { required: true });
+    if (!ctx.user.email) return { officer: null };
+    const r = await ctx.db.from('club_officers').select('role,officer_name').eq('club_name', club).eq('officer_email', lower(ctx.user.email)).limit(1);
+    if (r.error) throw new ApiError(500, 'db', 'Could not check the club officials.');
+    const o = r.data && r.data[0];
+    return { officer: o ? { role: o.role, officer_name: o.officer_name } : null };
+  },
+
   // ── admin only ──
+  // Full profile rows (with contact details) for the admin dashboard and exports.
+  async 'admin.profiles.list'(ctx, body) {
+    requireAdmin(ctx);
+    const from = Math.max(0, Math.min(50000, Number(body.from) || 0));
+    const r = await ctx.db.from('profiles').select('*')
+      .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + 999);
+    if (r.error) throw new ApiError(500, 'db', 'Could not load the profiles.');
+    return { rows: r.data || [] };
+  },
+
+  // Find a student by name or reg number (to make them a club official).
+  async 'admin.profile.search'(ctx, body) {
+    requireAdmin(ctx);
+    const q = txt(body.q, 60, 'Search').replace(/[%_\\,()*]/g, ' ').trim();
+    if (q.length < 2) return { rows: [] };
+    const cols = 'id,name,reg,email,classyear,course,photo_url,isanonymous';
+    const [byName, byReg] = await Promise.all([
+      ctx.db.from('profiles').select(cols).ilike('name', `%${q}%`).limit(8),
+      ctx.db.from('profiles').select(cols).ilike('reg', `%${q}%`).limit(8),
+    ]);
+    if (byName.error || byReg.error) throw new ApiError(500, 'db', 'Could not search the profiles.');
+    return { rows: (byName.data || []).concat(byReg.data || []) };
+  },
+
+  async 'admin.officer.list'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.from('club_officers').select('*').order('id', { ascending: true }).limit(5000);
+    if (r.error) throw new ApiError(500, missingTable(r.error) ? 'club_tables_missing' : 'db', missingTable(r.error) ? 'The club tables are not set up yet (run clubs-upgrade.sql).' : 'Could not load the officials.');
+    return { rows: r.data || [] };
+  },
+
   // Archived profiles are hidden from the public key once the database is locked, so the admin reads them here.
   async 'admin.archive.list'(ctx, body) {
     requireAdmin(ctx);

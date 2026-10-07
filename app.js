@@ -71,7 +71,7 @@ window.getAlumniYears = async function () {
   const PAGE = 1000;                                   // Supabase returns at most 1000 rows per request
   for (let from = 0; from < 50000; from += PAGE) {
     const { data, error } = await supabase
-      .from('profiles')
+      .from('profiles_public')
       .select('classyear')
       .lte('classyear', String(GRAD_YEAR - 1))         // alumni = graduation year before this year
       .order('id', { ascending: true })
@@ -220,7 +220,7 @@ window.getClubStats = async function (force) {
   const members = {}, last = {}, PAGE = 1000;
   for (let from = 0; from < 50000; from += PAGE) {
     const { data, error } = await supabase
-      .from('profiles').select('clubs,isanonymous')
+      .from('profiles_public').select('clubs,isanonymous')
       .order('id', { ascending: true }).range(from, from + PAGE - 1);
     if (error) throw error;
     (data || []).forEach(r => {
@@ -914,8 +914,8 @@ async function initProfilesPage(){
   if(isAll){
     const el=document.getElementById('allStudentsCount');
     const countQ = isAlumni
-      ? supabase.from('profiles').select('id',{count:'exact',head:true}).lte('classyear', String(GRAD_YEAR-1))
-      : supabase.from('profiles').select('id',{count:'exact',head:true});
+      ? supabase.from('profiles_public').select('id',{count:'exact',head:true}).lte('classyear', String(GRAD_YEAR-1))
+      : supabase.from('profiles_public').select('id',{count:'exact',head:true});
     countQ.then(({count})=>{
       if(el) el.textContent=`${count??0} ${isAlumni?'alumni':'student'} profiles in the yearbook`;
     }).catch(()=>{});
@@ -968,7 +968,7 @@ window.filterClub=async function(club,btn){
 async function loadProfilesGrid(dept,course,classYear,search,clubFilter,countyFilter){
   const grid=document.getElementById('profilesGrid'); if(!grid) return;
   try{
-    let query=supabase.from('profiles')
+    let query=supabase.from('profiles_public')
       .select('*')
       .order('created_at',{ascending:false});
     if(dept)         query=query.eq('dept',dept);
@@ -1016,7 +1016,7 @@ async function loadProfilesGrid(dept,course,classYear,search,clubFilter,countyFi
       const initials=(s.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
       const showPhoto = !s.isAnonymous && s.photo_url;
       const ph=showPhoto
-        ?`<img src="${s.photo_url}" alt="${esc(s.name)}" loading="lazy" class="profile-img">`
+        ?`<img src="${esc(window.safeUrl(s.photo_url))}" alt="${esc(s.name)}" loading="lazy" class="profile-img">`
         :`<div class="card-photo-placeholder"><span class="initials">${s.isAnonymous?'🕵️':initials}</span><span class="ph-label">${s.isAnonymous?'ANON':'GLUK'}</span></div>`;
       const link=`profile.html?id=${s.id}&dept=${encodeURIComponent(s.dept||deptCtx)}&course=${encodeURIComponent(s.course||courseCtx)}`;
       return `<a class="profile-card fade-in" href="${link}">
@@ -1091,7 +1091,7 @@ window.submitAnonymousProfile = async function() {
   const anonBtn = document.getElementById('anonSubmitBtn');
   if (anonBtn) { anonBtn.disabled = true; anonBtn.textContent = 'Saving…'; }
   try {
-    const { data: existing } = await supabase.from('profiles').select('id').eq('uid', currentUser.uid).limit(1);
+    const { data: existing } = await supabase.from('profiles_public').select('id').eq('uid', currentUser.uid).limit(1);
     if (existing && existing.length > 0) {
       showToast('You already have a profile! Edit it instead ✏️');
       setTimeout(() => window.location.href = `profile.html?id=${existing[0].id}`, 800);
@@ -1121,7 +1121,7 @@ window.openAddModal=function(){
       showToast('Checking your profile…');
       try{
         const{data,error}=await supabase
-          .from('profiles')
+          .from('profiles_public')
           .select('id,dept,course')
           .eq('uid',currentUser.uid)
           .limit(1);
@@ -1205,7 +1205,7 @@ window.gNotif = (function () {
 
   /* ── sources ── */
   async function myProfile() {
-    const { data, error } = await supabase.from('profiles').select('id,name,classyear,course,dept,clubs,birthday').eq('uid', _uid).limit(1);
+    const { data, error } = await supabase.from('profiles_public').select('id,name,classyear,course,dept,clubs,has_birthday').eq('uid', _uid).limit(1);
     if (error) throw error;
     return data && data[0] ? data[0] : null;
   }
@@ -1243,7 +1243,7 @@ window.gNotif = (function () {
 
   async function classmates(p, since, seenAt) {
     if (!p.classyear) return [];
-    let q = supabase.from('profiles').select('created_at').eq('classyear', p.classyear).neq('uid', _uid)
+    let q = supabase.from('profiles_public').select('created_at').eq('classyear', p.classyear).neq('uid', _uid)
       .gt('created_at', iso(since)).or('isanonymous.is.null,isanonymous.eq.false');
     q = p.course ? q.eq('course', p.course) : (p.dept ? q.eq('dept', p.dept) : q);
     const { data, error } = await q.order('created_at', { ascending: false }).limit(50);
@@ -1258,7 +1258,7 @@ window.gNotif = (function () {
     const ids = [...new Set(list.map(x => x.studentId).filter(id => /^\d+$/.test(id) && id !== own))].map(Number);
     let map = {};
     if (ids.length) {
-      const { data } = await supabase.from('profiles').select('id,name').in('id', ids);
+      const { data } = await supabase.from('profiles_public').select('id,name').in('id', ids);
       (data || []).forEach(r => { map[String(r.id)] = r.name; });
     }
     list.forEach(x => { x.target = x.studentId === own ? 'your profile' : (map[x.studentId] ? map[x.studentId] + '’s profile' : 'a profile'); });
@@ -1279,7 +1279,7 @@ window.gNotif = (function () {
     _noProfile = !profile;
     // A standing reminder, not a time-bound event — it keeps showing (though not re-badging once seen)
     // until the birthday is actually added, however long that takes.
-    const bday = (profile && !profile.birthday)
+    const bday = (profile && !profile.has_birthday)
       ? [{ type: 'birthday', key: 'bday-' + profile.id, at: Date.now() + 100 * 365 * 864e5 }] : [];
     _items = [].concat(c, r, k, m, bday).sort((a, b) => b.at - a.at).slice(0, MAX);
     _loaded = true;
@@ -1417,7 +1417,7 @@ window.goToMyProfile = function () {
     showToast('Finding your profile…');
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('profiles_public')
         .select('id,dept,course')
         .eq('uid', currentUser.uid)
         .limit(1);
@@ -1489,7 +1489,7 @@ window.submitProfile=async function(e){
     const uid=currentUser.uid;
 
     // Double-check no existing profile (in case user was fast)
-    const{data:existing}=await supabase.from('profiles').select('id').eq('uid',uid).limit(1);
+    const{data:existing}=await supabase.from('profiles_public').select('id').eq('uid',uid).limit(1);
     if(existing && existing.length>0){
       closeAddModal();
       showToast('You already have a profile! Redirecting… ✏️');
@@ -1606,9 +1606,27 @@ window.submitProfile=async function(e){
 // ──────────────────────────────────────────────────────
 let _currentProfile=null;
 
+// Contact details and birthday are not in the public view, so they come from the secure
+// service: signed-in visitors get a classmate's contact details, the owner gets everything.
+let _privateFor=null;                                   // "uid:id" the private fields were loaded for
+async function loadPrivateFields(){
+  const p=_currentProfile, user=auth&&auth.currentUser;
+  if(!p||!user) return false;
+  const key=user.uid+':'+p.id;
+  if(_privateFor===key) return true;
+  try{
+    const r=await window.gApi('profile.private',{id:p.id});
+    if(_currentProfile!==p) return false;               // the page moved on meanwhile
+    _currentProfile=normalizeProfile({...p,...(r.profile||{})});
+    _privateFor=key;
+    paintProfile(_currentProfile);
+    return true;
+  }catch(e){ console.warn('[profile.private]',e); return false; }
+}
+
 function initProfilePage(){
   const id=Params.get('id'); if(!id){window.location.href='profiles.html';return;}
-  supabase.from('profiles').select('*').eq('id',id).single()
+  supabase.from('profiles_public').select('*').eq('id',id).single()
     .then(({data,error})=>{
       if(error||!data){
         console.error(error);
@@ -1618,6 +1636,7 @@ function initProfilePage(){
       }
       _currentProfile = normalizeProfile(data);
       paintProfile(_currentProfile);
+      auth.onAuthStateChanged(()=>loadPrivateFields());   // runs now, and again after signing in
       startComments(id);
       // Show edit button to profile owner — check immediately + on auth change
       function _refreshEditBtn(user){
@@ -1668,9 +1687,11 @@ function paintProfile(s){
   const privateIds = ['profileCounty','profileConst','profileEmail'];
   privateIds.forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=isAnon?'🔒 Hidden':'---'; });
   if(!isAnon){
+    // Contact details only reach the page for signed-in visitors (see loadPrivateFields)
+    const signIn = (auth && auth.currentUser) ? '' : '🔒 Sign in to see';
     tx('profileCounty',s.county);
-    tx('profileConst', s.constituency);
-    tx('profileEmail', s.email);
+    tx('profileConst', s.constituency || signIn);
+    tx('profileEmail', s.email || signIn);
   }
   tx('profileBio',   isAnon?'This student chose to keep their profile private.':s.bio);
   tx('profileMemory',isAnon?'🔒 Private':s.bestMemory);
@@ -1704,15 +1725,15 @@ function paintProfile(s){
 
   // Show anonymous badge on dept span
   const deptBadge = document.getElementById('profileDept');
-  if(deptBadge && isAnon){
-    deptBadge.insertAdjacentHTML('afterend','<span style="display:inline-block;background:rgba(100,100,100,.15);color:#666;font-size:.65rem;padding:2px 8px;border-radius:20px;margin-left:6px">🕵️ Anonymous</span>');
+  if(deptBadge && isAnon && !document.getElementById('anonBadge')){
+    deptBadge.insertAdjacentHTML('afterend','<span id="anonBadge" style="display:inline-block;background:rgba(100,100,100,.15);color:#666;font-size:.65rem;padding:2px 8px;border-radius:20px;margin-left:6px">🕵️ Anonymous</span>');
   }
 
   document.title = `${s.name||'Profile'} — GLUK Yearbook ${GRAD_YEAR}`;
 
   paintWhatsappButtons(s, isAnon);
   const em=document.getElementById('emailBtn');
-  if(em){ if(!isAnon&&s.email) em.href=`mailto:${s.email}`; else em.style.display='none'; }
+  if(em){ const ok=!isAnon&&s.email; if(ok) em.href=`mailto:${s.email}`; em.style.display=ok?'':'none'; }
 
   const hEl=document.getElementById('profileHobbies');
   if(hEl){ if(isAnon){ hEl.innerHTML=`<span style="font-size:.8rem;color:var(--gray-400)">🔒 Private</span>`; } else { const h=parseList(s.hobbies);hEl.innerHTML=h.length?h.map(x=>`<span class="pill">${esc(x)}</span>`).join(''):`<span style="font-size:.8rem;color:var(--gray-400)">No hobbies listed</span>`; } }
@@ -1728,16 +1749,18 @@ function paintWhatsappButtons(s, isAnon) {
   const wa = document.getElementById('whatsappBtn'), waS = document.getElementById('waShareBtn');
   const link = (!isAnon && s.whatsapp) ? window.waLink(s.whatsapp) : '';
   const href = link ? `${link}?text=Hi%20${encodeURIComponent(s.name || '')}%2C%20I%20saw%20your%20GLUK%20Yearbook%20profile!` : '';
-  if (wa)  { if (href) wa.href = href;  else wa.style.display = 'none'; }
-  if (waS) { if (href) waS.href = href; else waS.style.display = 'none'; }
+  if (wa)  { if (href) wa.href = href;  wa.style.display  = href ? '' : 'none'; }
+  if (waS) { if (href) waS.href = href; waS.style.display = href ? '' : 'none'; }
 }
 
 // ── Edit own profile ──────────────────────────────────
-window.openEditMyProfile=function(){
+window.openEditMyProfile=async function(){
   if(!_currentProfile) return;
   const form=document.getElementById('editMyForm');
   const modal=document.getElementById('editMyModal');
   if(!form||!modal){ showToast('Edit form not found'); return; }
+  // Without the private fields the form would save blank WhatsApp/email/birthday over the real ones
+  if(!(await loadPrivateFields())){ showToast('Could not load your details. Check your connection and try again.', 4000); return; }
   buildFormOptions(form);
   const s=_currentProfile;
   const q=n=>form.querySelector(`[name="${n}"]`);
@@ -1765,7 +1788,7 @@ window.openEditMyProfile=function(){
     curPhotos.innerHTML = ph.length
       ? ph.map((u, i) => `
           <div style="position:relative;display:inline-block">
-            <img src="${u}" style="width:60px;height:60px;object-fit:cover;border-radius:10px;
+            <img src="${esc(window.safeUrl(u))}" style="width:60px;height:60px;object-fit:cover;border-radius:10px;
               border:2px solid ${i === 0 ? 'var(--gold)' : 'var(--gray-200)'}">
             ${i === 0 ? '<span style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--navy);font-size:.5rem;font-weight:900;padding:1px 6px;border-radius:20px;white-space:nowrap">Profile</span>' : ''}
           </div>`).join('')
@@ -1869,10 +1892,12 @@ window.saveMyProfile=async function(e){
 
     // Re-fetch from DB so profile photo + carousel reflect the ACTUAL saved state
     const { data: refreshed } = await supabase
-      .from('profiles').select('*').eq('id', _currentProfile.id).single();
+      .from('profiles_public').select('*').eq('id', _currentProfile.id).single();
     if (refreshed) {
       _currentProfile = normalizeProfile(refreshed);
+      _privateFor = null;
       paintProfile(_currentProfile);
+      loadPrivateFields();
     } else {
       // Fallback: paint from the in-memory merged object
       _currentProfile = { ..._currentProfile, ...update };
@@ -1898,7 +1923,7 @@ function initCarousel(photos){
   const slides=photos.length
     ?photos.slice(0,4).map((src,si)=>{
       const ph=placeholders[si]||placeholders[0];
-      return `<div class="carousel-slide"><img src="${src}" alt="Photo ${si+1}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<div class=&quot;slide-placeholder&quot;><span>${ph.icon}</span></div>'"></div>`;
+      return `<div class="carousel-slide"><img src="${esc(window.safeUrl(src))}" alt="Photo ${si+1}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<div class=&quot;slide-placeholder&quot;><span>${ph.icon}</span></div>'"></div>`;
     })
     :placeholders.map(p=>`<div class="carousel-slide"><div class="slide-placeholder"><span>${p.icon}</span><span style="font-size:.75rem;margin-top:8px;color:rgba(255,255,255,.5)">${p.label}</span></div></div>`);
   track.innerHTML=slides.join('');

@@ -424,19 +424,9 @@
     async function fetchAll(table) {                       // reads every page (Supabase returns at most 1,000 rows per request)
       const PAGE = 1000, rows = [];
       for (let from = 0; from < 50000; from += PAGE) {
-        let data, error;
-        if (table === 'profiles_archive') {                // locked to the public key: read through the secure service
-          try { data = (await window.gApi('admin.archive.list', { from })).rows; }
-          catch (e) {
-            if (!(e.unreachable || e.code === 'unknown_action')) throw e;   // function not redeployed yet: old direct read
-            ({ data, error } = await supabase.from(table).select('*')
-              .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + PAGE - 1));
-          }
-        } else {
-          ({ data, error } = await supabase.from(table).select('*')
-            .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + PAGE - 1));
-        }
-        if (error) throw error;
+        // Both tables are closed to the public key (contact details), so the admin reads them through the secure service
+        const action = table === 'profiles_archive' ? 'admin.archive.list' : 'admin.profiles.list';
+        const data = (await window.gApi(action, { from })).rows;
         rows.push(...(data || []));
         if (!data || data.length < PAGE) break;
       }
@@ -468,7 +458,7 @@
       if (!force && Date.now() - _dashT < 20000) return;
       _dashT = Date.now();
       const count = q => q.then(r => (r.error ? null : r.count));
-      const head  = () => supabase.from('profiles').select('id', { count: 'exact', head: true });
+      const head  = () => supabase.from('profiles_public').select('id', { count: 'exact', head: true });
       const gy = GY(), since = new Date(Date.now() - 7 * 864e5).toISOString();
       const [total, week, studs, alum, nophoto] = await Promise.all([
         count(head()), count(head().gte('created_at', since)),
@@ -490,7 +480,7 @@
       const totalClubs = (window.GLUK_CLUBS || []).length || 32;
       let withOfficials = null;
       try {
-        const r = await supabase.from('club_officers').select('club_name').limit(5000);
+        const r = await supabase.from('club_officers_public').select('club_name').limit(5000);
         if (r.error) throw r.error;
         withOfficials = new Set((r.data || []).map(o => o.club_name)).size;
         _officialsMissing = false;
@@ -674,8 +664,9 @@
     async function openEdit(id) {
       const s = S.all.find(x => x.id === id);
       if (s) { fillEditForm(s); return; }
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
-      if (error || !data) { toast('Could not load that profile'); return; }
+      let data = null;
+      try { data = (await window.gApi('profile.private', { id })).profile; } catch (e) { console.warn('[openEdit]', e); }
+      if (!data || !data.id) { toast('Could not load that profile'); return; }
       fillEditForm(data);
     }
     async function saveEdit(e) {
@@ -711,7 +702,7 @@
       try {
         const rec = { ...s, archived_at: new Date().toISOString(), archived_by: _admin ? _admin.email : null };
         await window.apiWrite('admin.profile.archive', { id }, async () => {
-          const full = await supabase.from('profiles').select('*').eq('id', id).single();
+          const full = await supabase.from('profiles_public').select('*').eq('id', id).single();
           if (full.error || !full.data) throw full.error || new Error('Profile not found');
           const ins = await supabase.from('profiles_archive').insert({ ...full.data, archived_at: rec.archived_at, archived_by: rec.archived_by });
           if (ins.error) throw ins.error;
@@ -735,7 +726,7 @@
         const { archived_at, archived_by, ...rest } = s;
         await window.apiWrite('admin.profile.restore', { id }, async () => {
           if (s.uid) {
-            const ex = await supabase.from('profiles').select('id').eq('uid', s.uid).limit(1);
+            const ex = await supabase.from('profiles_public').select('id').eq('uid', s.uid).limit(1);
             if (ex.data && ex.data.length) { const er = new Error('This person already has a new profile, so this one can’t be restored.'); er.code = 'exists'; throw er; }
           }
           const ins = await supabase.from('profiles').insert(rest);           // same id, so comments and club membership come back
@@ -860,7 +851,7 @@
         const ids = uniq(M.comments.map(c => Number(c.studentId)).filter(n => Number.isFinite(n) && n > 0));
         M.names = {};
         if (ids.length) {
-          const r = await supabase.from('profiles').select('id,name').in('id', ids);
+          const r = await supabase.from('profiles_public').select('id,name').in('id', ids);
           (r.data || []).forEach(p => { M.names[p.id] = p.name; });
         }
         M.loadedC = true; M.errC = '';
@@ -991,8 +982,7 @@
       if (C.loaded && !force) { renderClubs(); return; }
       $('cluList').innerHTML = '<div class="a-empty">Loading…</div>';
       try {
-        const { data, error } = await supabase.from('club_officers').select('*').order('id', { ascending: true }).limit(5000);
-        if (error) throw error;
+        const data = (await window.gApi('admin.officer.list')).rows;   // includes officials' emails, so not public
         C.officers = data || []; C.missing = false; C.loaded = true;
       } catch (e) { console.warn('[clubs]', e); C.missing = isMissing(e); C.officers = []; C.loaded = !C.missing; if (!C.missing) toast('Could not load officials'); }
       renderClubs();
@@ -1037,14 +1027,10 @@ let _ocSearchT = null;
       clearTimeout(_ocSearchT);
       if (q.length < 2) { C.results = []; renderOcResults(); return; }
       _ocSearchT = setTimeout(async () => {
-        const cols = 'id,name,reg,email,classyear,course,photo_url,isanonymous';
         try {
-          const [byName, byReg] = await Promise.all([
-            supabase.from('profiles').select(cols).ilike('name', `%${q}%`).limit(8),
-            supabase.from('profiles').select(cols).ilike('reg', `%${q}%`).limit(8),
-          ]);
+          const found = (await window.gApi('admin.profile.search', { q })).rows;   // needs emails, so via the secure service
           const seen = new Set(); const rows = [];
-          (byName.data || []).concat(byReg.data || []).forEach(p => { if (!p.isanonymous && !seen.has(p.id)) { seen.add(p.id); rows.push(p); } });
+          (found || []).forEach(p => { if (!p.isanonymous && !seen.has(p.id)) { seen.add(p.id); rows.push(p); } });
           C.results = rows.slice(0, 8);
         } catch (e) { console.warn('[officer search]', e); C.results = []; }
         renderOcResults();

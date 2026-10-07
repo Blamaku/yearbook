@@ -123,7 +123,7 @@
     // NOTE: was incorrectly querying Firestore 'students' collection which does not exist.
     // Profiles are stored in Supabase. Fixed to query the correct source.
     supabase
-      .from('profiles')
+      .from('profiles_public')
       .select('id', { count: 'exact', head: true })
       .eq('dept', dept)
       .eq('course', course)

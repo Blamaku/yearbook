@@ -365,11 +365,15 @@
     const emailOk  = s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
     const isAdminUser = () => !!(_user && typeof ADMIN_EMAIL !== 'undefined' && _user.email === ADMIN_EMAIL);
-    const myOfficer   = () => {
-      if (!_user || !_user.email) return null;
-      const em = _user.email.toLowerCase();
-      return _officers.find(o => String(o.officer_email || '').toLowerCase() === em) || null;
-    };
+    // Officials' emails are private, so the secure service tells us whether this person is one
+    let _myOfficer = null;
+    async function loadMyOfficer() {
+      _myOfficer = null;
+      if (!_user || !_user.email) return;
+      try { _myOfficer = (await window.gApi('club.officer.me', { club: CLUB })).officer || null; }
+      catch (e) { console.warn('[club officer]', e); }
+    }
+    const myOfficer   = () => (_user ? _myOfficer : null);
     const canManage = () => isAdminUser() || (!!myOfficer() && !!_user.emailVerified);
 
     function syncHeader() {
@@ -417,7 +421,7 @@
       if (!_officers.length) return '<p class="muted">No officials have been added yet.</p>';
       const sorted = [..._officers].sort((a, b) => rank(a.role) - rank(b.role));
       return `<div class="lead-grid">${sorted.map(o => {
-        const nm = o.officer_name || String(o.officer_email || '').split('@')[0];
+        const nm = o.officer_name || 'Club official';
         return `<div class="lead"><div class="lead-av">${E(ini(nm))}</div><div class="lead-nm">${E(nm)}</div><div class="lead-role">${E(o.role || 'Officer')}</div></div>`;
       }).join('')}</div>`;
     }
@@ -472,7 +476,7 @@
       try {
         const [a, b] = await Promise.all([
           supabase.from('club_info').select('*').eq('club_name', CLUB).maybeSingle(),
-          supabase.from('club_officers').select('*').eq('club_name', CLUB).order('id', { ascending: true }),
+          supabase.from('club_officers_public').select('*').eq('club_name', CLUB).order('id', { ascending: true }),
         ]);
         _setupNeeded = missing(a.error) || missing(b.error);
         _info = a.data || null;
@@ -486,7 +490,7 @@
       const cols = 'id,name,photo_url,classyear,dept,isanonymous';
       let rows = null;
       try {
-        const { data, error } = await supabase.from('profiles').select(cols)
+        const { data, error } = await supabase.from('profiles_public').select(cols)
           .contains('clubs', [CLUB]).order('name', { ascending: true }).limit(1000);
         if (!error && data) rows = data;
       } catch (e) {}
@@ -494,7 +498,7 @@
         rows = [];
         const PAGE = 1000;
         for (let from = 0; from < 50000; from += PAGE) {
-          const { data, error } = await supabase.from('profiles').select(cols + ',clubs')
+          const { data, error } = await supabase.from('profiles_public').select(cols + ',clubs')
             .order('id', { ascending: true }).range(from, from + PAGE - 1);
           if (error) throw error;
           (data || []).forEach(r => { if (window.parseClubField(r.clubs).some(c => c.toLowerCase() === CLUB.toLowerCase())) rows.push(r); });
@@ -530,7 +534,7 @@
     async function loadMe() {
       if (!_user) { _me = null; return; }
       try {
-        const { data } = await supabase.from('profiles').select('id,clubs').eq('uid', _user.uid).limit(1);
+        const { data } = await supabase.from('profiles_public').select('id,clubs').eq('uid', _user.uid).limit(1);
         _me = (data && data[0]) ? { id: data[0].id, clubs: window.parseClubField(data[0].clubs) } : null;
       } catch (e) { _me = null; }
     }
@@ -931,7 +935,7 @@
 
     auth.onAuthStateChanged(async user => {
       _user = user; syncHeader();
-      await loadMe();
+      await Promise.all([loadMe(), loadMyOfficer()]);
       paintJoin(); paintAbout(); paintFab();
       if (_feedOnce) loadFeed(true);                 // sign-in changes who can see minutes
     });
