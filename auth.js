@@ -157,6 +157,7 @@ auth.onAuthStateChanged(user => {
   currentUser = user;
   updateUserBar(user);
   if (window.gNotif) window.gNotif.start(user);       // notification bell (no-op when signed out)
+  if (window.gPush) window.gPush.sync(user);          // phone notifications: keep this device registered
 });
 
 // ── Update user bar on every page ─────────────────
@@ -313,6 +314,7 @@ async function signInWithGoogle() {
 }
 
 async function logOut() {
+  if (window.gPush) await window.gPush.forget();      // this device stops getting this person's notifications
   await auth.signOut();
   window.location.reload();
 }

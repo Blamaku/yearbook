@@ -1304,6 +1304,15 @@ footer {
 .notif-empty b { display:block; color:var(--navy); font-size:.95rem; margin:6px 0 2px; }
 .notif-empty-ico { font-size:2rem; }
 [data-theme="dark"] .notif-item.unread { background:rgba(96,165,250,.14); }
+/* "Get these on your phone" row at the top of the panel */
+.notif-push { display:flex; align-items:center; gap:10px; margin:0 0 8px; padding:10px 12px; border-radius:var(--radius-sm); background:var(--gray-100); color:var(--navy); }
+.notif-push[hidden] { display:none; }
+.notif-push-ico { font-size:1.2rem; flex-shrink:0; }
+.notif-push-txt { flex:1; min-width:0; font-size:.74rem; line-height:1.4; color:var(--gray-600); }
+.notif-push-txt b { display:block; font-size:.82rem; color:var(--navy); }
+.notif-push-btn { flex-shrink:0; border:none; border-radius:20px; padding:7px 14px; background:var(--gold,#d4a017); color:#0a1628; font-weight:800; font-size:.75rem; cursor:pointer; }
+.notif-push-link { flex-shrink:0; border:none; background:none; padding:6px 4px; color:var(--blue); font-weight:700; font-size:.75rem; cursor:pointer; }
+.notif-push-btn:disabled, .notif-push-link:disabled { opacity:.5; cursor:default; }
 
 
 /* ══════════════════════════════════════════════════════════════

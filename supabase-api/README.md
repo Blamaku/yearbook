@@ -28,6 +28,20 @@ After you deploy the updated website, **Admin → Home → Security** shows "Sec
 Change these at the top of `index.ts` and deploy again: the Firebase project id, the admin email, and the
 list of websites allowed to call the function (add your own domain if you get one).
 
+## Phone notifications (one secret)
+
+Phone notifications are sent for comments on your profile, replies to your comments and new posts in your
+clubs. They need one secret that must never go in the code:
+
+1. Run `supabase/migrations/20261008000000_push_notifications.sql` in the SQL Editor.
+2. Supabase Dashboard → **Edge Functions** → **Secrets** → add **`VAPID_PRIVATE_KEY`** with the value of
+   `VAPID_PRIVATE_KEY` from your local `.env` file.
+3. Deploy `index.ts` again.
+
+The ping above then also shows `push: "on"`. With `push: "off"` the function still saves people's devices but
+sends nothing. The matching public key is `vapidPublicKey` in `index.ts` and `VAPID_PUBLIC_KEY` in `app.js`; if you
+ever make a new pair, change all three together (everyone then has to turn notifications on again).
+
 ## Roll back
 
 Nothing here locks your database. Until the separate lockdown step, the website falls back to the old

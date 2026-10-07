@@ -39,6 +39,14 @@ const CONFIG = {
   ],
   postTypes: ['notice', 'activity', 'minutes', 'photo'],
   supabaseUrl: '',                                  // filled in automatically when the function starts
+  // Phone notifications (Web Push). The public key is also in app.js; the private key is the
+  // VAPID_PRIVATE_KEY secret in Supabase (Edge Functions → Secrets), never in this file.
+  vapidPublicKey: 'BDU6dE7Bj4zzBxnrEE1YF_4tuyQ4DYerdmNPEtnIZ36UBV7e1Yha299-T_RxAN-v3RCvVELhFlYdnsBwd9GQwwQ',
+  vapidSubject: 'mailto:kuriablair@gmail.com',      // push services contact this address if something goes wrong
+  pushHosts: ['fcm.googleapis.com', 'android.googleapis.com', 'push.services.mozilla.com', 'push.apple.com', 'notify.windows.com'],
+  maxDevicesPerPerson: 10,
+  notifyWindowMs: 10 * 60 * 1000,                   // a comment or reply can only trigger a push within 10 minutes of being written
+  notifyPerPerson: 20,                              // at most this many pushes triggered by one person per 10 minutes
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -193,6 +201,89 @@ async function getRow(ctx, table, id) {
 }
 const missingTable = e => !!e && /schema cache|does not exist|PGRST205|42P01/i.test((e.message || '') + ' ' + (e.code || ''));
 
+// ── Phone notifications: who gets what ─────────────────────────────────
+const snip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+const pushDbError = e => missingTable(e)
+  ? new ApiError(500, 'push_tables_missing', 'Phone notifications are not set up yet (run the push_notifications migration).')
+  : new ApiError(500, 'db', 'Could not save the notification settings.');
+const POST_KIND = { notice: 'New notice', activity: 'New activity', minutes: 'New minutes', photo: 'New photos' };
+const docId = (v, label) => { const s = String(v || ''); if (!/^[A-Za-z0-9]{1,40}$/.test(s)) throw bad(`Missing or invalid ${label}.`); return s; };
+
+// A browser's push address must belong to a real push service: the server POSTs to it.
+function pushSubscription(cfg, s) {
+  if (!isObj(s) || !isObj(s.keys)) throw bad('Missing subscription.');
+  const endpoint = txt(s.endpoint, 1000, 'Endpoint', { required: true });
+  let u;
+  try { u = new URL(endpoint); } catch (e) { throw bad('Endpoint is not a web address.'); }
+  const host = u.hostname.toLowerCase();
+  if (u.protocol !== 'https:' || u.port || !cfg.pushHosts.some(h => host === h || host.endsWith('.' + h))) throw bad('That is not a known push service.');
+  const p256dh = txt(s.keys.p256dh, 100, 'Key', { required: true }), auth = txt(s.keys.auth, 40, 'Key', { required: true });
+  let pk, ak;
+  try { pk = b64uBytes(p256dh); ak = b64uBytes(auth); } catch (e) { throw bad('The subscription keys could not be read.'); }
+  if (pk.length !== 65 || pk[0] !== 4 || ak.length !== 16) throw bad('The subscription keys are the wrong size.');
+  return { endpoint, p256dh, auth };
+}
+
+// One row per comment/reply that triggered a push: stops the same one being sent twice,
+// and caps how many pushes one person can trigger in 10 minutes.
+async function claimEvent(ctx, key) {
+  const since = new Date(ctx.now() - 10 * 60 * 1000).toISOString();
+  const recent = await ctx.db.from('push_events').select('key', { count: 'exact', head: true })
+    .eq('actor_uid', ctx.user.uid).gte('created_at', since);
+  if (recent.error) throw pushDbError(recent.error);
+  if ((recent.count || 0) >= ctx.config.notifyPerPerson) return 'throttled';
+  const ins = await ctx.db.from('push_events').insert({ key, actor_uid: ctx.user.uid, created_at: new Date(ctx.now()).toISOString() });
+  if (ins.error) { if (ins.error.code === '23505') return 'duplicate'; throw pushDbError(ins.error); }
+  return 'ok';
+}
+
+// Send one notification to every device of these people. Devices the push service says are gone get removed.
+async function pushToUids(ctx, uids, payload) {
+  if (!ctx.push) return { sent: 0, reason: 'not_configured' };
+  const list = [...new Set(uids.filter(Boolean))];
+  const subs = [];
+  for (let i = 0; i < list.length; i += 100) {
+    const r = await ctx.db.from('push_subscriptions').select('id,endpoint,p256dh,auth').in('uid', list.slice(i, i + 100));
+    if (r.error) throw pushDbError(r.error);
+    subs.push(...(r.data || []));
+  }
+  let sent = 0, next = 0;
+  const gone = [];
+  const worker = async () => {
+    while (next < subs.length) {
+      const s = subs[next++];
+      try {
+        const status = await ctx.push.send(s, payload);
+        if (status >= 200 && status < 300) sent++;
+        else if (status === 404 || status === 410) gone.push(s.id);
+        else console.warn('[push] the push service answered', status, new URL(s.endpoint).hostname);
+      } catch (e) { console.warn('[push] send failed', e && e.message); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(6, subs.length) }, worker));
+  if (gone.length) await ctx.db.from('push_subscriptions').delete().in('id', gone);
+  return { sent, removed: gone.length };
+}
+
+async function notifyClubMembers(ctx, post) {
+  if (!ctx.push || !post) return;
+  const r = await ctx.db.from('profiles').select('uid').contains('clubs', [post.club_name]).limit(5000);
+  if (r.error) { console.warn('[push] could not find club members', r.error.message); return; }
+  const uids = (r.data || []).map(x => x.uid).filter(u => u && u !== ctx.user.uid);
+  const n = (post.file_urls || []).length;
+  const body = post.title || post.body || (post.type === 'photo' ? `${n} new photo${n === 1 ? '' : 's'}` : '');
+  return pushToUids(ctx, uids, { title: `${post.club_name} · ${POST_KIND[post.type] || 'New post'}`, body: snip(body, 140),
+    url: '/club.html?club=' + encodeURIComponent(post.club_name) + '#feed', tag: 'p-' + post.id });
+}
+
+// A comment or reply only triggers a push if it really exists, was written by the caller, and is new.
+function checkFreshByCaller(ctx, doc) {
+  if (!doc) throw notFound();
+  if (doc.authorUid !== ctx.user.uid) throw forbidden();
+  const at = Date.parse(doc.createTime || '');
+  return Number.isFinite(at) && ctx.now() - at <= ctx.config.notifyWindowMs;
+}
+
 // ── Actions ────────────────────────────────────────────────────────────
 const ACTIONS = {
   // Who am I? (used by the admin page to show the connection status)
@@ -290,7 +381,9 @@ const ACTIONS = {
       author_name: txt(body.author_name, 120, 'Author') || ctx.user.name || ctx.user.email.split('@')[0] };
     const ins = await ctx.db.from('club_posts').insert(row).select();
     if (ins.error) throw new ApiError(500, 'db', 'Could not save the post: ' + ins.error.message);
-    return { post: ins.data && ins.data[0] };
+    const post = ins.data && ins.data[0];
+    ctx.background(notifyClubMembers(ctx, post));          // members' phones are told after the reply is sent
+    return { post };
   },
 
   async 'club.post.delete'(ctx, body) {
@@ -332,6 +425,62 @@ const ACTIONS = {
     if (r.error) throw new ApiError(500, 'db', 'Could not check the club officials.');
     const o = r.data && r.data[0];
     return { officer: o ? { role: o.role, officer_name: o.officer_name } : null };
+  },
+
+  // ── phone notifications ──
+  // This device wants notifications for the signed-in person (a device moves to whoever signed in last).
+  async 'push.subscribe'(ctx, body) {
+    const s = pushSubscription(ctx.config, body.subscription), nowIso = new Date(ctx.now()).toISOString();
+    const up = await ctx.db.from('push_subscriptions').upsert({ ...s, uid: ctx.user.uid, last_seen_at: nowIso }, { onConflict: 'endpoint' });
+    if (up.error) throw pushDbError(up.error);
+    const all = await ctx.db.from('push_subscriptions').select('id').eq('uid', ctx.user.uid).order('last_seen_at', { ascending: false });
+    const extra = (all.data || []).slice(ctx.config.maxDevicesPerPerson).map(r => r.id);
+    if (extra.length) await ctx.db.from('push_subscriptions').delete().in('id', extra);
+    return { push: ctx.push ? 'on' : 'not_configured' };
+  },
+
+  async 'push.unsubscribe'(ctx, body) {
+    const endpoint = txt(body.endpoint, 1000, 'Endpoint', { required: true });
+    const del = await ctx.db.from('push_subscriptions').delete().eq('endpoint', endpoint).eq('uid', ctx.user.uid);
+    if (del.error) throw pushDbError(del.error);
+    return {};
+  },
+
+  // "Send me a test" — only ever to the caller's own devices, at most once a minute.
+  async 'push.test'(ctx) {
+    if (!ctx.push) return { sent: 0, reason: 'not_configured' };
+    const claim = await claimEvent(ctx, `t:${ctx.user.uid}:${Math.floor(ctx.now() / 60000)}`);
+    if (claim !== 'ok') return { sent: 0, reason: claim };
+    return pushToUids(ctx, [ctx.user.uid], { title: 'GLUK Yearbook', body: 'Notifications are working on this device 🎉', url: '/index.html', tag: 'test' });
+  },
+
+  // Comments and replies are saved straight to Firebase by the browser, which then asks for the push here.
+  async 'notify.comment'(ctx, body) {
+    const id = docId(body.commentId, 'comment');
+    const c = await ctx.firestore('comments/' + id);
+    if (!checkFreshByCaller(ctx, c)) return { sent: 0, reason: 'old' };
+    const pid = Number(c.studentId);
+    if (!Number.isInteger(pid) || pid <= 0) return { sent: 0 };
+    const r = await ctx.db.from('profiles').select('uid').eq('id', pid).limit(1);
+    const owner = r.data && r.data[0] && r.data[0].uid;
+    if (!owner || owner === ctx.user.uid) return { sent: 0 };
+    const claim = await claimEvent(ctx, 'c:' + id);
+    if (claim !== 'ok') return { sent: 0, reason: claim };
+    return pushToUids(ctx, [owner], { title: `${snip(c.authorName, 60) || 'Someone'} commented on your profile`, body: snip(c.text, 140),
+      url: `/profile.html?id=${pid}#comments`, tag: 'c-' + id });
+  },
+
+  async 'notify.reply'(ctx, body) {
+    const cid = docId(body.commentId, 'comment'), rid = docId(body.replyId, 'reply');
+    const reply = await ctx.firestore(`comments/${cid}/replies/${rid}`);
+    if (!checkFreshByCaller(ctx, reply)) return { sent: 0, reason: 'old' };
+    const c = await ctx.firestore('comments/' + cid);
+    if (!c || !c.authorUid || c.authorUid === ctx.user.uid) return { sent: 0 };
+    const claim = await claimEvent(ctx, 'r:' + rid);
+    if (claim !== 'ok') return { sent: 0, reason: claim };
+    const pid = /^\d+$/.test(String(c.studentId || '')) ? c.studentId : '';
+    return pushToUids(ctx, [c.authorUid], { title: `${snip(reply.authorName, 60) || 'Someone'} replied to your comment`, body: snip(reply.text, 140),
+      url: pid ? `/profile.html?id=${pid}#comments` : '/index.html', tag: 'r-' + rid });
   },
 
   // ── admin only ──
@@ -435,7 +584,8 @@ const ACTIONS = {
 };
 
 // ── The request handler ────────────────────────────────────────────────
-export function createApi({ config, db, storage, getKeys, now = () => Date.now(), rand = () => Math.random().toString(36).slice(2, 8) }) {
+export function createApi({ config, db, storage, getKeys, now = () => Date.now(), rand = () => Math.random().toString(36).slice(2, 8),
+  push = null, firestore = null, background = p => { Promise.resolve(p).catch(e => console.error('[api] background task failed', e)); } }) {
   const cors = origin => {
     const h = { 'Vary': 'Origin', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Max-Age': '86400',
       'Access-Control-Allow-Headers': 'content-type, x-firebase-token, authorization, apikey, x-client-info' };
@@ -450,7 +600,8 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
     const headers = cors(req.headers.get('origin'));
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
     try {
-      if (req.method === 'GET') return json({ ok: true, service: 'gluk-api', version: 1, keys: await keysStatus() }, 200, headers);
+      const ping = async () => json({ ok: true, service: 'gluk-api', version: 1, keys: await keysStatus(), push: push ? 'on' : 'off' }, 200, headers);
+      if (req.method === 'GET') return ping();
       if (req.method !== 'POST') throw new ApiError(405, 'method', 'Use POST.');
       const len = Number(req.headers.get('content-length') || 0);
       if (len > config.maxBodyBytes) throw new ApiError(413, 'too_large', 'That request is too large.');
@@ -458,14 +609,14 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       try { const text = await req.text(); if (text.length > config.maxBodyBytes) throw new Error('big'); body = JSON.parse(text); } catch (e) { throw bad('The request could not be read.'); }
       if (!isObj(body)) throw bad('The request could not be read.');
       const action = String(body.action || '');
-      if (action === 'ping') return json({ ok: true, service: 'gluk-api', version: 1, keys: await keysStatus() }, 200, headers);
+      if (action === 'ping') return ping();
       const fn = Object.prototype.hasOwnProperty.call(ACTIONS, action) ? ACTIONS[action] : null;
       if (!fn) throw new ApiError(404, 'unknown_action', 'Unknown action.');
       const token = req.headers.get('x-firebase-token') || '';
       if (!token) throw new ApiError(401, 'auth', 'Please sign in first.');
       const user = await verifyFirebaseToken(token, { projectId: config.projectId, getKeys, nowSec: () => Math.floor(now() / 1000) });
       const isAdmin = user.emailVerified && !!user.email && lower(user.email) === lower(config.adminEmail);
-      const result = await fn({ user, isAdmin, db, storage, config, now, rand }, body);
+      const result = await fn({ user, isAdmin, db, storage, config, now, rand, push, firestore, background }, body);
       return json({ ok: true, ...result }, 200, headers);
     } catch (e) {
       if (e instanceof ApiError) return json({ ok: false, error: e.message, code: e.code, ...e.extra }, e.status, headers);
@@ -488,12 +639,87 @@ export async function fetchGoogleKeys(force) {
   return _keys;
 }
 
+// ── Web Push (standard Web Crypto only) ────────────────────────────────
+// RFC 8291 encrypts the message so only the person's browser can read it; RFC 8292 (VAPID) signs
+// each request so push services know it comes from this yearbook.
+const b64u = bytes => { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const utf8 = s => new TextEncoder().encode(s);
+const concat = (...parts) => { const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0)); let i = 0; for (const p of parts) { out.set(p, i); i += p.length; } return out; };
+async function hkdf(salt, ikm, info, bytes) {
+  const k = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, k, bytes * 8));
+}
+
+// `serverKeys` and `salt` are only passed in by the tests (to reproduce RFC 8291's worked example).
+export async function encryptPush(plaintext, uaPublicB64u, authB64u, { serverKeys, salt } = {}) {
+  const uaPublic = b64uBytes(uaPublicB64u), authSecret = b64uBytes(authB64u);
+  salt = salt || crypto.getRandomValues(new Uint8Array(16));
+  const as = serverKeys || await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const asPublic = new Uint8Array(await crypto.subtle.exportKey('raw', as.publicKey));
+  const uaKey = await crypto.subtle.importKey('raw', uaPublic, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, as.privateKey, 256));
+  const ikm = await hkdf(authSecret, shared, concat(utf8('WebPush: info\0'), uaPublic, asPublic), 32);
+  const cek = await hkdf(salt, ikm, utf8('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdf(salt, ikm, utf8('Content-Encoding: nonce\0'), 12);
+  const aes = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
+  const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aes, concat(plaintext, [2])));   // 2 = last (only) record
+  const header = new Uint8Array(21);
+  header.set(salt);
+  new DataView(header.buffer).setUint32(16, 4096);                  // record size
+  header[20] = asPublic.length;
+  return concat(header, asPublic, sealed);
+}
+
+export function createPushSender({ publicKey, privateKey, subject, fetchFn = fetch, nowSec = () => Math.floor(Date.now() / 1000), ttl = 2 * 86400 }) {
+  const pub = b64uBytes(publicKey);
+  let signing = null;
+  const jwts = new Map();                                           // one signed token per push service, reused for up to 11 hours
+  async function vapid(aud) {
+    const now = nowSec(), hit = jwts.get(aud);
+    if (hit && hit.exp - now > 3600) return hit.header;
+    signing = signing || await crypto.subtle.importKey('jwk',
+      { kty: 'EC', crv: 'P-256', x: b64u(pub.slice(1, 33)), y: b64u(pub.slice(33, 65)), d: privateKey, ext: true },
+      { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+    const exp = now + 12 * 3600;
+    const unsigned = b64u(utf8(JSON.stringify({ typ: 'JWT', alg: 'ES256' }))) + '.' + b64u(utf8(JSON.stringify({ aud, exp, sub: subject })));
+    const sig = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, signing, utf8(unsigned)));
+    const header = `vapid t=${unsigned}.${b64u(sig)}, k=${publicKey}`;
+    jwts.set(aud, { exp, header });
+    return header;
+  }
+  async function send(sub, data) {
+    const body = await encryptPush(utf8(JSON.stringify(data)), sub.p256dh, sub.auth);
+    const res = await fetchFn(sub.endpoint, { method: 'POST', body, headers: {
+      'Authorization': await vapid(new URL(sub.endpoint).origin), 'Content-Encoding': 'aes128gcm',
+      'Content-Type': 'application/octet-stream', 'TTL': String(ttl), 'Urgency': 'normal' } });
+    try { await res.body?.cancel(); } catch (e) { /* nothing to read */ }
+    return res.status;
+  }
+  return { send };
+}
+
+// ── Reading one comment or reply from Firebase (comments are public, so no key is needed) ──
+export function firestoreReader(projectId, fetchFn = fetch) {
+  return async path => {
+    const res = await fetchFn(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error('Firestore answered ' + res.status);
+    const doc = await res.json(), out = { createTime: doc.createTime || '' };   // createTime is set by Google, so it can't be faked
+    for (const [k, v] of Object.entries(doc.fields || {})) out[k] = v.stringValue ?? v.timestampValue ?? v.integerValue ?? v.booleanValue ?? null;
+    return out;
+  };
+}
+
 // ==DENO-WIRING-START==
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
   (() => { try { return JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')['default']; } catch (_) { return undefined; } })();
+const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') || '';
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-const api = createApi({ config: { ...CONFIG, supabaseUrl: SUPABASE_URL }, db: admin, storage: admin.storage, getKeys: fetchGoogleKeys });
+const api = createApi({ config: { ...CONFIG, supabaseUrl: SUPABASE_URL }, db: admin, storage: admin.storage, getKeys: fetchGoogleKeys,
+  push: VAPID_PRIVATE_KEY ? createPushSender({ publicKey: CONFIG.vapidPublicKey, privateKey: VAPID_PRIVATE_KEY, subject: CONFIG.vapidSubject }) : null,
+  firestore: firestoreReader(CONFIG.projectId),
+  background: p => { const t = Promise.resolve(p).catch(e => console.error('[api] background task failed', e)); globalThis.EdgeRuntime?.waitUntil?.(t); } });
 Deno.serve(req => api.handle(req));
 // ==DENO-WIRING-END==
 

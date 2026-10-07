@@ -1152,6 +1152,95 @@ window.closeAddModal=function(){
 };
 
 // ══ Notifications (in-app bell) ══════════════════════════════════
+// ── Phone notifications (Web Push) ───────────────────
+// The person turns them on from the bell panel. This device's push address is saved with the secure
+// service, which sends a notification for comments on your profile, replies to your comments and new
+// posts in your clubs. Signing out removes this device, so a shared phone never shows someone else's.
+window.gPush = (function () {
+  const VAPID_PUBLIC_KEY = 'BDU6dE7Bj4zzBxnrEE1YF_4tuyQ4DYerdmNPEtnIZ36UBV7e1Yha299-T_RxAN-v3RCvVELhFlYdnsBwd9GQwwQ';
+  const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);   // no service worker there (see initSW)
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const installed = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const supported = () => !isLocal && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const mkey = uid => 'gluk-push:' + uid;
+  const keyBytes = () => {
+    const s = VAPID_PUBLIC_KEY.replace(/-/g, '+').replace(/_/g, '/');
+    return Uint8Array.from(atob(s + '='.repeat((4 - s.length % 4) % 4)), c => c.charCodeAt(0));
+  };
+  const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+  const worker = () => withTimeout(navigator.serviceWorker.ready, 8000);
+
+  async function currentSub() {
+    if (!supported()) return null;
+    const reg = await worker();
+    return reg ? reg.pushManager.getSubscription() : null;
+  }
+
+  // 'on' | 'off' | 'denied' | 'ios-install' (iPhone: only works from the Home Screen app) | 'unsupported'
+  async function status() {
+    if (!supported()) return isIOS && !installed() ? 'ios-install' : 'unsupported';
+    if (Notification.permission === 'denied') return 'denied';
+    return (Notification.permission === 'granted' && await currentSub()) ? 'on' : 'off';
+  }
+
+  async function register(sub) {
+    await window.gApi('push.subscribe', { subscription: sub.toJSON() });
+    try { localStorage.setItem(mkey(auth.currentUser.uid), JSON.stringify({ e: sub.endpoint, t: Date.now() })); } catch (e) {}
+  }
+
+  // Must run straight from a tap: the permission question comes first, before anything else waits.
+  async function enable() {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return status();
+    const reg = await worker();
+    if (!reg) throw new Error('The app is still loading. Please try again in a moment.');
+    let sub = await reg.pushManager.getSubscription();
+    if (sub && sub.options && sub.options.applicationServerKey &&
+        new Uint8Array(sub.options.applicationServerKey).join() !== keyBytes().join()) { await sub.unsubscribe(); sub = null; }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes() });
+    await register(sub);
+    return 'on';
+  }
+
+  async function disable() {
+    const sub = await currentSub();
+    if (sub) {
+      await window.gApi('push.unsubscribe', { endpoint: sub.endpoint }).catch(e => console.warn('[push]', e));
+      await sub.unsubscribe().catch(() => {});
+    }
+    try { if (auth.currentUser) localStorage.removeItem(mkey(auth.currentUser.uid)); } catch (e) {}
+    return status();
+  }
+
+  // After sign-in: make sure the server still has this device for this person (once a week is plenty).
+  async function sync(user) {
+    if (!user || !supported() || Notification.permission !== 'granted') return;
+    try {
+      const sub = await currentSub();
+      if (!sub) return;
+      let mark = null;
+      try { mark = JSON.parse(localStorage.getItem(mkey(user.uid)) || 'null'); } catch (e) {}
+      if (mark && mark.e === sub.endpoint && Date.now() - mark.t < 7 * 864e5) return;
+      await register(sub);
+    } catch (e) { console.warn('[push] could not sync', e); }
+  }
+
+  // Before sign-out (needs the login still): this device stops getting this person's notifications.
+  async function forget() {
+    try { await withTimeout(disable(), 4000); } catch (e) {}
+  }
+
+  async function test() { return window.gApi('push.test', {}); }
+
+  return { status, enable, disable, sync, forget, test };
+})();
+
+// Comments and replies are saved straight to Firebase; this asks the secure service to send the push.
+// Fire-and-forget: a failure here never affects the comment itself.
+function requestPush(action, payload) {
+  window.gApi(action, payload).catch(e => console.warn('[push]', action, e && e.message));
+}
+
 // Built from real data every time — there are no notification records to store, fake or clean up:
 //   • new comments on MY profile              (Firestore: comments)
 //   • replies to comments I wrote             (Firestore: comments.lastReply*)
@@ -1160,7 +1249,7 @@ window.closeAddModal=function(){
 // "Read" is one timestamp per person: Firestore userState/{uid}.notifSeenAt (this device is the fallback).
 window.gNotif = (function () {
   const DAYS = 14, FRESH_MS = 180000, POLL_MS = 300000, MAX = 40;
-  let _uid = null, _items = [], _seenAt = 0, _unread = 0, _noProfile = false, _busy = null, _timer = null, _loaded = false;
+  let _uid = null, _items = [], _seenAt = 0, _unread = 0, _iconCount = 0, _noProfile = false, _busy = null, _timer = null, _loaded = false;
 
   const ms = t => {
     try {
@@ -1182,7 +1271,21 @@ window.gNotif = (function () {
   function writeCache() {
     try { sessionStorage.setItem(ckey(), JSON.stringify({ t: Date.now(), items: _items, seenAt: _seenAt, noProfile: _noProfile })); } catch (e) {}
   }
-  const recount = () => { _unread = _items.filter(it => it.at > _seenAt).length; };
+  const recount = () => {
+    _unread = _items.filter(it => it.at > _seenAt).length;
+    _iconCount = _items.filter(it => it.at > _seenAt && it.type !== 'birthday').length;   // the app icon counts real news only
+  };
+
+  // The number on the installed app's icon (iPhone Home Screen app, desktop Chrome/Edge). The service worker
+  // keeps the same number so pushes that arrive while the app is closed add to it; clear=true also
+  // removes this app's notifications from the phone's tray (that clears Android's icon dot).
+  function syncAppIcon(n, clear) {
+    try { if (navigator.setAppBadge) (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {}); } catch (e) {}
+    try {
+      const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+      if (sw) sw.postMessage({ type: 'BADGE', count: n, clear: !!clear });
+    } catch (e) {}
+  }
 
   /* ── where "read" is remembered ── */
   async function loadSeenAt() {
@@ -1292,6 +1395,7 @@ window.gNotif = (function () {
     if (b) { b.textContent = _unread > 9 ? '9+' : String(_unread); b.style.display = _unread ? 'flex' : 'none'; }
     const bell = document.getElementById('ubBell');
     if (bell) bell.setAttribute('aria-label', _unread ? 'Notifications, ' + _unread + ' new' : 'Notifications');
+    if (_loaded && _uid) syncAppIcon(_iconCount, false);   // only once the real count is known
   }
 
   function refresh(force) {
@@ -1313,7 +1417,8 @@ window.gNotif = (function () {
   }
 
   function start(user) {
-    if (!user || !document.getElementById('userBar')) { stop(); return; }   // signed out, or a page without the user bar (admin)
+    if (!user) { stop(); syncAppIcon(0, true); return; }                    // signed out: nothing of anyone's stays on the icon
+    if (!document.getElementById('userBar')) { stop(); return; }           // a page without the user bar (admin)
     if (_uid !== user.uid) { _uid = user.uid; _items = []; _seenAt = 0; _unread = 0; _loaded = false; }
     refresh(false);
     if (!_timer) _timer = setInterval(() => { if (document.visibilityState !== 'hidden') refresh(true); }, POLL_MS);
@@ -1364,15 +1469,63 @@ window.gNotif = (function () {
     ov.innerHTML = `<div class="notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
       <div class="modal-handle"></div>
       <div class="notif-head"><div class="notif-title">Notifications</div><button type="button" class="notif-x" id="notifClose" aria-label="Close">✕</button></div>
+      <div id="notifPush" class="notif-push" hidden></div>
       <div id="notifBody"></div></div>`;
     document.documentElement.appendChild(ov);
-    ov.addEventListener('click', e => { if (e.target === ov || (e.target.closest && e.target.closest('#notifClose'))) close(); });
+    ov.addEventListener('click', e => {
+      if (e.target === ov || (e.target.closest && e.target.closest('#notifClose'))) close();
+      const pb = e.target.closest && e.target.closest('[data-push]');
+      if (pb) onPushButton(pb);                      // called right in the tap: the permission question needs that
+    });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
     return ov;
   }
+  /* ── "get these on your phone" row ── */
+  const PUSH_ROW = {
+    off: `<span class="notif-push-ico">📲</span><span class="notif-push-txt"><b>Get these on your phone</b>Comments, replies and club posts — even when the app is closed.</span>
+      <button type="button" class="notif-push-btn" data-push="on">Turn on</button>`,
+    on: `<span class="notif-push-ico">📲</span><span class="notif-push-txt"><b>Phone notifications are on</b>for this device</span>
+      <button type="button" class="notif-push-link" data-push="test">Test</button><button type="button" class="notif-push-link" data-push="off">Turn off</button>`,
+    denied: `<span class="notif-push-ico">🔕</span><span class="notif-push-txt"><b>Notifications are blocked</b>Allow notifications for this site in your browser settings, then come back here.</span>`,
+    'ios-install': `<span class="notif-push-ico">📲</span><span class="notif-push-txt"><b>Want these on your iPhone?</b>Tap Share ↑ then “Add to Home Screen”, open the yearbook from there and turn notifications on.</span>`,
+  };
+  async function paintPushRow() {
+    const el = document.getElementById('notifPush');
+    if (!el || !window.gPush) return;
+    let st = 'unsupported';
+    try { st = await window.gPush.status(); } catch (e) {}
+    el.innerHTML = PUSH_ROW[st] || '';
+    el.hidden = !el.innerHTML;
+  }
+  async function onPushButton(btn) {
+    const what = btn.dataset.push;
+    btn.disabled = true;
+    try {
+      if (what === 'on') {
+        const st = await window.gPush.enable();
+        showToast(st === 'on' ? 'Phone notifications are on 🔔' : st === 'denied' ? 'Notifications are blocked in your browser settings' : 'Notifications were not turned on');
+      } else if (what === 'off') {
+        await window.gPush.disable();
+        showToast('Phone notifications are off for this device');
+      } else if (what === 'test') {
+        const r = await window.gPush.test();
+        showToast(r.sent ? 'Test sent — check your notifications 📲'
+          : r.reason === 'duplicate' || r.reason === 'throttled' ? 'One test a minute — try again shortly'
+          : r.reason === 'not_configured' ? 'Phone notifications are not switched on at the server yet'
+          : 'This device is not registered — turn notifications off and on again', 3500);
+      }
+    } catch (e) {
+      console.warn('[push]', e);
+      showToast('❌ ' + (e && e.message ? e.message : 'Could not change the notification setting'), 3500);
+    }
+    paintPushRow();
+  }
+
   function markSeen() {
-    if (!_uid || !_unread) return;
-    _seenAt = Date.now(); _unread = 0; paintBadge(); writeCache();
+    if (!_uid) return;
+    syncAppIcon(0, true);                  // the panel was opened: clear the app icon and the tray
+    if (!_unread) return;
+    _seenAt = Date.now(); _unread = 0; _iconCount = 0; paintBadge(); writeCache();
     try { localStorage.setItem(skey(), String(_seenAt)); } catch (e) {}
     db.collection('userState').doc(_uid).set({ notifSeenAt: firebase.firestore.FieldValue.serverTimestamp() })
       .catch(e => console.warn('[notif] could not save read state', e));
@@ -1382,6 +1535,7 @@ window.gNotif = (function () {
     const ov = ensurePanel(), body = document.getElementById('notifBody');
     body.innerHTML = _loaded ? panelHTML() : '<div class="notif-empty">Loading…</div>';
     ov.classList.add('notif-open'); document.documentElement.style.overflow = 'hidden';
+    paintPushRow();
     await refresh(true);
     body.innerHTML = panelHTML();          // unread items stay highlighted while the panel is open …
     markSeen();                            // … and count as read from now on
@@ -1396,6 +1550,11 @@ window.gNotif = (function () {
   if (location.hash === '#comments') {
     const jump = () => { const el = document.getElementById('commentsCard'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
     setTimeout(jump, 900); setTimeout(jump, 2200);
+  }
+
+  // A push just arrived while the app is open: refresh the bell now instead of at the next 5-minute check
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'PUSH') refresh(true); });
   }
 
   return { start, stop, refresh, open, close, paintBadge };
@@ -2037,11 +2196,12 @@ window.submitComment = async function() {
     const btn = document.querySelector('#commentInputWrap .comment-send-btn');
     if (btn) btn.disabled = true;
     try {
-      await db.collection('comments').add({
+      const ref = await db.collection('comments').add({
         studentId: String(id), text, authorName, authorUid: currentUser.uid,
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         likes: 0, likedBy: [], replyCount: 0,
       });
+      requestPush('notify.comment', { commentId: ref.id });   // the profile owner's phone
       if (input) input.value = '';
       const ctr = document.getElementById('commentCharCount');
       if (ctr) ctr.textContent = '144 chars left';
@@ -2099,11 +2259,12 @@ window.submitReply = async function(commentId, profileId) {
   if (btn) btn.disabled = true;
   try {
     const authorName = currentUser.displayName || currentUser.email.split('@')[0];
-    await db.collection('comments').doc(commentId).collection('replies').add({
+    const ref = await db.collection('comments').doc(commentId).collection('replies').add({
       text, authorName, authorUid: currentUser.uid,
       timestamp: firebase.firestore.FieldValue.serverTimestamp(),
       likes: 0, likedBy: [],
     });
+    requestPush('notify.reply', { commentId, replyId: ref.id });     // the comment author's phone
     await db.collection('comments').doc(commentId).update({
       replyCount: firebase.firestore.FieldValue.increment(1),
       lastReplyAt: firebase.firestore.FieldValue.serverTimestamp(),   // lets the comment's author see "X replied to your comment"
