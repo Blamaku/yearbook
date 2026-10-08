@@ -1618,6 +1618,8 @@ window.goToMyProfile = function () {
       if (data && data.length > 0) {
         const p = data[0];
         window.location.href = `profile.html?id=${p.id}&dept=${encodeURIComponent(p.dept || '')}&course=${encodeURIComponent(p.course || '')}`;
+      } else if (await window.gApi('staff.mine', {}).then(r => r.staff, () => null)) {
+        window.location.href = 'staff.html';                    // lecturers and staff have a staff profile instead
       } else {
         showToast('No profile yet - let\'s create yours 🎓');
         openConsentModal();
@@ -1631,7 +1633,7 @@ window.goToMyProfile = function () {
 
 // ── Bottom tab bar: Home · Students · Clubs · Alerts · Me ─────────────
 // Added to every page in TAB_FOR_PAGE (not the admin panel). On wide screens style.css stands it down the left side.
-const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home',
+const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home', staff: 'home',
   feed: 'students', profiles: 'students', profile: 'students', clubs: 'clubs', club: 'clubs' };
 const TAB_SVG = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 function renderTabBar() {

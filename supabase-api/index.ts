@@ -270,7 +270,7 @@ async function pushToUids(ctx, uids, payload) {
 }
 
 // A line in the developer diary (ops_events). Never lets a diary problem break the real work.
-const PUSH_WHAT = { c: 'comment', r: 'reply', p: 'club post', test: 'test' };
+const PUSH_WHAT = { c: 'comment', r: 'reply', p: 'club post', l: 'like', s: 'staff approved', test: 'test' };
 async function logEvent(ctx, kind, ok, details) {
   try { await ctx.db.from('ops_events').insert({ kind, ok, details, created_at: new Date(ctx.now()).toISOString() }); }
   catch (e) { /* the dashboard just misses one line */ }
@@ -319,6 +319,31 @@ async function notifyLike(ctx, pid, owner) {
   if (await claimEvent(ctx, `l:${pid}:${ctx.user.uid}`) !== 'ok') return { sent: 0 };
   return pushToUids(ctx, [owner], { title: `${authorName(ctx, {})} liked your profile ❤️`,
     body: 'Open the yearbook to see your page.', url: `/profile.html?id=${pid}`, tag: 'l-' + pid });
+}
+
+// ── Staff profiles (lecturers and staff on the Home page, since 2026-10-11) ──
+// A new one waits for the admin's approval, so nobody can pose as a lecturer.
+const STAFF_STATUS = ['pending', 'approved', 'hidden'];
+const staffDbError = e => missingTable(e)
+  ? new ApiError(503, 'staff_coming', 'Staff profiles are being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+function staffFields(ctx, p) {
+  const since = txt(p.since_year, 4, 'Year you joined GLUK');
+  if (since && (!/^\d{4}$/.test(since) || +since < 1950 || +since > new Date(ctx.now()).getFullYear())) throw bad('Year you joined GLUK must be a 4-digit year.');
+  return {
+    name: txt(p.name, 120, 'Name', { required: true }),
+    title: txt(p.title, 20, 'Title') || null,
+    position: txt(p.position, 120, 'Position', { required: true }),
+    dept: txt(p.dept, 120, 'School or office') || null,
+    since_year: since || null,
+    message: txt(p.message, 600, 'Message') || null,
+    photo_url: p.photo_url ? fileUrls(ctx.config, [p.photo_url], ctx.config.profileBucket, 1, 'Photo', ctx.user.uid)[0] : null,
+  };
+}
+async function myStaff(ctx) {
+  const r = await ctx.db.from('staff_profiles').select('*').eq('uid', ctx.user.uid).limit(1);
+  if (r.error) throw staffDbError(r.error);
+  return (r.data && r.data[0]) || null;
 }
 
 // A comment or reply only triggers a push if it really exists, was written by the caller, and is new.
@@ -586,7 +611,62 @@ const ACTIONS = {
     return { likes: Number(r.data && r.data.likes) || 0, liked: body.like };
   },
 
+  // ── staff profiles ──
+  // The caller's own staff profile, whatever its status (the public only ever sees approved ones)
+  async 'staff.mine'(ctx) {
+    return { staff: await myStaff(ctx) };
+  },
+
+  // Create or edit your own. A new one waits for the admin; edits keep their status,
+  // except a new name on an approved profile, which the admin checks again.
+  async 'staff.save'(ctx, body) {
+    if (!isObj(body.staff)) throw bad('Missing staff profile.');
+    const rec = staffFields(ctx, body.staff), old = await myStaff(ctx);
+    const w = old
+      ? await ctx.db.from('staff_profiles').update({ ...rec, updated_at: new Date(ctx.now()).toISOString(),
+          ...(old.status === 'approved' && rec.name !== old.name ? { status: 'pending' } : {}) }).eq('id', old.id)
+      : await ctx.db.from('staff_profiles').insert({ ...rec, uid: ctx.user.uid, status: 'pending' });
+    if (w.error) throw w.error.code === '23505' ? conflict('You already have a staff profile.', 'exists') : staffDbError(w.error);
+    return { staff: await myStaff(ctx) };
+  },
+
+  async 'staff.delete'(ctx) {
+    const old = await myStaff(ctx);
+    if (!old) throw notFound('You have no staff profile.');
+    const del = await ctx.db.from('staff_profiles').delete().eq('id', old.id);
+    if (del.error) throw staffDbError(del.error);
+    return {};
+  },
+
   // ── admin only ──
+  async 'admin.staff.list'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.from('staff_profiles').select('*').order('created_at', { ascending: false }).limit(1000);
+    if (r.error) throw staffDbError(r.error);
+    return { rows: r.data || [] };
+  },
+
+  // Approve, hide or send back to pending. The staff member's phone hears when they go live.
+  async 'admin.staff.review'(ctx, body) {
+    requireAdmin(ctx);
+    const status = String(body.status || '');
+    if (!STAFF_STATUS.includes(status)) throw bad('Unknown status.');
+    const row = await getRow(ctx, 'staff_profiles', body.id), was = row.status;
+    const up = await ctx.db.from('staff_profiles').update({ status, reviewed_at: new Date(ctx.now()).toISOString(), reviewed_by: ctx.user.email }).eq('id', row.id);
+    if (up.error) throw staffDbError(up.error);
+    if (status === 'approved' && was !== 'approved') ctx.background(pushToUids(ctx, [row.uid], { title: 'Your staff profile is live 🎓',
+      body: 'Students can now see it on the GLUK Yearbook.', url: `/staff.html?id=${row.id}`, tag: 's-' + row.id }));
+    return {};
+  },
+
+  async 'admin.staff.delete'(ctx, body) {
+    requireAdmin(ctx);
+    const row = await getRow(ctx, 'staff_profiles', body.id);
+    const del = await ctx.db.from('staff_profiles').delete().eq('id', row.id);
+    if (del.error) throw staffDbError(del.error);
+    return {};
+  },
+
   async 'admin.comment.delete'(ctx, body) {
     requireAdmin(ctx);
     const del = await ctx.db.from('comments').delete().eq('id', docId(body.commentId, 'comment'));   // its replies go with it

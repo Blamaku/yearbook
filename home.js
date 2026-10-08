@@ -3,9 +3,9 @@
 //
 //  A short page: hello + countdown, one card that says what to do next
 //  (create your profile / finish it / share it), your class, who just
-//  joined, the latest messages people wrote, then shortcuts.
+//  joined, lecturers & staff, the latest messages people wrote, then shortcuts.
 //
-//  • Everything shown is public (profiles_public, comments). A section
+//  • Everything shown is public (profiles_public, staff_public, comments). A section
 //    whose data can't load stays hidden instead of showing an error.
 //  • Photos in the strips open the Students feed at that person.
 // =====================================================
@@ -108,6 +108,21 @@
     show('hmClassSec', true);
   }
 
+  // ── lecturers and staff: approved ones in a random order, then a bubble inviting staff to add theirs ──
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const staffLabel = s => s.title ? `${s.title} ${String(s.name).trim().split(/\s+/).pop()}` : first(s.name);   // "Dr Achieng"
+  async function loadStaff() {
+    const { data, error } = await supabase.from('staff_public').select('id,name,title,photo_url').limit(60);
+    if (error) return;                                            // not switched on yet: the section stays hidden
+    $('hmStaff').innerHTML = shuffle(data || []).map(s => {
+      const u = window.safeUrl(s.photo_url);
+      return `<a class="hm-face is-staff" href="staff.html?id=${Number(s.id)}">
+        <span class="hm-av">${u ? `<img src="${esc(u)}" alt="" loading="lazy" decoding="async">` : esc(initials(s.name))}</span>
+        <span class="hm-face-n">${esc(staffLabel(s))}</span></a>`;
+    }).join('') + '<a class="hm-face hm-add" href="staff.html"><span class="hm-av" aria-hidden="true">+</span><span class="hm-face-n">Staff? Add yours</span></a>';
+    show('hmStaffSec', true);
+  }
+
   // ── latest messages: the newest comments, with whose yearbook they are on ──
   async function loadMessages() {
     const { data, error } = await supabase.from('comments').select('id,profile_id,author_name,text,created_at')
@@ -151,6 +166,7 @@
 
   greet('');
   loadNew().catch(() => show('hmNewSec', false));
+  loadStaff().catch(() => {});
   loadMessages().catch(() => show('hmMsgsSec', false));
   loadCount().catch(() => {});
   auth.onAuthStateChanged(user => {

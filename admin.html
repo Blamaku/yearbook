@@ -48,7 +48,7 @@
     .a-empty { text-align:center; padding:44px 20px; color:var(--gray-400); font-size:.85rem; line-height:1.6; }
     .a-warn { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; border-radius:var(--radius-md); padding:11px 14px; font-size:.78rem; line-height:1.5; margin-bottom:12px; }
 
-    .a-seg { display:grid; grid-template-columns:1fr 1fr; background:var(--gray-100); border-radius:var(--radius-md); padding:3px; margin-bottom:12px; }
+    .a-seg { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; background:var(--gray-100); border-radius:var(--radius-md); padding:3px; margin-bottom:12px; }
     .a-seg button { padding:8px 0; border:none; border-radius:8px; background:none; font-family:inherit; font-size:.78rem; font-weight:700; color:var(--gray-600); cursor:pointer; }
     .a-seg button.on { background:var(--white); color:var(--navy); box-shadow:var(--shadow-sm); }
     .a-tools { display:flex; gap:8px; margin-bottom:10px; }
@@ -236,12 +236,13 @@
 
     <!-- ── Moderation ── -->
     <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button></div>
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button></div>
       <div id="mod-comments"><div id="cList"></div></div>
       <div id="mod-posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
         <div id="pList"></div><div id="pMore"></div>
       </div>
+      <div id="mod-staff" style="display:none"><div id="stList"></div></div>
     </section>
 
     <!-- ── Clubs ── -->
@@ -517,7 +518,10 @@
       } catch (e) { _officialsMissing = isMissing(e); }
       $('stClubs').textContent = withOfficials === null ? '–' : withOfficials + ' of ' + totalClubs;
   
+      let staffWaiting = 0;                                // staff profiles to approve (none before the staff table exists)
+      try { staffWaiting = ((await window.gApi('admin.staff.list', {})).rows || []).filter(s => s.status === 'pending').length; } catch (e) {}
       const rows = [];
+      if (staffWaiting > 0) rows.push({ ico: '🎓', txt: staffWaiting + ' staff ' + plural(staffWaiting, 'profile is', 'profiles are') + ' waiting for approval', v: 'staff' });
       if (nophoto > 0) rows.push({ ico: '📷', txt: nfmt(nophoto) + ' ' + plural(nophoto, 'profile', 'profiles') + ' without a photo', v: 'nophoto' });
       if (withOfficials !== null && totalClubs - withOfficials > 0) {
         const n = totalClubs - withOfficials;
@@ -868,9 +872,63 @@
     function ensureMod() {
       $('mod-comments').style.display = M.tab === 'comments' ? 'block' : 'none';
       $('mod-posts').style.display    = M.tab === 'posts' ? 'block' : 'none';
+      $('mod-staff').style.display    = M.tab === 'staff' ? 'block' : 'none';
       $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
+      $('seg-ms').classList.toggle('on', M.tab === 'staff');
       if (M.tab === 'comments' && !M.loadedC) loadComments();
       if (M.tab === 'posts' && !M.loadedP) loadPosts(true);
+      if (M.tab === 'staff') loadStaff();
+    }
+
+    /* ══ Staff profiles: nothing shows on the site until it is approved here ══ */
+    const ST = { rows: [], err: '' };
+    const ST_ORDER = { pending: 0, approved: 1, hidden: 2 };
+    const ST_BADGE = { pending: '<span class="a-badge warn">Waiting</span>', approved: '<span class="a-badge">Live</span>', hidden: '<span class="a-badge">Hidden</span>' };
+    async function loadStaff() {
+      $('stList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try { ST.rows = (await window.gApi('admin.staff.list', {})).rows || []; ST.err = ''; }
+      catch (e) {
+        console.error('[staff]', e);
+        ST.err = e.code === 'staff_coming' || e.code === 'unknown_action'
+          ? 'Staff profiles are not switched on yet: run the staff_profiles SQL, then deploy the api.' : (e.message || 'Could not load staff profiles');
+      }
+      renderStaff();
+    }
+    function staffHTML(s) {
+      const photo = window.safeUrl(s.photo_url), name = [s.title, s.name].filter(Boolean).join(' ');
+      const btn = (st, label, cls) => `<button type="button" class="a-mini${cls ? ' ' + cls : ''}" data-act="st-review" data-id="${Number(s.id)}" data-v="${st}">${label}</button>`;
+      return `<div class="a-item">
+        <div class="a-item-top">
+          <span class="a-av">${photo ? `<img src="${E(photo)}" alt="">` : E(initials(s.name))}</span>
+          <div class="grow"><div><span class="a-name" style="display:inline">${E(name)}</span>${ST_BADGE[s.status] || ''}</div>
+            <div class="a-sub" style="white-space:normal">${E([s.position, s.dept, s.since_year ? 'since ' + s.since_year : ''].filter(Boolean).join(' · '))}</div>
+            ${s.message ? `<div class="a-text">${E(s.message)}</div>` : ''}
+            <div class="a-sub">Added ${E(ago(s.created_at))}${s.reviewed_at ? ' · reviewed ' + E(ago(s.reviewed_at)) : ''}</div></div>
+        </div>
+        <div class="a-item-acts">
+          ${s.status === 'approved' ? `<a class="a-mini" href="staff.html?id=${Number(s.id)}" target="_blank" rel="noopener">View</a>${btn('hidden', 'Hide')}` : btn('approved', '✅ Approve') + (s.status === 'pending' ? btn('hidden', 'Hide') : '')}
+          <button type="button" class="a-mini danger" data-act="st-del" data-id="${Number(s.id)}">Delete</button>
+        </div>
+      </div>`;
+    }
+    function renderStaff() {
+      const rows = ST.rows.slice().sort((a, b) => (ST_ORDER[a.status] - ST_ORDER[b.status]) || String(b.created_at).localeCompare(String(a.created_at)));
+      $('stList').innerHTML = ST.err ? `<div class="a-empty">${E(ST.err)}</div>`
+        : rows.length ? '<div class="a-sub" style="margin:0 2px 10px;white-space:normal">Check each person really is GLUK staff before approving: only approved profiles appear on the site.</div>' + rows.map(staffHTML).join('')
+        : '<div class="a-empty">No staff profiles yet. Staff add theirs from the Home page (“Staff? Add yours”).</div>';
+    }
+    async function reviewStaff(id, status) {
+      try {
+        await window.gApi('admin.staff.review', { id, status });
+        const s = ST.rows.find(x => Number(x.id) === id); if (s) { s.status = status; s.reviewed_at = new Date().toISOString(); }
+        renderStaff(); toast(status === 'approved' ? 'Approved: it is live now ✅' : status === 'hidden' ? 'Hidden from the site' : 'Updated');
+        _dashT = 0;
+      } catch (e) { console.error('[staff review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
+    }
+    async function deleteStaff(id) {
+      if (!confirm('Delete this staff profile? This cannot be undone.')) return;
+      try { await window.gApi('admin.staff.delete', { id }); ST.rows = ST.rows.filter(x => Number(x.id) !== id); renderStaff(); toast('Staff profile deleted 🗑'); _dashT = 0; }
+      catch (e) { console.error('[staff delete]', e); toast('❌ Delete failed.'); }
     }
   
     async function loadComments() {
@@ -1227,6 +1285,7 @@ let _ocSearchT = null;
         case 'attn':
           if (b.dataset.v === 'nophoto') { S.view = 'active'; S.f = NOFILTER(); S.f.noPhoto = true; S.q = ''; $('sSearch').value = ''; S.shown = STEP; go('students'); }
           else if (b.dataset.v === 'clubs') { C.filter = 'none'; go('clubs'); }
+          else if (b.dataset.v === 'staff') { M.tab = 'staff'; go('mod'); }
           else { M.tab = 'comments'; go('mod'); }
           break;
         case 'qa-export': S.view = 'active'; S.f = NOFILTER(); S.q = ''; go('students'); ensureStudents().then(exportExcel); break;
@@ -1250,6 +1309,8 @@ let _ocSearchT = null;
         case 'c-replies': toggleReplies(b.dataset.cid); break;
         case 'c-del':    deleteComment(b.dataset.cid); break;
         case 'r-del':    deleteReply(b.dataset.cid, b.dataset.rid); break;
+        case 'st-review': reviewStaff(id, b.dataset.v); break;
+        case 'st-del':   deleteStaff(id); break;
         case 'p-more':   loadPosts(false); break;
         case 'p-pin':    togglePin(id, b.dataset.pinned === '1'); break;
         case 'p-del':    deletePost(id); break;
