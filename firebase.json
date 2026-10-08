@@ -17,6 +17,7 @@
       "supabase-api/**",
       "supabase/**",
       "connect-brief/**",
+      "scripts/**",
       "docs/**",
       "**/*.md"
     ],
