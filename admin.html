@@ -498,11 +498,12 @@
       $('stStudents').textContent = nfmt(studs);  $('stAlumni').textContent = nfmt(alum);
   
       let comments = null, today = 0;
-      try {
-        const snap = await db.collection('comments').get();
-        comments = snap.size;
+      try {                                                // two counts: no comment is downloaded
         const start = new Date(); start.setHours(0, 0, 0, 0);
-        snap.docs.forEach(d => { const t = tsDate(d.data().timestamp); if (t && t >= start) today++; });
+        const cq = () => supabase.from('comments').select('id', { count: 'exact', head: true });
+        const [all, t] = await Promise.all([cq(), cq().gte('created_at', start.toISOString())]);
+        if (all.error) throw all.error;
+        comments = all.count; today = t.count || 0;
       } catch (e) { console.warn('[dashboard comments]', e); }
       $('stComments').textContent = nfmt(comments);
   
@@ -875,9 +876,11 @@
     async function loadComments() {
       $('cList').innerHTML = '<div class="a-empty">Loading…</div>';
       try {
-        const snap = await db.collection('comments').orderBy('timestamp', 'desc').limit(100).get();
-        M.comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const ids = uniq(M.comments.map(c => Number(c.studentId)).filter(n => Number.isFinite(n) && n > 0));
+        const { data, error } = await supabase.from('comments')
+          .select('id,profile_id,author_name,text,reply_count,created_at').order('created_at', { ascending: false }).limit(100);
+        if (error) throw error;
+        M.comments = data || [];
+        const ids = uniq(M.comments.map(c => Number(c.profile_id)).filter(n => Number.isFinite(n) && n > 0));
         M.names = {};
         if (ids.length) {
           const r = await supabase.from('profiles_public').select('id,name').in('id', ids);
@@ -888,14 +891,14 @@
       renderComments();
     }
     function commentHTML(c) {
-      const sid = Number(c.studentId), nm = M.names[sid];
-      const n = Number(c.replyCount) || 0;
+      const sid = Number(c.profile_id), nm = M.names[sid];
+      const n = Number(c.reply_count) || 0;
       return `<div class="a-item" id="ci-${E(c.id)}">
         <div class="a-item-top">
-          <span class="a-av" data-init="${E(initials(c.authorName))}">${E(initials(c.authorName))}</span>
-          <div class="grow"><div><span class="a-name">${E(c.authorName || 'Anonymous')}</span>${nm ? ` <span class="a-sub inline">on <a href="profile.html?id=${sid}" target="_blank" rel="noopener noreferrer">${E(nm)}</a></span>` : ''}</div>
+          <span class="a-av" data-init="${E(initials(c.author_name))}">${E(initials(c.author_name))}</span>
+          <div class="grow"><div><span class="a-name">${E(c.author_name || 'Anonymous')}</span>${nm ? ` <span class="a-sub inline">on <a href="profile.html?id=${sid}" target="_blank" rel="noopener noreferrer">${E(nm)}</a></span>` : ''}</div>
             <div class="a-text">${E(c.text || '')}</div>
-            <div class="a-sub">${n ? n + ' ' + plural(n, 'reply', 'replies') + ' · ' : ''}${E(ago(c.timestamp))}</div></div>
+            <div class="a-sub">${n ? n + ' ' + plural(n, 'reply', 'replies') + ' · ' : ''}${E(ago(c.created_at))}</div></div>
         </div>
         <div class="a-item-acts">
           ${n ? `<button type="button" class="a-mini" data-act="c-replies" data-cid="${E(c.id)}">Replies (${n})</button>` : ''}
@@ -913,21 +916,18 @@
       if (box.dataset.open === '1') { box.innerHTML = ''; box.dataset.open = ''; return; }
       box.innerHTML = '<div class="a-sub">Loading…</div>';
       try {
-        const snap = await db.collection('comments').doc(cid).collection('replies').orderBy('timestamp').get();
+        const { data, error } = await supabase.from('comment_replies')
+          .select('id,author_name,text,created_at').eq('comment_id', cid).order('created_at', { ascending: true }).limit(200);
+        if (error) throw error;
         box.dataset.open = '1';
-        box.innerHTML = snap.docs.length ? snap.docs.map(d => { const r = d.data(); return `<div class="a-reply"><div class="grow"><b>${E(r.authorName || 'Anonymous')}</b> ${E(r.text || '')}<div class="a-sub">${E(ago(r.timestamp))}</div></div><button type="button" class="a-mini danger" data-act="r-del" data-cid="${E(cid)}" data-rid="${E(d.id)}">Delete</button></div>`; }).join('')
+        box.innerHTML = (data || []).length ? data.map(r => `<div class="a-reply"><div class="grow"><b>${E(r.author_name || 'Anonymous')}</b> ${E(r.text || '')}<div class="a-sub">${E(ago(r.created_at))}</div></div><button type="button" class="a-mini danger" data-act="r-del" data-cid="${E(cid)}" data-rid="${E(r.id)}">Delete</button></div>`).join('')
           : '<div class="a-sub">No replies.</div>';
       } catch (e) { box.innerHTML = '<div class="a-sub">Could not load replies.</div>'; }
     }
     async function deleteComment(cid) {
       if (!confirm('Delete this comment and all its replies? This cannot be undone.')) return;
       try {
-        const ref = db.collection('comments').doc(cid);
-        const reps = await ref.collection('replies').get();
-        const batch = db.batch();
-        reps.docs.forEach(d => batch.delete(d.ref));
-        batch.delete(ref);
-        await batch.commit();
+        await window.gApi('admin.comment.delete', { commentId: cid });          // its replies go with it
         M.comments = M.comments.filter(c => c.id !== cid); renderComments();
         toast('Comment deleted 🗑'); loadDashboard(true);
       } catch (e) { console.error('[delete comment]', e); toast('❌ Delete failed.'); }
@@ -935,12 +935,8 @@
     async function deleteReply(cid, rid) {
       if (!confirm('Delete this reply?')) return;
       try {
-        const ref = db.collection('comments').doc(cid);
-        const batch = db.batch();
-        batch.delete(ref.collection('replies').doc(rid));
-        batch.update(ref, { replyCount: firebase.firestore.FieldValue.increment(-1) });
-        await batch.commit();
-        const c = M.comments.find(x => x.id === cid); if (c) c.replyCount = Math.max(0, (Number(c.replyCount) || 1) - 1);
+        await window.gApi('admin.reply.delete', { commentId: cid, replyId: rid });
+        const c = M.comments.find(x => x.id === cid); if (c) c.reply_count = Math.max(0, (Number(c.reply_count) || 1) - 1);
         renderComments(); toast('Reply deleted 🗑');
       } catch (e) { console.error('[delete reply]', e); toast('❌ Delete failed.'); }
     }
@@ -1152,7 +1148,7 @@ let _ocSearchT = null;
       $('devHealth').innerHTML =
         drow(h.keys === 'ok' ? '✅' : '❌', 'Secure service', E(h.keys === 'ok' ? 'Running, and checking every sign-in.' : 'Cannot reach Google’s sign-in keys, so sign-ins may fail.')) +
         drow(h.push === 'on' ? '✅' : '⚠️', 'Phone notifications', E(h.push === 'on' ? 'Sending is switched on.' : 'Not sending: the VAPID_PRIVATE_KEY secret is missing in Supabase.')) +
-        drow(h.comments === 'ok' ? '✅' : '⚠️', 'Comments (Firebase)', E(h.comments === 'ok' ? 'Reachable.' : 'Could not count the comments right now.'));
+        drow(h.comments === 'ok' ? '✅' : '⚠️', 'Comments', E(h.comments === 'ok' ? 'Counted: ' + nfmt(c ? c.total : null) + ' in total.' : 'Could not count the comments right now.'));
 
       const b = d.lastBackup;
       if (!b) {
@@ -1175,7 +1171,7 @@ let _ocSearchT = null;
       $('devUsage').innerHTML =
         drow('🗄', 'Database', E(mbs(s.db_bytes) + ' of 500 MB') + meter(s.db_bytes, FREE.db)) +
         drow('🖼', 'File storage', E(mbs(stored) + ' of 1 GB · ' + Object.entries(st).map(([k, v]) => k + ' ' + nfmt(v.files) + ' files').join(', ')) + meter(stored, FREE.storage)) +
-        drow('🔥', 'Comment reads (Firebase)', E('Free limit: 50,000 a day. Past it, comments stop until the next day.') + link('https://console.firebase.google.com/project/yearbook-d3f4f/usage', 'See today’s usage ›')) +
+        drow('🔥', 'Firebase reads', E('Free limit: 50,000 a day. Comments live in Supabase now, so only sign-in and the bell’s read-times count here.') + link('https://console.firebase.google.com/project/yearbook-d3f4f/usage', 'See today’s usage ›')) +
         drow('📶', 'Data sent (Supabase)', E('Free limit: 5 GB a month, mostly photos.') + link('https://supabase.com/dashboard/org/tbhfxktmuokmekqoveig/usage', 'See usage ›'));
 
       const tile = (n, label) => `<div class="a-stat" style="cursor:default"><b>${E(nfmt(n))}</b><span>${E(label)}</span></div>`;

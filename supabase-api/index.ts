@@ -47,6 +47,7 @@ const CONFIG = {
   maxDevicesPerPerson: 10,
   notifyWindowMs: 10 * 60 * 1000,                   // a comment or reply can only trigger a push within 10 minutes of being written
   notifyPerPerson: 20,                              // at most this many pushes triggered by one person per 10 minutes
+  commentsPerPerson: 20,                            // at most this many comments + replies by one person per 10 minutes
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -285,6 +286,29 @@ async function notifyClubMembers(ctx, post) {
     url: '/club.html?club=' + encodeURIComponent(post.club_name) + '#feed', tag: 'p-' + post.id });
 }
 
+// ── Comments (in Supabase since 2026-10-09) ────────────────────────────
+const commentDbError = e => missingTable(e)
+  ? new ApiError(503, 'comments_moving', 'Comments are being moved right now. Please try again in a few minutes.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+// The name shown on a comment: the account's name when the login carries it, else what the page sent, else the email's first part
+const authorName = (ctx, body) => snip(ctx.user.name, 60) || snip(typeof body.authorName === 'string' ? body.authorName : '', 60)
+  || snip(String(ctx.user.email || '').split('@')[0], 60) || 'Someone';
+// At most 20 comments + replies per person per 10 minutes (Firebase had no limit at all)
+async function commentRateLimit(ctx) {
+  const since = new Date(ctx.now() - 10 * 60 * 1000).toISOString();
+  const count = t => ctx.db.from(t).select('id', { count: 'exact', head: true }).eq('author_uid', ctx.user.uid).gte('created_at', since);
+  const [a, b] = await Promise.all([count('comments'), count('comment_replies')]);
+  if (a.error || b.error) throw commentDbError(a.error || b.error);
+  if ((a.count || 0) + (b.count || 0) >= ctx.config.commentsPerPerson) throw new ApiError(429, 'slow_down', 'You are commenting very fast. Please wait a few minutes.');
+}
+// Ids like Firestore's: 20 letters and digits, unbiased
+const ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+export function randomId(n = 20) {
+  const out = [];
+  while (out.length < n) for (const x of crypto.getRandomValues(new Uint8Array(n * 2))) if (x < 248 && out.length < n) out.push(ID_CHARS[x % 62]);
+  return out.join('');
+}
+
 // A comment or reply only triggers a push if it really exists, was written by the caller, and is new.
 function checkFreshByCaller(ctx, doc) {
   if (!doc) throw notFound();
@@ -492,18 +516,73 @@ const ACTIONS = {
       url: pid ? `/profile.html?id=${pid}#comments` : '/index.html', tag: 'r-' + rid });
   },
 
+  // ── comments ──
+  async 'comment.create'(ctx, body) {
+    const text = txt(body.text, 144, 'Comment', { required: true });
+    const pid = Number(body.profileId);
+    if (!Number.isInteger(pid) || pid <= 0) throw bad('Missing or invalid profile.');
+    const p = await ctx.db.from('profiles').select('uid').eq('id', pid).limit(1);
+    if (p.error) throw new ApiError(500, 'db', 'Could not check the profile.');
+    if (!p.data || !p.data.length) throw notFound('That profile is not in the yearbook any more.');
+    await commentRateLimit(ctx);
+    const row = { id: ctx.newId(), profile_id: pid, author_uid: ctx.user.uid, author_name: authorName(ctx, body), text };
+    const ins = await ctx.db.from('comments').insert(row).select();
+    if (ins.error) throw commentDbError(ins.error);
+    const owner = p.data[0].uid;
+    if (owner && owner !== ctx.user.uid) ctx.background(pushToUids(ctx, [owner], { title: `${snip(row.author_name, 60)} commented on your profile`,
+      body: snip(text, 140), url: `/profile.html?id=${pid}#comments`, tag: 'c-' + row.id }));
+    return { comment: (ins.data && ins.data[0]) || row };
+  },
+
+  async 'comment.reply'(ctx, body) {
+    const cid = docId(body.commentId, 'comment');
+    const text = txt(body.text, 144, 'Reply', { required: true });
+    await commentRateLimit(ctx);
+    const id = ctx.newId(), name = authorName(ctx, body);
+    const r = await ctx.db.rpc('comment_add_reply', { p_id: id, p_comment: cid, p_uid: ctx.user.uid, p_name: name, p_text: text });
+    if (r.error) throw commentDbError(r.error);
+    if (!r.data) throw notFound('That comment was deleted.');
+    const to = r.data.comment_author;
+    if (to && to !== ctx.user.uid) ctx.background(pushToUids(ctx, [to], { title: `${snip(name, 60)} replied to your comment`,
+      body: snip(text, 140), url: `/profile.html?id=${Number(r.data.profile_id)}#comments`, tag: 'r-' + id }));
+    return { reply: { id, comment_id: cid, author_uid: ctx.user.uid, author_name: name, text } };
+  },
+
+  // Like or unlike a comment (or one of its replies, with replyId)
+  async 'comment.like'(ctx, body) {
+    const cid = docId(body.commentId, 'comment');
+    const rid = body.replyId == null || body.replyId === '' ? null : docId(body.replyId, 'reply');
+    const r = await ctx.db.rpc('comment_toggle_like', { p_comment: cid, p_reply: rid, p_uid: ctx.user.uid });
+    if (r.error) throw commentDbError(r.error);
+    if (!r.data) throw notFound('That comment was deleted.');
+    return { likes: Number(r.data.likes) || 0, liked: r.data.liked === true };
+  },
+
   // ── admin only ──
+  async 'admin.comment.delete'(ctx, body) {
+    requireAdmin(ctx);
+    const del = await ctx.db.from('comments').delete().eq('id', docId(body.commentId, 'comment'));   // its replies go with it
+    if (del.error) throw commentDbError(del.error);
+    return {};
+  },
+
+  async 'admin.reply.delete'(ctx, body) {
+    requireAdmin(ctx);
+    const r = await ctx.db.rpc('comment_delete_reply', { p_comment: docId(body.commentId, 'comment'), p_reply: docId(body.replyId, 'reply') });
+    if (r.error) throw commentDbError(r.error);
+    return { deleted: r.data === true };
+  },
+
   // Everything the admin page's Developer tab shows, in one call.
   async 'admin.dev.stats'(ctx) {
     requireAdmin(ctx);
     const weekAgo = new Date(ctx.now() - 7 * 864e5).toISOString();
     const ev = () => ctx.db.from('ops_events');
-    const [stats, backup, pushes, recent, comments, keys] = await Promise.all([
+    const [stats, backup, pushes, recent, keys] = await Promise.all([
       ctx.db.rpc('dev_stats'),
       ev().select('ok,details,created_at').eq('kind', 'backup').order('created_at', { ascending: false }).limit(1),
       ev().select('ok,details').eq('kind', 'push').gte('created_at', weekAgo).limit(5000),
       ev().select('kind,ok,details,created_at').order('created_at', { ascending: false }).limit(15),
-      ctx.firestoreStats ? ctx.firestoreStats(weekAgo).catch(e => ({ error: String(e && e.message || e) })) : null,
       ctx.keysStatus(),
     ]);
     if (stats.error) {
@@ -511,6 +590,10 @@ const ACTIONS = {
         ? new ApiError(500, 'dev_missing', 'The developer numbers are not set up yet (run the dev_dashboard migration).')
         : new ApiError(500, 'db', 'Could not load the developer numbers.');
     }
+    // Comments are counted in the database since they moved there; before that, Firestore counts them
+    const sd = stats.data || {};
+    const comments = sd.comments != null ? { total: Number(sd.comments), week: Number(sd.comments_7d) || 0 }
+      : ctx.firestoreStats ? await ctx.firestoreStats(weekAgo).catch(e => ({ error: String(e && e.message || e) })) : null;
     const p = pushes.error ? [] : (pushes.data || []);
     const sum = k => p.reduce((n, e) => n + (Number(e.details && e.details[k]) || 0), 0);
     return {
@@ -625,7 +708,8 @@ const ACTIONS = {
 
 // ── The request handler ────────────────────────────────────────────────
 export function createApi({ config, db, storage, getKeys, now = () => Date.now(), rand = () => Math.random().toString(36).slice(2, 8),
-  push = null, firestore = null, firestoreStats = null, background = p => { Promise.resolve(p).catch(e => console.error('[api] background task failed', e)); } }) {
+  push = null, firestore = null, firestoreStats = null, newId = () => randomId(20),
+  background = p => { Promise.resolve(p).catch(e => console.error('[api] background task failed', e)); } }) {
   const cors = origin => {
     const h = { 'Vary': 'Origin', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Max-Age': '86400',
       'Access-Control-Allow-Headers': 'content-type, x-firebase-token, authorization, apikey, x-client-info' };
@@ -656,7 +740,7 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       if (!token) throw new ApiError(401, 'auth', 'Please sign in first.');
       const user = await verifyFirebaseToken(token, { projectId: config.projectId, getKeys, nowSec: () => Math.floor(now() / 1000) });
       const isAdmin = user.emailVerified && !!user.email && lower(user.email) === lower(config.adminEmail);
-      const result = await fn({ user, isAdmin, db, storage, config, now, rand, push, firestore, firestoreStats, background, keysStatus }, body);
+      const result = await fn({ user, isAdmin, db, storage, config, now, rand, push, firestore, firestoreStats, newId, background, keysStatus }, body);
       return json({ ok: true, ...result }, 200, headers);
     } catch (e) {
       if (e instanceof ApiError) return json({ ok: false, error: e.message, code: e.code, ...e.extra }, e.status, headers);

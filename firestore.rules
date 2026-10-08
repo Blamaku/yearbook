@@ -1,10 +1,10 @@
 rules_version = '2';
 
 // GLUK Yearbook 2026 — Firestore rules
-// Collections used by the app (from app.js / admin.html):
-//   comments/{id}            { studentId, text, authorName, authorUid, timestamp, likes, likedBy, replyCount }
-//   comments/{id}/replies/{id} { text, authorName, authorUid, timestamp, likes, likedBy }
-// Profiles and club posts live in Supabase, not here.
+// Since 9 Oct 2026 Firestore only holds:
+//   comments/{id} + comments/{id}/replies/{id}   a read-only archive (comments now live in Supabase)
+//   userState/{uid}                              when each person last opened the notification bell
+// Profiles, club posts and comments live in Supabase.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -13,92 +13,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Admin = your verified email. email_verified matters: without it,
-    // an unverified email/password account could claim this address.
-    function isAdmin() {
-      return signedIn()
-        && request.auth.token.email == 'kuriablair@gmail.com'
-        && request.auth.token.email_verified == true;
-    }
-
-    function validText() {
-      return request.resource.data.text is string
-        && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 144;
-    }
-
-    function validAuthor() {
-      return request.resource.data.authorUid == request.auth.uid
-        && request.resource.data.authorName is string
-        && request.resource.data.authorName.size() <= 100;
-    }
-
-    // A like toggle may only touch likes/likedBy, only for the caller's own uid,
-    // and only by exactly one step.
-    function validLikeToggle() {
-      let uid = request.auth.uid;
-      let before = resource.data;
-      let after = request.resource.data;
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy'])
-        && (
-          (!(uid in before.likedBy) && uid in after.likedBy
-            && after.likedBy.size() == before.likedBy.size() + 1
-            && after.likes == before.likes + 1)
-          ||
-          (uid in before.likedBy && !(uid in after.likedBy)
-            && after.likedBy.size() == before.likedBy.size() - 1
-            && after.likes == before.likes - 1)
-        );
-    }
-
+    // Comments moved to Supabase on 9 Oct 2026 (scripts/migrate-comments.mjs copied them all).
+    // What stays here is a read-only archive: nobody can add, change or delete anything.
     match /comments/{commentId} {
-
-      // Profile pages show comments to signed-out visitors too.
       allow read: if true;
-
-      allow create: if signedIn()
-        && validAuthor()
-        && validText()
-        && request.resource.data.keys().hasOnly(
-             ['studentId', 'text', 'authorName', 'authorUid', 'timestamp', 'likes', 'likedBy', 'replyCount'])
-        && request.resource.data.studentId is string
-        && request.resource.data.likes == 0
-        && request.resource.data.likedBy.size() == 0
-        && request.resource.data.replyCount == 0
-        && request.resource.data.timestamp == request.time;
-
-      allow update: if signedIn() && (
-        isAdmin()
-        || validLikeToggle()
-        // submitReply() bumps replyCount by 1 on the parent comment (older app versions send only this)
-        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount'])
-            && request.resource.data.replyCount == resource.data.replyCount + 1)
-        // newer app versions also record who replied last, so the comment's author can be notified
-        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount', 'lastReplyAt', 'lastReplyBy', 'lastReplyUid'])
-            && request.resource.data.replyCount == resource.data.replyCount + 1
-            && request.resource.data.lastReplyUid == request.auth.uid
-            && request.resource.data.lastReplyAt == request.time
-            && request.resource.data.lastReplyBy is string
-            && request.resource.data.lastReplyBy.size() <= 100)
-      );
-
-      allow delete: if isAdmin();
+      allow write: if false;
 
       match /replies/{replyId} {
         allow read: if true;
-
-        allow create: if signedIn()
-          && validAuthor()
-          && validText()
-          && request.resource.data.keys().hasOnly(
-               ['text', 'authorName', 'authorUid', 'timestamp', 'likes', 'likedBy'])
-          && request.resource.data.likes == 0
-          && request.resource.data.likedBy.size() == 0
-          && request.resource.data.timestamp == request.time;
-
-        allow update: if signedIn() && (isAdmin() || validLikeToggle());
-
-        allow delete: if isAdmin();
+        allow write: if false;
       }
     }
 

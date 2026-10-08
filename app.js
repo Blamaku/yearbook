@@ -1277,15 +1277,9 @@ window.gPush = (function () {
   return { status, enable, disable, sync, forget, test };
 })();
 
-// Comments and replies are saved straight to Firebase; this asks the secure service to send the push.
-// Fire-and-forget: a failure here never affects the comment itself.
-function requestPush(action, payload) {
-  window.gApi(action, payload).catch(e => console.warn('[push]', action, e && e.message));
-}
-
 // Built from real data every time — there are no notification records to store, fake or clean up:
-//   • new comments on MY profile              (Firestore: comments)
-//   • replies to comments I wrote             (Firestore: comments.lastReply*)
+//   • new comments on MY profile              (Supabase: comments)
+//   • replies to comments I wrote             (Supabase: comments.last_reply_*)
 //   • new posts in clubs I joined             (Supabase: club_posts)
 //   • new classmates (same class + course)    (Supabase: profiles)
 // "Read" is one timestamp per person: Firestore userState/{uid}.notifSeenAt (this device is the fallback).
@@ -1356,23 +1350,19 @@ window.gNotif = (function () {
   }
 
   async function commentsOnMe(p, since) {
-    const base = db.collection('comments').where('studentId', '==', String(p.id));
-    let docs;
-    try { docs = (await base.orderBy('timestamp', 'desc').limit(20).get()).docs; }
-    catch (e) { docs = (await base.limit(100).get()).docs; }      // the index is not created yet: read a few and sort here
-    return docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(c => c.authorUid !== _uid && ms(c.timestamp) >= since)
-      .map(c => ({ type: 'comment', key: 'c' + c.id, at: ms(c.timestamp), who: c.authorName, text: c.text, studentId: String(p.id) }));
+    const { data, error } = await supabase.from('comments').select('id,author_name,text,created_at')
+      .eq('profile_id', p.id).neq('author_uid', _uid).gte('created_at', iso(since))
+      .order('created_at', { ascending: false }).limit(20);
+    if (error) throw error;
+    return (data || []).map(c => ({ type: 'comment', key: 'c' + c.id, at: ms(c.created_at), who: c.author_name, text: c.text, studentId: String(p.id) }));
   }
 
   async function repliesToMe(since) {
-    const base = db.collection('comments').where('authorUid', '==', _uid);
-    let docs;
-    try { docs = (await base.orderBy('lastReplyAt', 'desc').limit(20).get()).docs; }
-    catch (e) { docs = (await base.limit(100).get()).docs; }
-    return docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(c => c.lastReplyAt && c.lastReplyUid !== _uid && ms(c.lastReplyAt) >= since)
-      .map(c => ({ type: 'reply', key: 'r' + c.id, at: ms(c.lastReplyAt), who: c.lastReplyBy, text: c.text, studentId: String(c.studentId || '') }));
+    const { data, error } = await supabase.from('comments').select('id,profile_id,text,last_reply_at,last_reply_by')
+      .eq('author_uid', _uid).neq('last_reply_uid', _uid).gte('last_reply_at', iso(since))
+      .order('last_reply_at', { ascending: false }).limit(20);
+    if (error) throw error;
+    return (data || []).map(c => ({ type: 'reply', key: 'r' + c.id, at: ms(c.last_reply_at), who: c.last_reply_by, text: c.text, studentId: String(c.profile_id || '') }));
   }
 
   async function clubPosts(p, since) {
@@ -2144,38 +2134,46 @@ document.addEventListener('touchstart',e=>{if(e.target.closest('.carousel-wrap')
 document.addEventListener('touchend',e=>{if(!e.target.closest('.carousel-wrap'))return;const diff=txStart-e.changedTouches[0].clientX;if(Math.abs(diff)>40)diff>0?nextSlide():prevSlide();});
 
 // ── Comments + Replies ────────────────────────────────
-let _unsub = null;
-
-function sortComments(docs) {
-  return docs.slice().sort((a, b) => {
-    const ta = a.timestamp?.seconds ?? a.timestamp?.toDate?.()?.getTime()/1000 ?? 0;
-    const tb = b.timestamp?.seconds ?? b.timestamp?.toDate?.()?.getTime()/1000 ?? 0;
-    return ta - tb;
-  });
-}
+// Stored in Supabase since 9 Oct 2026 (Firebase's free plan stops all comment reads for the day after 50,000).
+// Everyone can read them; posting, replying and liking go through the secure service, which also sends the
+// phone notification. New comments from others appear within a minute while the page is open.
+const COMMENT_POLL_MS = 60000;
+let _cProfile = null, _cTimer = null, _cSig = '';
+const cleanId = v => String(v == null ? '' : v).replace(/[^A-Za-z0-9]/g, '');   // the only thing that ever goes into an onclick
+const tsMs = v => { const t = Date.parse(v || ''); return Number.isFinite(t) ? t : 0; };
+const myName = () => currentUser ? (currentUser.displayName || String(currentUser.email || '').split('@')[0]) : '';
+const commentError = (e, what) => showToast('❌ ' + (e && (e.code === 'slow_down' || e.code === 'comments_moving' || e.code === 'not_found') ? e.message : 'Could not ' + what + '. Please try again.'), 3500);
 
 function startComments(profileId) {
-  if (_unsub) _unsub();
+  if (_cTimer) { clearInterval(_cTimer); _cTimer = null; }
+  _cProfile = Number(profileId); _cSig = '';
   const box = document.getElementById('commentsContainer'); if (!box) return;
   box.innerHTML = `<div class="sk-block" style="height:60px;border-radius:10px;margin-bottom:10px"></div><div class="sk-block" style="height:60px;border-radius:10px"></div>`;
-  const q = db.collection('comments').where('studentId', '==', String(profileId));
-  try {
-    _unsub = q.onSnapshot(
-      snap => paintComments(sortComments(snap.docs.map(d => ({ id: d.id, ...d.data() }))), profileId),
-      err  => {
-        console.warn('[Comments onSnapshot]', err.code, err.message);
-        db.collection('comments').where('studentId', '==', String(profileId)).get()
-          .then(snap => paintComments(sortComments(snap.docs.map(d => ({ id: d.id, ...d.data() }))), profileId))
-          .catch(e2 => {
-            console.error('[Comments get]', e2.code, e2.message);
-            if (box) box.innerHTML = `<p style="text-align:center;color:#8a97b8;font-size:.8rem;padding:20px">Comments unavailable.<br><small>(${esc(e2.code || 'unknown error')})</small></p>`;
-          });
-      }
-    );
-  } catch(e) { console.warn('[Comments try/catch]', e); if (box) box.innerHTML = ''; }
+  refreshComments();
+  _cTimer = setInterval(() => { if (document.visibilityState === 'visible') refreshComments(); }, COMMENT_POLL_MS);
 }
 
-function paintComments(list, profileId) {
+async function refreshComments() {
+  const pid = _cProfile; if (!pid) return;
+  const box = document.getElementById('commentsContainer'); if (!box) return;
+  const { data, error } = await supabase.from('comments')
+    .select('id,author_uid,author_name,text,like_count,liked_by,reply_count,created_at')
+    .eq('profile_id', pid).order('created_at', { ascending: true }).limit(500);
+  if (pid !== _cProfile) return;                                           // the reader moved to another profile
+  if (error) {
+    console.error('[comments]', error);
+    if (!box.querySelector('.comment-item')) box.innerHTML = `<p style="text-align:center;color:#8a97b8;font-size:.8rem;padding:20px">Comments unavailable right now.</p>`;
+    return;
+  }
+  const list = data || [], sig = JSON.stringify(list) + '|' + (currentUser ? currentUser.uid : '');
+  if (sig === _cSig) return;                                               // nothing changed: leave open replies alone
+  // Someone is typing a reply: don't wipe it, try again at the next refresh
+  if ([...box.querySelectorAll('.reply-input')].some(i => i.value.trim())) return;
+  _cSig = sig;
+  paintComments(list);
+}
+
+function paintComments(list) {
   const box = document.getElementById('commentsContainer');
   const cnt = document.getElementById('commentCount');
   if (!box) return;
@@ -2184,46 +2182,49 @@ function paintComments(list, profileId) {
     box.innerHTML = `<div class="empty-state" style="padding:24px 0"><div class="empty-icon" style="font-size:2rem">💬</div><h3 style="font-size:.875rem">No comments yet</h3><p>Be the first to leave a memory!</p></div>`;
     return;
   }
+  const me = currentUser ? currentUser.uid : null;
   box.innerHTML = list.map(c => {
-    const initials = (c.authorName || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-    const ts = c.timestamp?.toDate ? c.timestamp.toDate().getTime() : (c.timestamp || 0);
-    const liked = c.likedBy?.includes(currentUser?.uid);
-    const rc = c.replyCount || 0;
-    const safeAuthor = esc(c.authorName || 'Anonymous');
-    return `<div class="comment-item" id="ci-${c.id}">
+    const id = cleanId(c.id);
+    const initials = esc((c.author_name || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase());
+    const liked = !!me && (c.liked_by || []).includes(me);
+    const rc = Number(c.reply_count) || 0;
+    const safeAuthor = esc(c.author_name || 'Anonymous');
+    return `<div class="comment-item" id="ci-${id}">
       <div class="avatar-sm">${initials}</div>
       <div class="comment-bubble">
-        <div><span class="comment-user">${safeAuthor}</span><span class="comment-time">${ago(ts)}</span></div>
+        <div><span class="comment-user">${safeAuthor}</span><span class="comment-time">${ago(tsMs(c.created_at))}</span></div>
         <div class="comment-text">${esc(c.text)}</div>
         <div class="comment-actions">
-          <button class="comment-action-btn ${liked ? 'liked' : ''}" onclick="toggleLike('${c.id}','${profileId}')">
-            ${liked ? '❤️' : '🤍'} ${c.likes || 0}
+          <button class="comment-action-btn ${liked ? 'liked' : ''}" id="lk-${id}" onclick="toggleLike('${id}')">
+            ${liked ? '❤️' : '🤍'} ${Number(c.like_count) || 0}
           </button>
-          <button class="comment-action-btn reply-btn" onclick="openReplyInput('${c.id}','${safeAuthor}','${profileId}')">
+          <button class="comment-action-btn reply-btn" onclick="openReplyInput('${id}')">
             💬 Reply
           </button>
         </div>
-        <div class="reply-input-area hidden" id="ria-${c.id}">
+        <div class="reply-input-area hidden" id="ria-${id}">
           <div class="reply-input-wrap">
-            <div class="avatar-sm avatar-xs" id="replyAv-${c.id}">?</div>
-            <input class="reply-input" id="replyInput-${c.id}"
+            <div class="avatar-sm avatar-xs" id="replyAv-${id}">?</div>
+            <input class="reply-input" id="replyInput-${id}"
               placeholder="Reply to ${safeAuthor}…" maxlength="144"
-              onkeydown="handleReplyKey(event,'${c.id}','${profileId}')">
-            <button class="comment-send-btn reply-send" onclick="submitReply('${c.id}','${profileId}')">➤</button>
+              onkeydown="handleReplyKey(event,'${id}')">
+            <button class="comment-send-btn reply-send" onclick="submitReply('${id}')">➤</button>
           </div>
         </div>
-        ${rc > 0 ? `<button class="view-replies-btn" id="vrb-${c.id}" onclick="toggleReplies('${c.id}')">
+        ${rc > 0 ? `<button class="view-replies-btn" id="vrb-${id}" onclick="toggleReplies('${id}')">
           <span class="vr-line"></span>
-          <span class="vr-text"><span class="vr-chevron" id="vrc-${c.id}">▶</span> View ${rc} repl${rc === 1 ? 'y' : 'ies'}</span>
-        </button>` : `<span id="vrb-${c.id}"></span>`}
-        <div class="replies-container hidden" id="rc-${c.id}"></div>
+          <span class="vr-text"><span class="vr-chevron" id="vrc-${id}">▶</span> View ${rc} repl${rc === 1 ? 'y' : 'ies'}</span>
+        </button>` : `<span id="vrb-${id}"></span>`}
+        <div class="replies-container hidden" id="rc-${id}"></div>
       </div>
     </div>`;
   }).join('');
   if (currentUser) {
-    const init = (currentUser.displayName || currentUser.email)[0].toUpperCase();
+    const init = esc(myName().charAt(0).toUpperCase() || '?');
     document.querySelectorAll('[id^="replyAv-"]').forEach(el => el.textContent = init);
   }
+  // Replies that were open before the refresh stay open
+  [..._openReplies].forEach(id => { if (document.getElementById(`rc-${id}`)) loadReplies(id); else _openReplies.delete(id); });
 }
 
 window.submitComment = async function() {
@@ -2233,41 +2234,38 @@ window.submitComment = async function() {
     const text = input?.value.trim();
     if (!text || !id) return;
     if (text.length > 144) { showToast('Max 144 characters ✂️'); return; }
-    const authorName = currentUser.displayName || currentUser.email.split('@')[0];
     // Use the specific main comment send button, not .comment-send-btn which also matches reply buttons
     const btn = document.querySelector('#commentInputWrap .comment-send-btn');
     if (btn) btn.disabled = true;
     try {
-      const ref = await db.collection('comments').add({
-        studentId: String(id), text, authorName, authorUid: currentUser.uid,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        likes: 0, likedBy: [], replyCount: 0,
-      });
-      requestPush('notify.comment', { commentId: ref.id });   // the profile owner's phone
+      await window.gApi('comment.create', { profileId: Number(id), text, authorName: myName() });   // also notifies the profile owner
       if (input) input.value = '';
       const ctr = document.getElementById('commentCharCount');
       if (ctr) ctr.textContent = '144 chars left';
-    } catch(e) { showToast('❌ Could not post comment.'); }
+      await refreshComments();
+    } catch(e) { console.error('[submitComment]', e); commentError(e, 'post your comment'); }
     finally { if (btn) btn.disabled = false; }
   }, 'login');
 };
 
-window.toggleLike = async function(commentId, profileId) {
+// The heart updates straight from the server's answer; the next refresh brings everyone else's likes
+function paintLike(btnId, r) {
+  const b = document.getElementById(btnId); if (!b) return;
+  b.classList.toggle('liked', r.liked);
+  b.innerHTML = `${r.liked ? '❤️' : '🤍'} ${Number(r.likes) || 0}`;
+}
+
+window.toggleLike = async function(commentId) {
   if (!currentUser) { openAuthModal(null, 'login'); return; }
-  const ref = db.collection('comments').doc(commentId);
-  const snap = await ref.get(); if (!snap.exists) return;
-  const uid = currentUser.uid;
-  const liked = (snap.data().likedBy || []).includes(uid);
-  await ref.update({
-    likes: firebase.firestore.FieldValue.increment(liked ? -1 : 1),
-    likedBy: liked ? firebase.firestore.FieldValue.arrayRemove(uid) : firebase.firestore.FieldValue.arrayUnion(uid),
-  });
+  const id = cleanId(commentId);
+  try { paintLike(`lk-${id}`, await window.gApi('comment.like', { commentId: id })); }
+  catch (e) { console.error('[toggleLike]', e); commentError(e, 'like that'); }
 };
 
 // ── Reply system ──────────────────────────────────────
 const _openReplies = new Set();
 
-window.openReplyInput = function(commentId, authorName, profileId) {
+window.openReplyInput = function(commentId) {
   requireAuth(() => {
     document.querySelectorAll('.reply-input-area').forEach(el => {
       if (el.id !== `ria-${commentId}`) el.classList.add('hidden');
@@ -2281,45 +2279,36 @@ window.openReplyInput = function(commentId, authorName, profileId) {
       if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 60); }
       if (currentUser) {
         const av = document.getElementById(`replyAv-${commentId}`);
-        if (av) av.textContent = (currentUser.displayName || currentUser.email)[0].toUpperCase();
+        if (av) av.textContent = myName().charAt(0).toUpperCase() || '?';
       }
     }
   }, 'login');
 };
 
-window.handleReplyKey = function(e, commentId, profileId) {
-  if (e.key === 'Enter') { e.preventDefault(); submitReply(commentId, profileId); }
+window.handleReplyKey = function(e, commentId) {
+  if (e.key === 'Enter') { e.preventDefault(); submitReply(commentId); }
 };
 
-window.submitReply = async function(commentId, profileId) {
+window.submitReply = async function(commentId) {
   if (!currentUser) { openAuthModal(null, 'login'); return; }
-  const input = document.getElementById(`replyInput-${commentId}`);
+  const id = cleanId(commentId);
+  const input = document.getElementById(`replyInput-${id}`);
   const text = input?.value.trim();
   if (!text) return;
   if (text.length > 144) { showToast('Max 144 characters ✂️'); return; }
-  const btn = document.querySelector(`#ria-${commentId} .reply-send`);
+  const btn = document.querySelector(`#ria-${id} .reply-send`);
   if (btn) btn.disabled = true;
   try {
-    const authorName = currentUser.displayName || currentUser.email.split('@')[0];
-    const ref = await db.collection('comments').doc(commentId).collection('replies').add({
-      text, authorName, authorUid: currentUser.uid,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      likes: 0, likedBy: [],
-    });
-    requestPush('notify.reply', { commentId, replyId: ref.id });     // the comment author's phone
-    await db.collection('comments').doc(commentId).update({
-      replyCount: firebase.firestore.FieldValue.increment(1),
-      lastReplyAt: firebase.firestore.FieldValue.serverTimestamp(),   // lets the comment's author see "X replied to your comment"
-      lastReplyBy: authorName,
-      lastReplyUid: currentUser.uid,
-    });
+    await window.gApi('comment.reply', { commentId: id, text, authorName: myName() });   // also notifies the comment's author
     if (input) input.value = '';
-    document.getElementById(`ria-${commentId}`)?.classList.add('hidden');
+    document.getElementById(`ria-${id}`)?.classList.add('hidden');
     showToast('Reply posted! 💬');
-    setTimeout(() => loadReplies(commentId), 300);
+    _openReplies.add(id);                     // show the new reply (refreshComments reopens it after redrawing)
+    await refreshComments();
+    loadReplies(id);
   } catch(e) {
     console.error('[submitReply]', e);
-    showToast('❌ Could not post reply.');
+    commentError(e, 'post your reply');
   } finally { if (btn) btn.disabled = false; }
 };
 
@@ -2345,21 +2334,25 @@ window.loadReplies = async function(commentId) {
   _openReplies.add(commentId);
   container.innerHTML = `<div class="reply-skeleton"><div class="sk-block" style="height:38px;border-radius:8px"></div></div>`;
   try {
-    const snap = await db.collection('comments').doc(commentId).collection('replies').orderBy('timestamp', 'asc').get();
-    const replies = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const { data, error } = await supabase.from('comment_replies')
+      .select('id,author_uid,author_name,text,like_count,liked_by,created_at')
+      .eq('comment_id', commentId).order('created_at', { ascending: true }).limit(200);
+    if (error) throw error;
+    const replies = data || [];
     if (!replies.length) { container.innerHTML = ''; return; }
+    const me = currentUser ? currentUser.uid : null, cid = cleanId(commentId);
     container.innerHTML = replies.map(r => {
-      const initials = (r.authorName || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-      const ts = r.timestamp?.toDate ? r.timestamp.toDate().getTime() : (r.timestamp || 0);
-      const liked = r.likedBy?.includes(currentUser?.uid);
-      return `<div class="reply-item" id="ri-${r.id}">
+      const rid = cleanId(r.id);
+      const initials = esc((r.author_name || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase());
+      const liked = !!me && (r.liked_by || []).includes(me);
+      return `<div class="reply-item" id="ri-${rid}">
         <div class="avatar-sm avatar-xs">${initials}</div>
         <div class="comment-bubble">
-          <div><span class="comment-user">${esc(r.authorName || 'Anonymous')}</span><span class="comment-time">${ago(ts)}</span></div>
+          <div><span class="comment-user">${esc(r.author_name || 'Anonymous')}</span><span class="comment-time">${ago(tsMs(r.created_at))}</span></div>
           <div class="comment-text">${esc(r.text)}</div>
           <div class="comment-actions">
-            <button class="comment-action-btn ${liked ? 'liked' : ''}" onclick="toggleLikeReply('${commentId}','${r.id}')">
-              ${liked ? '❤️' : '🤍'} ${r.likes || 0}
+            <button class="comment-action-btn ${liked ? 'liked' : ''}" id="lkr-${rid}" onclick="toggleLikeReply('${cid}','${rid}')">
+              ${liked ? '❤️' : '🤍'} ${Number(r.like_count) || 0}
             </button>
           </div>
         </div>
@@ -2378,15 +2371,9 @@ window.loadReplies = async function(commentId) {
 
 window.toggleLikeReply = async function(commentId, replyId) {
   if (!currentUser) { openAuthModal(null, 'login'); return; }
-  const ref = db.collection('comments').doc(commentId).collection('replies').doc(replyId);
-  const snap = await ref.get(); if (!snap.exists) return;
-  const uid = currentUser.uid;
-  const liked = (snap.data().likedBy || []).includes(uid);
-  await ref.update({
-    likes: firebase.firestore.FieldValue.increment(liked ? -1 : 1),
-    likedBy: liked ? firebase.firestore.FieldValue.arrayRemove(uid) : firebase.firestore.FieldValue.arrayUnion(uid),
-  });
-  loadReplies(commentId);
+  const cid = cleanId(commentId), rid = cleanId(replyId);
+  try { paintLike(`lkr-${rid}`, await window.gApi('comment.like', { commentId: cid, replyId: rid })); }
+  catch (e) { console.error('[toggleLikeReply]', e); commentError(e, 'like that'); }
 };
 
 // ── Misc ──────────────────────────────────────────────
