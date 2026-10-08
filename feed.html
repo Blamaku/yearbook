@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Students — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="GLUK Yearbook 2026 — Great Lakes University of Kisumu">
+  <meta property="og:description" content="Swipe through the students of the Great Lakes University of Kisumu: photos, memories and messages.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="feed">
+
+  <header class="fd-top">
+    <span class="fd-brand"><img src="logo-64.png" alt="" width="26" height="23"> Students</span>
+    <a class="fd-top-btn" href="profiles.html" aria-label="Search and browse all students">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+    </a>
+  </header>
+
+  <!-- One student per screen; feed.js fills this in -->
+  <main class="fd" id="feed" aria-label="Students, one at a time. Swipe up for the next."></main>
+
+  <!-- ══ COMMENTS SHEET ══ (the ids below are the ones app.js's comment code already uses) -->
+  <div class="fd-sheet-ov" id="fdSheet" hidden>
+    <div class="fd-sheet" role="dialog" aria-modal="true" aria-labelledby="fdSheetTitle">
+      <div class="fd-sheet-head">
+        <span id="fdSheetTitle">Comments <span class="fd-count" id="commentCount">0</span></span>
+        <button type="button" class="fd-x" data-close aria-label="Close comments">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <div class="fd-sheet-body" id="commentsContainer"></div>
+      <div class="fd-sheet-foot">
+        <div id="commentInputWrap" style="display:none">
+          <div class="comment-input-wrap">
+            <div class="avatar-sm" id="commentAvatar">Me</div>
+            <textarea class="comment-box" id="commentInput" placeholder="Add a comment, congratulation or memory…"
+              rows="1" onkeydown="handleCommentKey(event)" maxlength="144"></textarea>
+            <button class="comment-send-btn" onclick="submitComment()" aria-label="Send">➤</button>
+          </div>
+          <div class="char-count" id="commentCharCount">144 chars left</div>
+        </div>
+        <div id="commentGate" style="display:none;text-align:center;padding:4px 0">
+          <button class="btn-primary" style="max-width:240px;margin:0 auto" onclick="openAuthModal(null,'login')">Sign in to comment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="feed.js"></script>
+</body>
+</html>

@@ -1425,6 +1425,8 @@ window.gNotif = (function () {
   function paintBadge() {
     const b = document.getElementById('notifBadge');
     if (b) { b.textContent = _unread > 9 ? '9+' : String(_unread); b.style.display = _unread ? 'flex' : 'none'; }
+    const t = document.getElementById('tabNotifBadge');                    // the Alerts tab in the bottom bar
+    if (t) { t.textContent = _unread > 9 ? '9+' : String(_unread); t.hidden = !_unread; }
     const bell = document.getElementById('ubBell');
     if (bell) bell.setAttribute('aria-label', _unread ? 'Notifications, ' + _unread + ' new' : 'Notifications');
     if (_loaded && _uid) syncAppIcon(_iconCount, false);   // only once the real count is known
@@ -1626,6 +1628,28 @@ window.goToMyProfile = function () {
     }
   }, 'login');
 };
+
+// ── Bottom tab bar: Home · Students · Clubs · Alerts · Me ─────────────
+// Added to every page in TAB_FOR_PAGE (not the admin panel). On wide screens style.css stands it down the left side.
+const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home',
+  feed: 'students', profiles: 'students', profile: 'students', clubs: 'clubs', club: 'clubs' };
+const TAB_SVG = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+function renderTabBar() {
+  const on = TAB_FOR_PAGE[document.body.dataset.page];
+  if (!on || document.getElementById('tabBar')) return;
+  const cur = k => k === on ? ' aria-current="page"' : '';
+  const nav = document.createElement('nav');
+  nav.id = 'tabBar'; nav.className = 'tabbar'; nav.setAttribute('aria-label', 'Main');
+  nav.innerHTML = `
+    <a class="tb-item" href="index.html"${cur('home')}><span class="tb-ic">${TAB_SVG('<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>')}</span>Home</a>
+    <a class="tb-item" href="feed.html"${cur('students')}><span class="tb-ic">${TAB_SVG('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/>')}</span>Students</a>
+    <a class="tb-item" href="clubs.html"${cur('clubs')}><span class="tb-ic">${TAB_SVG('<path d="M3 21h18"/><path d="M12 3 4 7v3h16V7z"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/>')}</span>Clubs</a>
+    <button type="button" class="tb-item" onclick="openNotifications()"><span class="tb-ic">${TAB_SVG('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a1.9 1.9 0 0 0 3.4 0"/>')}<span class="tb-badge" id="tabNotifBadge" hidden></span></span>Alerts</button>
+    <button type="button" class="tb-item" onclick="goToMyProfile()"><span class="tb-ic">${TAB_SVG('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.3-6 8-6s6.8 2 8 6"/>')}</span>Me</button>`;
+  document.body.appendChild(nav);
+  document.body.classList.add('has-tabbar');
+  if (window.gNotif) window.gNotif.paintBadge();
+}
 
 // ── Submit new profile ────────────────────────────────
 window.submitProfile=async function(e){
@@ -2152,6 +2176,12 @@ function startComments(profileId) {
   refreshComments();
   _cTimer = setInterval(() => { if (document.visibilityState === 'visible') refreshComments(); }, COMMENT_POLL_MS);
 }
+window.startComments = startComments;
+// The feed closes its comments sheet: stop checking for new ones
+window.stopComments = function () {
+  if (_cTimer) { clearInterval(_cTimer); _cTimer = null; }
+  _cProfile = null; _cSig = ''; _openReplies.clear();
+};
 
 async function refreshComments() {
   const pid = _cProfile; if (!pid) return;
@@ -2178,6 +2208,7 @@ function paintComments(list) {
   const cnt = document.getElementById('commentCount');
   if (!box) return;
   if (cnt) cnt.textContent = list.length;
+  document.dispatchEvent(new CustomEvent('gluk:comments', { detail: { profileId: _cProfile, count: list.length } }));   // the feed's comment count
   if (!list.length) {
     box.innerHTML = `<div class="empty-state" style="padding:24px 0"><div class="empty-icon" style="font-size:2rem">💬</div><h3 style="font-size:.875rem">No comments yet</h3><p>Be the first to leave a memory!</p></div>`;
     return;
@@ -2230,7 +2261,7 @@ function paintComments(list) {
 window.submitComment = async function() {
   requireAuth(async () => {
     const input = document.getElementById('commentInput');
-    const id = Params.get('id');
+    const id = _cProfile || Params.get('id');                              // the feed shows comments for the student in view
     const text = input?.value.trim();
     if (!text || !id) return;
     if (text.length > 144) { showToast('Max 144 characters ✂️'); return; }
@@ -2403,6 +2434,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const page=document.body.dataset.page;
   if(page==='profiles') initProfilesPage();
   if(page==='profile')  initProfilePage();
+  renderTabBar();
 
   const box=document.getElementById('commentInput');
   const ctr=document.getElementById('commentCharCount');

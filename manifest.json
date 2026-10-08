@@ -3,7 +3,7 @@
   "short_name": "GLUK Yearbook",
   "description": "Great Lakes University of Kisumu — official yearbook: student profiles, clubs, photos and memories.",
   "id": "/",
-  "start_url": "/index.html",
+  "start_url": "/feed.html",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
