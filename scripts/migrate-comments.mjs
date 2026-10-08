@@ -30,7 +30,8 @@ const auth = { apikey: KEY, Authorization: `Bearer ${KEY}` };
 async function getJson(url, init = {}) {
   const res = await fetch(url, init);
   if (!res.ok) throw new Error(`${res.status} from ${url.replace(/\?.*/, '')}: ${(await res.text()).slice(0, 300)}`);
-  return res.status === 204 ? null : res.json();
+  const body = await res.text();                       // a write with return=minimal answers 201 with no body
+  return body ? JSON.parse(body) : null;
 }
 
 // ── read Firestore (public) ──
