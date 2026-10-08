@@ -25,6 +25,7 @@ const CONFIG = {
     'http://localhost:5500', 'http://127.0.0.1:5500',
     'http://localhost:5000', 'http://127.0.0.1:5000',
   ],
+  previewOrigin: /^https:\/\/yearbook-d3f4f--[a-z0-9-]+\.web\.app$/,   // Firebase preview links (only the project owner can make one)
   profileBucket: 'profile-photos',
   clubBucket: 'club-files',
   maxBodyBytes: 300 * 1024,
@@ -309,6 +310,17 @@ export function randomId(n = 20) {
   return out.join('');
 }
 
+// ── Profile likes (the heart on the Students feed, since 2026-10-10) ───
+const likeDbError = e => missingTable(e)
+  ? new ApiError(503, 'likes_coming', 'Likes are being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+// The owner hears about each person's like once, ever: liking, unliking and liking again sends nothing new
+async function notifyLike(ctx, pid, owner) {
+  if (await claimEvent(ctx, `l:${pid}:${ctx.user.uid}`) !== 'ok') return { sent: 0 };
+  return pushToUids(ctx, [owner], { title: `${authorName(ctx, {})} liked your profile ❤️`,
+    body: 'Open the yearbook to see your page.', url: `/profile.html?id=${pid}`, tag: 'l-' + pid });
+}
+
 // A comment or reply only triggers a push if it really exists, was written by the caller, and is new.
 function checkFreshByCaller(ctx, doc) {
   if (!doc) throw notFound();
@@ -558,6 +570,22 @@ const ACTIONS = {
     return { likes: Number(r.data.likes) || 0, liked: r.data.liked === true };
   },
 
+  // ── profile likes ──
+  // Sets the like to what the page asks (true or false) rather than flipping it, so a double-tap can't undo it
+  async 'profile.like'(ctx, body) {
+    const pid = Number(body.profileId);
+    if (!Number.isInteger(pid) || pid <= 0) throw bad('Missing or invalid profile.');
+    if (typeof body.like !== 'boolean') throw bad('Say whether to like or unlike.');
+    const p = await ctx.db.from('profiles').select('uid').eq('id', pid).limit(1);
+    if (p.error) throw new ApiError(500, 'db', 'Could not check the profile.');
+    if (!p.data || !p.data.length) throw notFound('That profile is not in the yearbook any more.');
+    const r = await ctx.db.rpc('profile_set_like', { p_profile: pid, p_uid: ctx.user.uid, p_like: body.like });
+    if (r.error) throw likeDbError(r.error);
+    const owner = p.data[0].uid;
+    if (body.like && r.data && r.data.changed === true && owner && owner !== ctx.user.uid) ctx.background(notifyLike(ctx, pid, owner));
+    return { likes: Number(r.data && r.data.likes) || 0, liked: body.like };
+  },
+
   // ── admin only ──
   async 'admin.comment.delete'(ctx, body) {
     requireAdmin(ctx);
@@ -713,7 +741,7 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
   const cors = origin => {
     const h = { 'Vary': 'Origin', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Max-Age': '86400',
       'Access-Control-Allow-Headers': 'content-type, x-firebase-token, authorization, apikey, x-client-info' };
-    if (origin && config.origins.includes(origin)) h['Access-Control-Allow-Origin'] = origin;
+    if (origin && (config.origins.includes(origin) || (config.previewOrigin && config.previewOrigin.test(origin)))) h['Access-Control-Allow-Origin'] = origin;
     return h;
   };
   const json = (data, status, headers) => new Response(JSON.stringify(data), { status, headers: { ...headers, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
