@@ -2199,7 +2199,7 @@ function paintComments(list, profileId) {
           <button class="comment-action-btn ${liked ? 'liked' : ''}" onclick="toggleLike('${c.id}','${profileId}')">
             ${liked ? '❤️' : '🤍'} ${c.likes || 0}
           </button>
-          <button class="comment-action-btn reply-btn" onclick="openReplyInput('${c.id}','${safeAuthor}','${profileId}')">
+          <button class="comment-action-btn reply-btn" onclick="openReplyInput('${c.id}')">
             💬 Reply
           </button>
         </div>
