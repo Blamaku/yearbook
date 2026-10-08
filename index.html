@@ -28,307 +28,104 @@
 
   <div class="user-bar" id="userBar"></div>
 
-  <section class="hero">
-    <img class="hero-logo" src="logo.png" alt="Great Lakes University of Kisumu crest" width="132" height="120" fetchpriority="high">
-    <h1>Great Lakes<br><span>University</span></h1>
-    <p class="hero-sub">of Kisumu &mdash; Official Yearbook</p>
-    <div class="divider-gold"></div>
-
-    <div class="countdown-card">
-      <div class="countdown-label">🎓 Countdown to Graduation</div>
-      <div class="countdown-grid">
-        <div class="count-unit"><span class="count-num" id="cd-days">--</span><span class="count-lbl">Days</span></div>
-        <div class="count-unit"><span class="count-num" id="cd-hours">--</span><span class="count-lbl">Hours</span></div>
-        <div class="count-unit"><span class="count-num" id="cd-minutes">--</span><span class="count-lbl">Mins</span></div>
-        <div class="count-unit"><span class="count-num" id="cd-seconds">--</span><span class="count-lbl">Secs</span></div>
+  <main class="hm">
+    <!-- Hello + countdown -->
+    <section class="hm-hero">
+      <div class="hm-hello">
+        <img class="hm-crest" src="logo-128.png" alt="Great Lakes University of Kisumu crest" width="46" height="42" fetchpriority="high">
+        <div>
+          <p class="hm-greet" id="hmGreet">Welcome</p>
+          <h1 id="hmName">GLUK Yearbook</h1>
+          <p class="hm-sub" id="hmSub">Great Lakes University of Kisumu</p>
+        </div>
       </div>
-      <p id="gradDateNote" style="font-size:.68rem;color:rgba(255,255,255,.38);margin-top:10px;text-align:center"></p>
-    </div>
-
-    <div style="margin-top:24px;color:rgba(255,255,255,.3);font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:5px">
-      <span>Explore Yearbook</span>
-      <span style="font-size:1rem;animation:bounce 1.5s ease-in-out infinite">↓</span>
-    </div>
-  </section>
-
-  <!-- Self-contained countdown — runs inline, no dependency on app.js loading -->
-  <script>
-  (function(){
-    var GY   = new Date().getFullYear();
-    var GDAT_FALLBACK = new Date(GY + '-11-20T09:00:00').getTime();   // used only until app.js has loaded; app.js owns the real date
-    function target(){ return window.GRAD_DATE || GDAT_FALLBACK; }
-    function pad(n){ return String(n).padStart(2,'0'); }
-    function set(id,v){ var el=document.getElementById('cd-'+id); if(el) el.textContent=v; }
-    function tick(){
-      var diff = target() - Date.now();
-      if(diff<=0){ ['days','hours','minutes','seconds'].forEach(function(u){set(u,'00');}); return; }
-      set('days',   pad(Math.floor(diff/86400000)));
-      set('hours',  pad(Math.floor((diff%86400000)/3600000)));
-      set('minutes',pad(Math.floor((diff%3600000)/60000)));
-      set('seconds',pad(Math.floor((diff%60000)/1000)));
-    }
-    tick();
-    setInterval(tick, 1000);
-  })();
-  </script>
-
-  <!-- Student Portal shortcut -->
-  <section style="padding:0 16px 10px">
-    <a href="https://gluk.abnselfserve.com/" target="_blank" rel="noopener" class="portal-btn">
-      <div class="portal-btn-icon">🎓</div>
-      <div style="flex:1">
-        <div class="portal-btn-label">Student Portal</div>
-        <div class="portal-btn-sub">Self-service · Results · Registration</div>
+      <div class="hm-count" role="timer" aria-live="off">
+        <span class="hm-days" id="cd-days">--</span>
+        <span class="hm-count-t"><b id="cd-label">days to graduation</b><span id="hmGradDate"></span></span>
+        <span class="hm-clock" id="cd-clock" aria-hidden="true">--:--:--</span>
       </div>
-      <div style="color:var(--navy);font-size:1.2rem;opacity:.5">↗</div>
-    </a>
-  </section>
+    </section>
 
-  <!-- GLUK Official Website -->
-  <section style="padding:0 16px 10px">
-    <a href="https://www.gluk.ac.ke/" target="_blank" rel="noopener" class="portal-btn" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac">
-      <div class="portal-btn-icon" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff">🌐</div>
-      <div style="flex:1">
-        <div class="portal-btn-label" style="color:#15803d">GLUK Official Website</div>
-        <div class="portal-btn-sub" style="color:#4ade80">gluk.ac.ke · News · Admissions · Contacts</div>
-      </div>
-      <div style="color:#16a34a;font-size:1.2rem;opacity:.7">↗</div>
-    </a>
-  </section>
-
-  <!-- Create Your Profile CTA -->
-  <section style="padding:0 16px 14px">
-    <a href="profiles.html?action=add"
-      style="display:flex;align-items:center;gap:14px;
-             background:linear-gradient(135deg,#fef08a,#fde047);
-             border-radius:var(--radius-lg);padding:18px 20px;text-decoration:none;
-             box-shadow:0 4px 16px rgba(250,204,21,.35);border:1.5px solid #facc15">
-      <div style="width:48px;height:48px;border-radius:var(--radius-md);background:rgba(0,0,0,.08);
-                  display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">✨</div>
-      <div style="flex:1">
-        <div style="color:#713f12;font-weight:800;font-size:.9rem">Create Your Yearbook Profile</div>
-        <div style="color:#92400e;font-size:.7rem;margin-top:2px">Add your photo, bio, memories &amp; more</div>
-      </div>
-      <div style="color:#92400e;font-size:1.3rem">›</div>
-    </a>
-  </section>
-  <section class="about-section fade-in">
-    <span class="section-tag">About</span>
-    <h2>Our University</h2>
-    <p>Great Lakes University of Kisumu (GLUK) is a premier private chartered university located in Kisumu City, on the shores of Lake Victoria — heart of the Great Lakes region of East Africa.</p>
-    <p>Founded with a vision to produce graduates of integrity, competence and compassion, GLUK is committed to academic excellence and community transformation.</p>
-    <div class="stats-row">
-      <div class="stat-box"><div class="stat-num">6</div><div class="stat-lbl">Schools</div></div>
-      <div class="stat-box"><div class="stat-num">20+</div><div class="stat-lbl">Programmes</div></div>
-      <div class="stat-box"><div class="stat-num" id="gradYearStat">--</div><div class="stat-lbl">Yearbook</div></div>
-    </div>
-  </section>
-
-  <!-- All Students shortcut -->
-  <section style="padding:0 16px 4px">
-    <a href="profiles.html"
-      style="display:flex;align-items:center;gap:14px;
-             background:linear-gradient(135deg,var(--navy),var(--navy-mid));
-             border-radius:var(--radius-lg);padding:18px 20px;text-decoration:none;
-             box-shadow:var(--shadow-md);border:1px solid rgba(245,197,24,.15)">
-      <div style="width:48px;height:48px;border-radius:var(--radius-md);background:rgba(255,255,255,.1);
-                  display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">👥</div>
-      <div style="flex:1">
-        <div style="color:var(--white);font-weight:800;font-size:.9rem">All Students</div>
-        <div id="studentsRangeNote" style="color:rgba(255,255,255,.4);font-size:.7rem;margin-top:2px">Current enrolled students · Classes of 2026–2030</div>
-      </div>
-      <div style="color:var(--gold-bright);font-size:1.3rem">›</div>
-    </a>
-  </section>
-
-  <!-- All Alumni shortcut -->
-  <section style="padding:4px 16px 4px">
-    <a href="profiles.html?mode=alumni"
-      style="display:flex;align-items:center;gap:14px;
-             background:linear-gradient(135deg,#6d28d9,#7c3aed);
-             border-radius:var(--radius-lg);padding:18px 20px;text-decoration:none;
-             box-shadow:var(--shadow-md);border:1px solid rgba(196,181,253,.2)">
-      <div style="width:48px;height:48px;border-radius:var(--radius-md);background:rgba(255,255,255,.12);
-                  display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">🎓</div>
-      <div style="flex:1">
-        <div style="color:#fff;font-weight:800;font-size:.9rem">All Alumni</div>
-        <div style="color:rgba(255,255,255,.45);font-size:.7rem;margin-top:2px">Past graduates — Classes of 2025 &amp; earlier</div>
-      </div>
-      <div style="color:#c4b5fd;font-size:1.3rem">›</div>
-    </a>
-  </section>
-
-  <!-- Clubs shortcut -->
-  <section style="padding:4px 16px 4px">
-    <a href="clubs.html"
-      style="display:flex;align-items:center;gap:14px;
-             background:linear-gradient(135deg,#0f4c81,#1a6baa);
-             border-radius:var(--radius-lg);padding:18px 20px;text-decoration:none;
-             box-shadow:var(--shadow-md);border:1px solid rgba(100,180,255,.2)">
-      <div style="width:48px;height:48px;border-radius:var(--radius-md);background:rgba(255,255,255,.12);
-                  display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">🏛️</div>
-      <div style="flex:1">
-        <div style="color:var(--white);font-weight:800;font-size:.9rem">Clubs &amp; Societies</div>
-        <div style="color:rgba(255,255,255,.45);font-size:.7rem;margin-top:2px">Members · Activities · Minutes · Photos</div>
-      </div>
-      <div style="color:#7dd3fc;font-size:1.3rem">›</div>
-    </a>
-  </section>
-
-  <!-- Faculties -->
-  <section class="dept-section">
-    <span class="section-tag">Faculties &amp; Schools</span>
-    <h2>Explore Yearbooks</h2>
-    <p>Choose your school or faculty to browse programmes and class yearbooks.</p>
-
-    <a class="dept-card fade-in" href="department.html?dept=School+of+Medicine" style="animation-delay:.05s">
-      <div class="dept-icon" style="background:linear-gradient(135deg,#e0f2fe,#bae6fd)">🩺</div>
-      <div class="dept-info">
-        <div class="dept-name">School of Medicine</div>
-        <div class="dept-count">Clinical Medicine · Physiotherapy · Medical Lab Science</div>
-      </div>
-      <div class="dept-arrow">›</div>
-    </a>
-
-    <a class="dept-card fade-in" href="department.html?dept=School+of+Nursing+and+Midwifery" style="animation-delay:.07s">
-      <div class="dept-icon" style="background:linear-gradient(135deg,#fce7f3,#fbcfe8)">💉</div>
-      <div class="dept-info">
-        <div class="dept-name">School of Nursing &amp; Midwifery</div>
-        <div class="dept-count">BSc Nursing · BSc Nursing Upgrading · MSc Nursing</div>
-      </div>
-      <div class="dept-arrow">›</div>
-    </a>
-
-    <a class="dept-card fade-in" href="department.html?dept=School+of+Public+Health" style="animation-delay:.09s">
-      <div class="dept-icon" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0)">🌍</div>
-      <div class="dept-info">
-        <div class="dept-name">School of Public Health</div>
-        <div class="dept-count">Community Health &amp; Development · Community Nutrition</div>
-      </div>
-      <div class="dept-arrow">›</div>
-    </a>
-
-    <a class="dept-card fade-in" href="department.html?dept=Faculty+of+Education" style="animation-delay:.11s">
-      <div class="dept-icon edu">🎓</div>
-      <div class="dept-info">
-        <div class="dept-name">Faculty of Education</div>
-        <div class="dept-count">B.Ed Arts · B.Ed Science · Special Needs · Psychology</div>
-      </div>
-      <div class="dept-arrow">›</div>
-    </a>
-
-    <a class="dept-card fade-in" href="department.html?dept=Faculty+of+Humanities+and+Social+Sciences" style="animation-delay:.13s">
-      <div class="dept-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a)">🧠</div>
-      <div class="dept-info">
-        <div class="dept-name">Faculty of Humanities &amp; Social Sciences</div>
-        <div class="dept-count">Counseling Psychology · Leadership · Theology</div>
-      </div>
-      <div class="dept-arrow">›</div>
-    </a>
-
-    <a class="dept-card fade-in" href="department.html?dept=Faculty+of+Agribusiness+and+Technology" style="animation-delay:.15s">
-      <div class="dept-icon" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0)">🌾</div>
-      <div class="dept-info">
-        <div class="dept-name">Faculty of Agribusiness &amp; Technology</div>
-        <div class="dept-count">BBA · Information Technology · Hospitality</div>
-      </div>
-      <div class="dept-arrow">›</div>
-    </a>
-
-    <a class="dept-card fade-in" href="department.html?dept=School+of+Business+Administration" style="animation-delay:.15s">
-      <div class="dept-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe)">💼</div>
-      <div class="dept-info">
-        <div class="dept-name">School of Business Administration</div>
-        <div class="dept-count">B.Com Accounting · Finance · HRM · Procurement</div>
-      </div>
-      <div class="dept-arrow">›</div>
-    </a>
-  </section>
-
-  <!-- Alumni Section -->
-  <section class="dept-section" id="alumniSection" style="background:linear-gradient(180deg,var(--off-white) 0%,#e0e7f0 100%)">
-    <span class="section-tag" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff">Alumni</span>
-    <h2 style="color:var(--navy)">GLUK Alumni</h2>
-    <p style="color:var(--gray-600)">Celebrating graduates who've gone before — browse profiles and share what you're up to now.</p>
-
-    <div id="alumniCards" style="display:flex;flex-direction:column;gap:10px;margin-top:4px"></div>
-
-    <a href="profiles.html?mode=alumni" class="dept-card fade-in" style="margin-top:10px;background:linear-gradient(135deg,#ede9fe,#ddd6fe);border:1.5px solid #c4b5fd">
-      <div class="dept-icon" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">🎓</div>
-      <div class="dept-info">
-        <div class="dept-name" style="color:#4c1d95">All Alumni Profiles</div>
-        <div class="dept-count" style="color:#6d28d9">Browse every graduate across all years</div>
-      </div>
-      <div class="dept-arrow" style="color:#7c3aed">›</div>
-    </a>
-
+    <!-- Self-contained countdown: runs inline, no dependency on app.js loading -->
     <script>
-    // Alumni classes appear only once someone has created a profile for that graduation year.
-    // Runs after app.js / supabase.js have loaded.
-    document.addEventListener('DOMContentLoaded', async function () {
-      const wrap = document.getElementById('alumniCards');
-      if (!wrap) return;
-      const note = t => `<p style="text-align:center;color:#7c3aed;font-size:.78rem;padding:14px 0;margin:0">${t}</p>`;
-      wrap.innerHTML = note('Loading alumni classes…');
-
-      let list = [];
-      try { list = await window.getAlumniYears(); }
-      catch (e) {
-        console.warn('[alumni years]', e);
-        wrap.innerHTML = note('Could not load alumni classes right now. Tap “All Alumni Profiles” below.');
-        return;
+    (function(){
+      var GDAT_FALLBACK = new Date(new Date().getFullYear() + '-11-20T09:00:00').getTime();   // used only until app.js has loaded; app.js owns the real date
+      function target(){ return window.GRAD_DATE || GDAT_FALLBACK; }
+      function pad(n){ return String(n).padStart(2,'0'); }
+      function set(id,v){ var el=document.getElementById(id); if(el && el.textContent!==v) el.textContent=v; }
+      function tick(){
+        var diff = target() - Date.now();
+        if(diff<=0){ set('cd-days','🎓'); set('cd-label','Graduation day!'); set('cd-clock','00:00:00'); return; }
+        var days = Math.floor(diff/86400000);
+        set('cd-days', String(days));
+        set('cd-label', days===1 ? 'day to graduation' : 'days to graduation');
+        set('cd-clock', pad(Math.floor((diff%86400000)/3600000))+':'+pad(Math.floor((diff%3600000)/60000))+':'+pad(Math.floor((diff%60000)/1000)));
       }
-
-      if (!list.length) {
-        wrap.innerHTML = `
-          <div style="text-align:center;padding:22px 16px;background:linear-gradient(135deg,#faf5ff,#f3e8ff);
-                      border:1.5px dashed #d8b4fe;border-radius:var(--radius-lg)">
-            <div style="font-size:1.6rem">🏅</div>
-            <div style="color:#4c1d95;font-weight:800;font-size:.9rem;margin-top:6px">No alumni classes yet</div>
-            <div style="color:#7c3aed;font-size:.75rem;margin:4px 0 14px">Add your alumni profile and your graduation year will appear here.</div>
-            <a href="profiles.html?mode=alumni&action=add"
-              style="display:inline-block;padding:9px 18px;background:#7c3aed;color:#fff;border-radius:10px;
-                     text-decoration:none;font-size:.75rem;font-weight:700">✨ Add My Profile</a>
-          </div>`;
-        return;
-      }
-
-      const medals = ['🥇', '🥈', '🥉'];
-      wrap.innerHTML = list.map(({ year: y, count: n }, i) => `
-        <div style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);border:1px solid #e9d5ff;
-                    border-radius:var(--radius-lg);padding:16px;animation:slideIn .4s ease ${Math.min(i, 8) * .07}s both">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <span style="font-size:1.6rem">${medals[i] || '🏅'}</span>
-            <div style="flex:1">
-              <div style="color:#4c1d95;font-weight:800;font-size:.9rem">Class of ${y}</div>
-              <div style="color:#7c3aed;font-size:.7rem">GLUK Alumni · Graduated ${y} · ${n} profile${n === 1 ? '' : 's'}</div>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px">
-            <a href="profiles.html?class=${y}"
-              style="flex:1;text-align:center;padding:9px 6px;background:#7c3aed;color:#fff;
-                     border-radius:10px;text-decoration:none;font-size:.72rem;font-weight:700">
-              👥 View Profiles
-            </a>
-            <a href="profiles.html?class=${y}&action=add"
-              style="flex:1;text-align:center;padding:9px 6px;background:linear-gradient(135deg,#fde047,#facc15);
-                     color:#713f12;border-radius:10px;text-decoration:none;font-size:.72rem;font-weight:700">
-              ✨ Add My Profile
-            </a>
-          </div>
-        </div>`).join('');
-    });
+      tick();
+      setInterval(tick, 1000);
+    })();
     </script>
-  </section>
 
-  <footer>
-    <img src="logo-64.png" alt="" width="56" height="51" style="display:block;margin:0 auto 10px">
-    <div style="color:var(--lime-bright);font-weight:700;margin-bottom:4px" id="footerTitle">GLUK Yearbook 2026</div>
-    Great Lakes University of Kisumu<br>P.O. Box 2224 – 40100, Kisumu, Kenya
-    <div style="margin-top:10px;font-size:.65rem">&copy; <span id="footerYear">2026</span> GLUK. All rights reserved.</div>
-    <div style="margin-top:14px">
-      <button class="clear-cache-btn" onclick="clearCacheAndReload()">🔄 Clear Cache &amp; Refresh</button>
-    </div>
+    <!-- What to do next: create / finish / share your profile (home.js) -->
+    <div class="hm-act is-loading" id="hmAct" aria-live="polite"></div>
+
+    <section class="hm-sec" id="hmClassSec" hidden>
+      <div class="hm-head"><h2>Your class</h2><a id="hmClassAll" href="profiles.html">See all</a></div>
+      <div class="hm-strip" id="hmClass"></div>
+    </section>
+
+    <section class="hm-sec" id="hmNewSec">
+      <div class="hm-head"><h2>Just joined</h2><a href="feed.html">Swipe through</a></div>
+      <div class="hm-strip" id="hmNew">
+        <span class="hm-tile hm-sk"></span><span class="hm-tile hm-sk"></span><span class="hm-tile hm-sk"></span><span class="hm-tile hm-sk"></span>
+      </div>
+    </section>
+
+    <section class="hm-sec" id="hmMsgsSec">
+      <div class="hm-head"><h2>Latest messages</h2></div>
+      <div class="hm-msgs" id="hmMsgs"><span class="hm-msg hm-sk"></span><span class="hm-msg hm-sk"></span></div>
+    </section>
+
+    <section class="hm-sec">
+      <div class="hm-head"><h2>Explore</h2></div>
+      <div class="hm-grid3">
+        <a class="hm-go" href="profiles.html">
+          <span class="hm-go-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg></span>
+          <b>Students</b><span id="hmStudentsN">Every profile</span>
+        </a>
+        <a class="hm-go" href="clubs.html">
+          <span class="hm-go-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18"/><path d="M12 3 4 7v3h16V7z"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/></svg></span>
+          <b>Clubs</b><span>Posts, minutes, photos</span>
+        </a>
+        <a class="hm-go" href="profiles.html?mode=alumni">
+          <span class="hm-go-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c2 2 10 2 12 0v-5"/></svg></span>
+          <b>Alumni</b><span id="hmAlumniSub">Past classes</span>
+        </a>
+      </div>
+      <div class="hm-links">
+        <a class="hm-link" href="https://gluk.abnselfserve.com/" target="_blank" rel="noopener">Student Portal<span aria-hidden="true">↗</span></a>
+        <a class="hm-link" href="https://www.gluk.ac.ke/" target="_blank" rel="noopener">gluk.ac.ke<span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+
+    <section class="hm-sec">
+      <div class="hm-head"><h2>Schools &amp; faculties</h2></div>
+      <div class="hm-grid2">
+        <a class="hm-school" href="department.html?dept=School+of+Medicine"><i style="background:#e0f2fe" aria-hidden="true">🩺</i><span>Medicine</span></a>
+        <a class="hm-school" href="department.html?dept=School+of+Nursing+and+Midwifery"><i style="background:#fce7f3" aria-hidden="true">💉</i><span>Nursing &amp; Midwifery</span></a>
+        <a class="hm-school" href="department.html?dept=School+of+Public+Health"><i style="background:#d1fae5" aria-hidden="true">🌍</i><span>Public Health</span></a>
+        <a class="hm-school" href="department.html?dept=Faculty+of+Education"><i style="background:#dbeafe" aria-hidden="true">🎓</i><span>Education</span></a>
+        <a class="hm-school" href="department.html?dept=Faculty+of+Humanities+and+Social+Sciences"><i style="background:#fef3c7" aria-hidden="true">🧠</i><span>Humanities &amp; Social Sciences</span></a>
+        <a class="hm-school" href="department.html?dept=Faculty+of+Agribusiness+and+Technology"><i style="background:#dcfce7" aria-hidden="true">🌾</i><span>Agribusiness &amp; Technology</span></a>
+        <a class="hm-school" href="department.html?dept=School+of+Business+Administration"><i style="background:#ede9fe" aria-hidden="true">💼</i><span>Business Administration</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="hm-foot">
+    <div><b id="footerTitle">GLUK Yearbook 2026</b> · Great Lakes University of Kisumu</div>
+    <div>P.O. Box 2224 – 40100, Kisumu, Kenya · &copy; <span id="footerYear">2026</span> GLUK</div>
+    <button class="clear-cache-btn" onclick="clearCacheAndReload()">🔄 Clear Cache &amp; Refresh</button>
   </footer>
 
   <div class="install-banner" id="installBanner">
@@ -338,10 +135,6 @@
     <button class="close-btn" id="dismissBtn" aria-label="Dismiss">✕</button>
   </div>
 
-  <style>
-    @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
-  </style>
-
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -350,14 +143,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
   <script src="supabase.js"></script>
   <script src="app.js"></script>
+  <script src="home.js"></script>
   <script>
     const GY = window.GRAD_YEAR || new Date().getFullYear();
-    document.getElementById('gradDateNote').textContent = `${new Date(window.GRAD_DATE).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} · Graduation Ceremony`;
-    document.getElementById('gradYearStat').textContent = GY;
+    document.getElementById('hmGradDate').textContent = new Date(window.GRAD_DATE).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    document.getElementById('hmAlumniSub').textContent = `Class of ${GY - 1} & earlier`;
     document.getElementById('footerTitle').textContent  = `GLUK Yearbook ${GY}`;
     document.getElementById('footerYear').textContent   = GY;
-    const _yrs = window.studentClassYears();
-    document.getElementById('studentsRangeNote').textContent = `Current enrolled students · Classes of ${_yrs[0]}–${_yrs[_yrs.length - 1]}`;
 
     // Robust dismiss button — attach after DOM ready
     document.getElementById('dismissBtn').addEventListener('click', function(e) {
