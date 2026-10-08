@@ -8,6 +8,11 @@
     "ignore": [
       "firebase.json",
       "**/.*",
+      "**/.*/**",
+      ".git/**",
+      ".claude/**",
+      ".agents/**",
+      ".firebase/**",
       "**/node_modules/**",
       "**/*.log",
       "**/*.sql",
