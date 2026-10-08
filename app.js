@@ -965,74 +965,116 @@ window.filterClub=async function(club,btn){
   _reloadGrid();
 };
 
+// ── Students grid: 48 at a time, every filter runs in the database ──
+// Loading everyone at once stops working past 1,000 profiles (Supabase's per-request limit) and is slow
+// on mobile data, so the grid fetches one page and the next one as the reader scrolls near the end.
+const GRID_PAGE = 48;
+const GRID_COLS = 'id,name,reg,dept,course,classyear,isanonymous,photo_url';   // only what a card shows
+let _grid = { gen: 0, args: null, from: 0, total: null, done: false, busy: false };
+let _gridObserver = null;
+
+function gridQuery(a, from) {
+  let q = supabase.from('profiles_public').select(GRID_COLS, from === 0 ? { count: 'exact' } : undefined)
+    .order('created_at', { ascending: false }).order('id', { ascending: false })
+    .range(from, from + GRID_PAGE - 1);
+  if (a.dept)      q = q.eq('dept', a.dept);
+  if (a.course)    q = q.eq('course', a.course);
+  if (a.classYear) q = q.eq('classyear', a.classYear);
+  if (a.county)    q = q.eq('county', a.county);
+  // Only alumni mode applies a range filter — default (All Students) shows everyone
+  if (!a.classYear && window._activeFilters?.mode === 'alumni') q = q.lte('classyear', String(GRAD_YEAR - 1));
+  if (a.club)      q = q.filter('clubs', 'cs', '{"' + String(a.club).replace(/["\\]/g, '\\$&') + '"}');
+  // What the reader typed is matched as plain text: wildcards and the filter syntax's own characters are dropped
+  const s = String(a.search || '').replace(/[%_*\\"(),]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s) q = q.or(`name.ilike."%${s}%",reg.ilike."%${s}%"`);
+  return q;
+}
+
+function gridCard(s, deptCtx, courseCtx) {
+  const initials=(s.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+  const showPhoto = !s.isAnonymous && s.photo_url;
+  const ph=showPhoto
+    ?`<img src="${esc(window.safeUrl(s.photo_url))}" alt="${esc(s.name)}" loading="lazy" class="profile-img">`
+    :`<div class="card-photo-placeholder"><span class="initials">${s.isAnonymous?'🕵️':initials}</span><span class="ph-label">${s.isAnonymous?'ANON':'GLUK'}</span></div>`;
+  const link=`profile.html?id=${s.id}&dept=${encodeURIComponent(s.dept||deptCtx)}&course=${encodeURIComponent(s.course||courseCtx)}`;
+  return `<a class="profile-card fade-in" href="${link}">
+    <div class="card-photo-wrap">${ph}</div>
+    <div class="card-body">
+      <div class="card-name">${esc(s.name)}</div>
+      <div class="card-reg">${s.isAnonymous?'🔒 Anonymous':esc(s.reg)}</div>
+      <span class="card-badge">Class of ${esc(s.classYear||'?')}</span>
+    </div></a>`;
+}
+
+// The strip under the grid: "Show more" (also loads by itself when scrolled into view), or how many are shown
+function gridMore(state) {
+  const grid = document.getElementById('profilesGrid'); if (!grid) return;
+  let el = document.getElementById('gridMore');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'gridMore'; el.className = 'grid-more';
+    grid.insertAdjacentElement('afterend', el);
+    el.addEventListener('click', e => { if (e.target.closest('button')) loadGridPage(_grid.gen); });
+    if ('IntersectionObserver' in window) {
+      _gridObserver = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) loadGridPage(_grid.gen); }, { rootMargin: '600px' });
+      _gridObserver.observe(el);
+    }
+  }
+  const shown = _grid.from, total = _grid.total;
+  const of = total != null ? `Showing ${shown} of ${total}` : `Showing ${shown}`;
+  el.innerHTML =
+      state === 'loading' ? '<span class="grid-more-note">Loading more…</span>'
+    : state === 'more'    ? `<button type="button" class="grid-more-btn">Show more students</button><span class="grid-more-note">${of}</span>`
+    : state === 'retry'   ? '<button type="button" class="grid-more-btn">Could not load more — try again</button>'
+    : shown > GRID_PAGE   ? `<span class="grid-more-note">All ${shown} shown</span>` : '';
+}
+
 async function loadProfilesGrid(dept,course,classYear,search,clubFilter,countyFilter){
-  const grid=document.getElementById('profilesGrid'); if(!grid) return;
-  try{
-    let query=supabase.from('profiles_public')
-      .select('*')
-      .order('created_at',{ascending:false});
-    if(dept)         query=query.eq('dept',dept);
-    if(course)       query=query.eq('course',course);
-    if(classYear)    query=query.eq('classyear',classYear);
-    if(countyFilter) query=query.eq('county',countyFilter);
-    // Only alumni mode applies a range filter — default (All Students) shows everyone
-    const _mode = window._activeFilters?.mode;
-    if(!classYear && _mode === 'alumni'){
-      query = query.lte('classyear', String(GRAD_YEAR - 1));
-    }
+  if (!document.getElementById('profilesGrid')) return;
+  _grid = { gen: _grid.gen + 1, args: { dept, course, classYear, search, club: clubFilter, county: countyFilter },
+            from: 0, total: null, done: false, busy: false };
+  gridMore('none');                                       // the old "Showing 48 of …" belongs to the old filters
+  await loadGridPage(_grid.gen);
+}
 
-    const{data,error}=await query;
-    if(error) throw error;
+async function loadGridPage(gen) {
+  const grid = document.getElementById('profilesGrid');
+  if (!grid || gen !== _grid.gen || _grid.done || _grid.busy) return;
+  const first = _grid.from === 0, a = _grid.args;
+  _grid.busy = true;
+  if (!first) gridMore('loading');
+  try {
+    const { data, error, count } = await gridQuery(a, _grid.from);
+    if (gen !== _grid.gen) return;                         // the filters changed while this page loaded
+    if (error) throw error;
+    const list = (data || []).map(normalizeProfile);
+    if (first) _grid.total = (typeof count === 'number') ? count : null;
+    _grid.from += list.length;
+    _grid.done = list.length < GRID_PAGE || (_grid.total != null && _grid.from >= _grid.total);
 
-    let list = (data || []).map(normalizeProfile);
-    if(search){ const s=search.toLowerCase(); list=list.filter(x=>x.name?.toLowerCase().includes(s)||x.reg?.toLowerCase().includes(s)); }
-    if(clubFilter){
-      // parseList handles JS arrays, Postgres literals {A,B}, and comma-strings
-      list=list.filter(x=>{
-        const raw=x.clubs;
-        if(!raw) return false;
-        if(Array.isArray(raw)) return raw.some(c=>c===clubFilter);
-        if(typeof raw==='string'){
-          const arr=raw.startsWith('{')
-            ?raw.slice(1,-1).split(',').map(c=>c.trim().replace(/^"|"$/g,''))
-            :raw.split(',').map(c=>c.trim());
-          return arr.includes(clubFilter);
-        }
-        return false;
-      });
-    }
-
-    const p=new URLSearchParams(window.location.search);
-    const deptCtx=dept||p.get('dept')||'';
-    const courseCtx=course||p.get('course')||'';
-
-    if(!list.length){
+    if (first && !list.length) {
       grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1">
         <div class="empty-icon">🎓</div><h3>No students yet</h3>
-        <p>${search||clubFilter||countyFilter?'Try a different filter.':'Be the first! Tap + to add your profile.'}</p></div>`;
+        <p>${a.search||a.club||a.county?'Try a different filter.':'Be the first! Tap + to add your profile.'}</p></div>`;
+      gridMore('none');
       return;
     }
-    grid.innerHTML=list.map(s=>{
-      const initials=(s.name||'?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
-      const showPhoto = !s.isAnonymous && s.photo_url;
-      const ph=showPhoto
-        ?`<img src="${esc(window.safeUrl(s.photo_url))}" alt="${esc(s.name)}" loading="lazy" class="profile-img">`
-        :`<div class="card-photo-placeholder"><span class="initials">${s.isAnonymous?'🕵️':initials}</span><span class="ph-label">${s.isAnonymous?'ANON':'GLUK'}</span></div>`;
-      const link=`profile.html?id=${s.id}&dept=${encodeURIComponent(s.dept||deptCtx)}&course=${encodeURIComponent(s.course||courseCtx)}`;
-      return `<a class="profile-card fade-in" href="${link}">
-        <div class="card-photo-wrap">${ph}</div>
-        <div class="card-body">
-          <div class="card-name">${esc(s.name)}</div>
-          <div class="card-reg">${s.isAnonymous?'🔒 Anonymous':esc(s.reg)}</div>
-          <span class="card-badge">Class of ${s.classYear||'?'}</span>
-        </div></a>`;
-    }).join('');
+    const p=new URLSearchParams(window.location.search);
+    const deptCtx=a.dept||p.get('dept')||'', courseCtx=a.course||p.get('course')||'';
+    const html = list.map(s => gridCard(s, deptCtx, courseCtx)).join('');
+    if (first) grid.innerHTML = html; else grid.insertAdjacentHTML('beforeend', html);
     observeImages();
-  }catch(err){
+    gridMore(_grid.done ? 'none' : 'more');
+  } catch (err) {
+    if (gen !== _grid.gen) return;
     console.error('[loadProfilesGrid]',err);
-    grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1">
-      <div class="empty-icon">⚠️</div><h3>Could not load profiles</h3>
-      <p>${esc(err.message)}</p></div>`;
+    if (first) {
+      grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1">
+        <div class="empty-icon">⚠️</div><h3>Could not load profiles</h3>
+        <p>${esc(err.message)}</p></div>`;
+      gridMore('none');
+    } else gridMore('retry');
+  } finally {
+    if (gen === _grid.gen) _grid.busy = false;
   }
 }
 

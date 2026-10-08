@@ -478,6 +478,15 @@ button { font-family:inherit; }
   display:grid; grid-template-columns:repeat(3,1fr);
   gap:8px; padding:10px 10px 100px;
 }
+/* "Show more students" under the grid: sits in the grid's bottom space, keeps its own room above the nav */
+.grid-more { display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:-88px; padding:0 16px 100px; }
+.grid-more:empty { display:none; }
+.grid-more-btn {
+  padding:11px 22px; border-radius:50px; border:2px solid var(--gray-100); background:var(--surface, var(--white));
+  color:var(--navy); font-size:.8rem; font-weight:700; font-family:inherit; cursor:pointer;
+}
+.grid-more-btn:active { transform:scale(.98); }
+.grid-more-note { font-size:.7rem; color:var(--gray-400); }
 
 /* ── PROFILE CARD ───────────────────────────────── */
 .profile-card {
