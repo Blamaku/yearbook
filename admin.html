@@ -76,7 +76,13 @@
     .a-replies { margin-top:8px; }
     .a-reply { display:flex; gap:8px; align-items:flex-start; font-size:.78rem; line-height:1.5; padding:8px 0 0 12px; margin-left:12px; border-left:2px solid var(--gray-100); }
 
-    .a-nav { position:fixed; left:0; right:0; bottom:0; z-index:200; display:grid; grid-template-columns:repeat(4,1fr); background:var(--white); border-top:1px solid var(--gray-100); padding-bottom:env(safe-area-inset-bottom,0px); box-shadow:0 -4px 16px rgba(0,0,0,.06); }
+    .d-meter { display:block; height:8px; background:var(--gray-100); border-radius:6px; overflow:hidden; margin-top:6px; }
+    .d-meter i { display:block; height:100%; background:var(--blue); border-radius:6px; }
+    .d-meter i.warn { background:#d97706; }
+    .d-meter i.bad { background:var(--danger); }
+    a.a-row { text-decoration:none; }
+
+    .a-nav { position:fixed; left:0; right:0; bottom:0; z-index:200; display:grid; grid-template-columns:repeat(5,1fr); background:var(--white); border-top:1px solid var(--gray-100); padding-bottom:env(safe-area-inset-bottom,0px); box-shadow:0 -4px 16px rgba(0,0,0,.06); }
     .a-nav button { display:flex; flex-direction:column; align-items:center; gap:2px; padding:9px 0 8px; border:none; background:none; font-family:inherit; font-size:.66rem; font-weight:700; color:var(--gray-400); cursor:pointer; }
     .a-nav button i { font-style:normal; font-size:1.15rem; }
     .a-nav button.on { color:var(--blue); }
@@ -246,11 +252,33 @@
       <div id="cluList"></div>
     </section>
 
+    <!-- ── Developer (health, free-plan usage, backups, notifications) ── -->
+    <section class="a-view" id="v-dev">
+      <div class="a-meta"><span id="devAt">Loading…</span><span style="flex:1"></span><button type="button" class="a-mini" data-act="dev-refresh">↻ Refresh</button></div>
+      <div class="a-sec">Health</div>
+      <div class="a-card" id="devHealth"></div>
+      <div class="a-sec">Backups</div>
+      <div class="a-card" id="devBackup"></div>
+      <div class="a-sec">Free plan usage</div>
+      <div class="a-card" id="devUsage"></div>
+      <div class="a-sec">Last 7 days</div>
+      <div class="a-stats" id="devWeek"></div>
+      <div class="a-sec">Phone notifications</div>
+      <div class="a-card" id="devPush"></div>
+      <div class="a-sec">To tidy</div>
+      <div class="a-card" id="devTidy"></div>
+      <div class="a-sec">Recent activity</div>
+      <div class="a-card" id="devRecent"></div>
+      <div class="a-sec">Links</div>
+      <div class="a-card" id="devLinks"></div>
+    </section>
+
     <nav class="a-nav" aria-label="Admin sections">
       <button type="button" id="nav-home" class="on" data-act="go" data-v="home"><i>🏠</i>Home</button>
       <button type="button" id="nav-students" data-act="go" data-v="students"><i>👥</i>Students</button>
       <button type="button" id="nav-mod" data-act="go" data-v="mod"><i>🛡</i>Moderation</button>
       <button type="button" id="nav-clubs" data-act="go" data-v="clubs"><i>🏛</i>Clubs</button>
+      <button type="button" id="nav-dev" data-act="go" data-v="dev"><i>🛠</i>Developer</button>
     </nav>
   </div>
 
@@ -434,7 +462,7 @@
     }
   
     /* ══ Navigation ══ */
-    const VIEWS = { home: 'Overview', students: 'Students', mod: 'Moderation', clubs: 'Clubs' };
+    const VIEWS = { home: 'Overview', students: 'Students', mod: 'Moderation', clubs: 'Clubs', dev: 'Developer' };
     let _view = 'home';
     function go(v) {
       if (!VIEWS[v]) v = 'home';
@@ -450,6 +478,7 @@
       if (v === 'students') ensureStudents();
       if (v === 'mod')      ensureMod();
       if (v === 'clubs')    ensureClubs();
+      if (v === 'dev')      loadDev();
     }
   
     /* ══ Dashboard ══ */
@@ -1087,6 +1116,106 @@ let _ocSearchT = null;
       await ensureClubs(true); renderOfficers(); loadDashboard(true);
     }
   
+    /* ══ Developer ══ */
+    // One call to the secure service (admin.dev.stats) gives everything on this tab.
+    const LOGBOOK_URL = 'https://claude.ai/code/artifact/44c37a6c-d2b8-4a8a-baa2-1c14adc3127f';
+    const FREE = { db: 500 * 1048576, storage: 1024 * 1048576 };                       // Supabase free plan
+    let _devT = 0;
+    const mbs  = b => { const n = Number(b) / 1048576; return (n < 10 ? n.toFixed(1) : Math.round(n)) + ' MB'; };
+    const when = iso => { try { return new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (e) { return String(iso); } };
+    // sub is HTML: every changing word in it goes through E() first
+    const drow = (ico, title, sub, right) => `<div class="a-row static"><span class="a-tile">${ico}</span><span class="grow"><span class="a-name">${E(title)}</span>${sub ? `<span class="a-sub" style="white-space:normal">${sub}</span>` : ''}</span>${right || ''}</div>`;
+    const meter = (used, limit) => {
+      const pct = Math.min(100, (Number(used) || 0) / limit * 100);
+      return `<span class="d-meter"><i class="${pct >= 90 ? 'bad' : pct >= 70 ? 'warn' : ''}" style="width:${Math.max(pct, 1).toFixed(1)}%"></i></span>`;
+    };
+
+    async function loadDev(force) {
+      if (!force && Date.now() - _devT < 20000) return;
+      _devT = Date.now();
+      $('devAt').textContent = 'Loading…';
+      let d;
+      try { d = await window.gApi('admin.dev.stats'); }
+      catch (e) {
+        const msg = e.code === 'unknown_action' ? 'Deploy the latest “api” function in Supabase, then refresh.'
+          : e.code === 'dev_missing' ? 'Run the dev_dashboard migration in Supabase, then refresh.'
+          : (e.message || 'Could not load the developer numbers.');
+        $('devAt').textContent = '';
+        ['devBackup', 'devUsage', 'devWeek', 'devPush', 'devTidy', 'devRecent'].forEach(id => { $(id).innerHTML = ''; });
+        $('devHealth').innerHTML = drow('❌', 'Could not load this page', E(msg));
+        renderDevLinks();
+        return;
+      }
+      const h = d.health || {}, s = d.stats || {}, c = d.comments, pw = d.pushWeek || {};
+      $('devAt').textContent = 'Updated ' + when(d.at);
+
+      $('devHealth').innerHTML =
+        drow(h.keys === 'ok' ? '✅' : '❌', 'Secure service', E(h.keys === 'ok' ? 'Running, and checking every sign-in.' : 'Cannot reach Google’s sign-in keys, so sign-ins may fail.')) +
+        drow(h.push === 'on' ? '✅' : '⚠️', 'Phone notifications', E(h.push === 'on' ? 'Sending is switched on.' : 'Not sending: the VAPID_PRIVATE_KEY secret is missing in Supabase.')) +
+        drow(h.comments === 'ok' ? '✅' : '⚠️', 'Comments (Firebase)', E(h.comments === 'ok' ? 'Reachable.' : 'Could not count the comments right now.'));
+
+      const b = d.lastBackup;
+      if (!b) {
+        $('devBackup').innerHTML = drow('⚠️', 'No backup recorded yet', E('Each backup reports here when it finishes (Sundays 8 pm on the laptop).'));
+      } else {
+        const x = b.details || {}, age = (Date.now() - Date.parse(b.created_at)) / 864e5, stale = age > 8;
+        const what = [x.profiles != null && nfmt(x.profiles) + ' profiles', x.comments != null && nfmt(x.comments) + ' comments',
+                      x.files != null && nfmt(x.files) + ' files (' + x.mb + ' MB)'].filter(Boolean).join(' · ');
+        const sql = /^skipped/.test(x.sqlDump || '') ? 'Full SQL copy skipped: Docker Desktop was not running.' : (x.sqlDump ? 'Full SQL copy included.' : '');
+        const probs = (x.problems || []).length ? 'Problems: ' + x.problems.join('; ') : '';
+        const late = stale ? 'That was ' + Math.floor(age) + ' days ago. Check the laptop is on on Sundays, or run: node scripts/backup.mjs' : '';
+        $('devBackup').innerHTML = drow(!b.ok ? '❌' : stale ? '⚠️' : '✅',
+          (!b.ok ? 'Last backup had problems' : stale ? 'Backup overdue' : 'Last backup OK') + ' · ' + when(b.created_at),
+          [what, sql, probs, late].filter(Boolean).map(E).join('<br>'));
+      }
+
+      const st = s.storage || {};
+      const stored = Object.values(st).reduce((n, v) => n + Number(v.bytes || 0), 0);
+      const link = (url, text) => ` <a href="${E(url)}" target="_blank" rel="noopener">${E(text)}</a>`;
+      $('devUsage').innerHTML =
+        drow('🗄', 'Database', E(mbs(s.db_bytes) + ' of 500 MB') + meter(s.db_bytes, FREE.db)) +
+        drow('🖼', 'File storage', E(mbs(stored) + ' of 1 GB · ' + Object.entries(st).map(([k, v]) => k + ' ' + nfmt(v.files) + ' files').join(', ')) + meter(stored, FREE.storage)) +
+        drow('🔥', 'Comment reads (Firebase)', E('Free limit: 50,000 a day. Past it, comments stop until the next day.') + link('https://console.firebase.google.com/project/yearbook-d3f4f/usage', 'See today’s usage ›')) +
+        drow('📶', 'Data sent (Supabase)', E('Free limit: 5 GB a month, mostly photos.') + link('https://supabase.com/dashboard/org/tbhfxktmuokmekqoveig/usage', 'See usage ›'));
+
+      const tile = (n, label) => `<div class="a-stat" style="cursor:default"><b>${E(nfmt(n))}</b><span>${E(label)}</span></div>`;
+      $('devWeek').innerHTML = tile(s.profiles_7d, 'New profiles') + tile(c ? c.week : null, 'New comments') +
+                               tile(s.club_posts_7d, 'New club posts') + tile(pw.sent, 'Notifications delivered');
+
+      $('devPush').innerHTML =
+        drow('📲', nfmt(s.push_people) + ' ' + plural(s.push_people, 'person has', 'people have') + ' notifications on',
+          E(nfmt(s.push_devices) + ' ' + plural(s.push_devices, 'device', 'devices') + ', out of ' + nfmt(s.profiles) + ' profiles. Remind students: 🔔 → Turn on.')) +
+        drow(pw.failed ? '⚠️' : '✅', 'Last 7 days: ' + nfmt(pw.sent) + ' delivered, ' + nfmt(pw.failed) + ' failed',
+          E(nfmt(pw.batches) + ' ' + plural(pw.batches, 'comment, reply or club post', 'comments, replies and club posts') + ' set them off' +
+            (pw.removed ? '; ' + nfmt(pw.removed) + ' old ' + plural(pw.removed, 'device', 'devices') + ' removed' : '') + '.'));
+
+      const o = s.orphan_photos || {}, tidy = [];
+      if (o.files) tidy.push(drow('🧹', nfmt(o.files) + ' unused photos (' + mbs(o.bytes) + ')', E('Left behind when people replaced a photo. Safe to delete after a backup: ask Claude.')));
+      if (s.no_photo) tidy.push(drow('📷', nfmt(s.no_photo) + ' ' + plural(s.no_photo, 'profile', 'profiles') + ' without a photo', E('Worth a nudge before graduation.')));
+      if (s.archived) tidy.push(drow('🗄', nfmt(s.archived) + ' archived ' + plural(s.archived, 'profile', 'profiles'), E('Restore or delete them from Students → Archived.')));
+      $('devTidy').innerHTML = tidy.length ? tidy.join('') : '<div class="a-empty" style="padding:22px 16px">✅ Nothing to tidy.</div>';
+
+      const desc = e => {
+        const x = e.details || {};
+        if (e.kind === 'backup') return 'Backup ' + (e.ok ? 'OK' : 'had problems') + (x.files != null ? ' · ' + nfmt(x.files) + ' files' : '');
+        if (e.kind === 'push') return (x.what && x.what !== 'other' ? 'Notification for a ' + x.what : 'Notification') + ' · ' + nfmt(x.sent) + ' of ' + nfmt(x.devices) + ' delivered';
+        return String(e.kind);
+      };
+      $('devRecent').innerHTML = (d.recent || []).length
+        ? d.recent.map(e => drow(e.kind === 'backup' ? '💾' : '🔔', desc(e), E(when(e.created_at)), e.ok ? '' : '<span class="a-badge warn">problem</span>')).join('')
+        : '<div class="a-empty" style="padding:22px 16px">Nothing yet. Backups and notifications show up here.</div>';
+      renderDevLinks();
+    }
+
+    function renderDevLinks() {
+      $('devLinks').innerHTML = [
+        ['📓', 'Developer logbook', 'What’s live, to-dos, decisions, how-to', LOGBOOK_URL],
+        ['🟢', 'Supabase dashboard', 'Database, api function, secrets', 'https://supabase.com/dashboard/project/erelegzvgxwxwroqjynw'],
+        ['🔥', 'Firebase console', 'Sign-in, comments, website hosting', 'https://console.firebase.google.com/project/yearbook-d3f4f'],
+        ['🐙', 'Code on GitHub', 'Blamaku/yearbook', 'https://github.com/Blamaku/yearbook'],
+      ].map(([ico, t, sub, url]) => `<a class="a-row" href="${E(url)}" target="_blank" rel="noopener"><span class="a-tile">${ico}</span><span class="grow"><span class="a-name">${E(t)}</span><span class="a-sub">${E(sub)}</span></span><span class="chev">›</span></a>`).join('');
+    }
+
     /* ══ Events (one handler per event type for the whole page) ══ */
     document.addEventListener('click', e => {
       const b = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
@@ -1133,6 +1262,7 @@ let _ocSearchT = null;
       case 'oc-pick':   pickOfficerCandidate(Number(b.dataset.id)); break;
         case 'add-official': addOfficer(); break;
       case 'sec-check': loadSecurity(); break;
+        case 'dev-refresh': loadDev(true); break;
         case 'off-del':  removeOfficer(id); break;
       }
     });

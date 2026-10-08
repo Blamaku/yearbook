@@ -171,5 +171,18 @@ for (const [step, fn] of [['tables', backupTables], ['firebase', backupFirebase]
 }
 manifest.finished = new Date().toISOString();
 save(path.join(RUN, 'manifest.json'), manifest);
+
+// Tell the admin page's Developer tab how this backup went (a failure here is only a warning)
+try {
+  const files = Object.values(manifest.storage).reduce((n, b) => n + b.files, 0);
+  const mb = +Object.values(manifest.storage).reduce((n, b) => n + b.mb, 0).toFixed(1);
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/ops_events`, {
+    method: 'POST', headers: { ...auth, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({ kind: 'backup', ok: !manifest.problems.length, details: {
+      folder: STAMP, profiles: manifest.tables.profiles ?? null, comments: manifest.firebase.comments ?? null,
+      replies: manifest.firebase.replies ?? null, files, mb, sqlDump: manifest.sqlDump, problems: manifest.problems.slice(0, 5) } }),
+  });
+  if (!res.ok) console.warn(`  (could not report to the dashboard: ${res.status})`);
+} catch (e) { console.warn('  (could not report to the dashboard: ' + e.message + ')'); }
 console.log(`\n${manifest.problems.length ? 'Finished WITH PROBLEMS (see above)' : 'Backup complete'}: ${RUN}`);
 process.exit(manifest.problems.length ? 1 : 0);

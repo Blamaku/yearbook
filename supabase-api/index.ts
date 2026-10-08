@@ -247,7 +247,7 @@ async function pushToUids(ctx, uids, payload) {
     if (r.error) throw pushDbError(r.error);
     subs.push(...(r.data || []));
   }
-  let sent = 0, next = 0;
+  let sent = 0, failed = 0, next = 0;
   const gone = [];
   const worker = async () => {
     while (next < subs.length) {
@@ -256,13 +256,22 @@ async function pushToUids(ctx, uids, payload) {
         const status = await ctx.push.send(s, payload);
         if (status >= 200 && status < 300) sent++;
         else if (status === 404 || status === 410) gone.push(s.id);
-        else console.warn('[push] the push service answered', status, new URL(s.endpoint).hostname);
-      } catch (e) { console.warn('[push] send failed', e && e.message); }
+        else { failed++; console.warn('[push] the push service answered', status, new URL(s.endpoint).hostname); }
+      } catch (e) { failed++; console.warn('[push] send failed', e && e.message); }
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, subs.length) }, worker));
   if (gone.length) await ctx.db.from('push_subscriptions').delete().in('id', gone);
+  if (subs.length) await logEvent(ctx, 'push', failed === 0,
+    { what: PUSH_WHAT[String(payload.tag || '').split('-')[0]] || 'other', devices: subs.length, sent, failed, removed: gone.length });
   return { sent, removed: gone.length };
+}
+
+// A line in the developer diary (ops_events). Never lets a diary problem break the real work.
+const PUSH_WHAT = { c: 'comment', r: 'reply', p: 'club post', test: 'test' };
+async function logEvent(ctx, kind, ok, details) {
+  try { await ctx.db.from('ops_events').insert({ kind, ok, details, created_at: new Date(ctx.now()).toISOString() }); }
+  catch (e) { /* the dashboard just misses one line */ }
 }
 
 async function notifyClubMembers(ctx, post) {
@@ -484,6 +493,37 @@ const ACTIONS = {
   },
 
   // ── admin only ──
+  // Everything the admin page's Developer tab shows, in one call.
+  async 'admin.dev.stats'(ctx) {
+    requireAdmin(ctx);
+    const weekAgo = new Date(ctx.now() - 7 * 864e5).toISOString();
+    const ev = () => ctx.db.from('ops_events');
+    const [stats, backup, pushes, recent, comments, keys] = await Promise.all([
+      ctx.db.rpc('dev_stats'),
+      ev().select('ok,details,created_at').eq('kind', 'backup').order('created_at', { ascending: false }).limit(1),
+      ev().select('ok,details').eq('kind', 'push').gte('created_at', weekAgo).limit(5000),
+      ev().select('kind,ok,details,created_at').order('created_at', { ascending: false }).limit(15),
+      ctx.firestoreStats ? ctx.firestoreStats(weekAgo).catch(e => ({ error: String(e && e.message || e) })) : null,
+      ctx.keysStatus(),
+    ]);
+    if (stats.error) {
+      throw missingTable(stats.error) || /dev_stats/.test(stats.error.message || '')
+        ? new ApiError(500, 'dev_missing', 'The developer numbers are not set up yet (run the dev_dashboard migration).')
+        : new ApiError(500, 'db', 'Could not load the developer numbers.');
+    }
+    const p = pushes.error ? [] : (pushes.data || []);
+    const sum = k => p.reduce((n, e) => n + (Number(e.details && e.details[k]) || 0), 0);
+    return {
+      at: new Date(ctx.now()).toISOString(),
+      health: { keys, push: ctx.push ? 'on' : 'off', comments: comments && !comments.error ? 'ok' : 'error' },
+      stats: stats.data || {},
+      comments: comments && !comments.error ? comments : null,
+      pushWeek: { batches: p.length, sent: sum('sent'), failed: sum('failed'), removed: sum('removed') },
+      lastBackup: backup.error ? null : ((backup.data || [])[0] || null),
+      recent: recent.error ? [] : (recent.data || []),
+    };
+  },
+
   // Full profile rows (with contact details) for the admin dashboard and exports.
   async 'admin.profiles.list'(ctx, body) {
     requireAdmin(ctx);
@@ -585,7 +625,7 @@ const ACTIONS = {
 
 // ── The request handler ────────────────────────────────────────────────
 export function createApi({ config, db, storage, getKeys, now = () => Date.now(), rand = () => Math.random().toString(36).slice(2, 8),
-  push = null, firestore = null, background = p => { Promise.resolve(p).catch(e => console.error('[api] background task failed', e)); } }) {
+  push = null, firestore = null, firestoreStats = null, background = p => { Promise.resolve(p).catch(e => console.error('[api] background task failed', e)); } }) {
   const cors = origin => {
     const h = { 'Vary': 'Origin', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Max-Age': '86400',
       'Access-Control-Allow-Headers': 'content-type, x-firebase-token, authorization, apikey, x-client-info' };
@@ -616,7 +656,7 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       if (!token) throw new ApiError(401, 'auth', 'Please sign in first.');
       const user = await verifyFirebaseToken(token, { projectId: config.projectId, getKeys, nowSec: () => Math.floor(now() / 1000) });
       const isAdmin = user.emailVerified && !!user.email && lower(user.email) === lower(config.adminEmail);
-      const result = await fn({ user, isAdmin, db, storage, config, now, rand, push, firestore, background }, body);
+      const result = await fn({ user, isAdmin, db, storage, config, now, rand, push, firestore, firestoreStats, background, keysStatus }, body);
       return json({ ok: true, ...result }, 200, headers);
     } catch (e) {
       if (e instanceof ApiError) return json({ ok: false, error: e.message, code: e.code, ...e.extra }, e.status, headers);
@@ -710,6 +750,26 @@ export function firestoreReader(projectId, fetchFn = fetch) {
   };
 }
 
+// ── Comment counts for the Developer tab (Firestore count queries: no documents are downloaded) ──
+// Plain counts only: a count combined with a sum skips the older comments that have no replyCount field.
+export function firestoreStats(projectId, fetchFn = fetch) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runAggregationQuery`;
+  async function count(where) {
+    const structuredQuery = { from: [{ collectionId: 'comments' }], ...(where ? { where } : {}) };
+    const res = await fetchFn(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ structuredAggregationQuery: { structuredQuery, aggregations: [{ alias: 'n', count: {} }] } }) });
+    if (!res.ok) throw new Error('Firestore answered ' + res.status);
+    const out = await res.json();
+    const n = (Array.isArray(out) ? out[0] : out)?.result?.aggregateFields?.n;
+    return Number(n?.integerValue ?? 0);
+  }
+  return async sinceIso => {
+    const [total, week] = await Promise.all([count(null),
+      count({ fieldFilter: { field: { fieldPath: 'timestamp' }, op: 'GREATER_THAN_OR_EQUAL', value: { timestampValue: sinceIso } } })]);
+    return { total, week };
+  };
+}
+
 // ==DENO-WIRING-START==
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
@@ -719,6 +779,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: 
 const api = createApi({ config: { ...CONFIG, supabaseUrl: SUPABASE_URL }, db: admin, storage: admin.storage, getKeys: fetchGoogleKeys,
   push: VAPID_PRIVATE_KEY ? createPushSender({ publicKey: CONFIG.vapidPublicKey, privateKey: VAPID_PRIVATE_KEY, subject: CONFIG.vapidSubject }) : null,
   firestore: firestoreReader(CONFIG.projectId),
+  firestoreStats: firestoreStats(CONFIG.projectId),
   background: p => { const t = Promise.resolve(p).catch(e => console.error('[api] background task failed', e)); globalThis.EdgeRuntime?.waitUntil?.(t); } });
 Deno.serve(req => api.handle(req));
 // ==DENO-WIRING-END==
