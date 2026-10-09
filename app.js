@@ -35,7 +35,7 @@ window.clearCacheAndReload = async function() {
 // ── Dynamic graduation year (auto-updates Jan 1) ───
 const GRAD_YEAR = new Date().getFullYear();
 // Graduation ceremony date for each year (YYYY-MM-DD). Change it here and every countdown and label follows.
-const GRAD_DATES = { 2026: '2026-11-20' };
+const GRAD_DATES = { 2026: '2026-11-21' };
 const GRAD_DATE = new Date(`${GRAD_DATES[GRAD_YEAR] || GRAD_YEAR + '-11-20'}T09:00:00`).getTime();
 window.GRAD_YEAR = GRAD_YEAR;
 window.GRAD_DATE = GRAD_DATE;
