@@ -1650,14 +1650,14 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
     linear-gradient(to bottom, #04152a 0%, #062f5c 45%, #0b5c9e 78%, #3a8fcf 100%);
 }
 .hm-hero {
-  --crest-y: 105px;
+  --crest-y: 119px;
   position: relative; overflow: hidden; text-align: center; color: #fff;
-  padding: 30px 16px 84px;
+  padding: 44px 16px 84px;
 }
 /* A blue light from the crest that slowly breathes */
 .hm-hero::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 50% var(--crest-y), rgba(30,154,214,.75) 0, rgba(30,154,214,.25) 140px, transparent 260px);
+  background: radial-gradient(circle at 50% var(--crest-y), rgba(30,154,214,.8) 0, rgba(30,154,214,.3) 170px, transparent 320px);
   animation: hmGlow 4s ease-in-out infinite alternate;
 }
 .hm-hero::after {
@@ -1668,27 +1668,35 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 }
 @keyframes hmGlow { from { opacity: .45; } to { opacity: 1; } }
 .hm-hero > * { position: relative; z-index: 1; }
-/* The crest sits on a white disc; a ring of the logo's own colours turns slowly round it,
-   inside a soft gold halo */
+/* The crest sits on a white disc. Round it: a thick ring of the logo's own colours that turns,
+   and behind that a big soft aura of the same colours turning the other way and breathing. */
 .hm-crest-ring {
   position: relative; isolation: isolate;
   width: 150px; height: 150px; margin: 0 auto; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 12px rgba(245,197,24,.13), 0 0 36px rgba(30,154,214,.8), 0 0 90px rgba(242,229,43,.35);
+  box-shadow: 0 0 0 26px rgba(245,197,24,.12), 0 0 56px rgba(30,154,214,.85), 0 0 130px rgba(242,229,43,.4);
 }
 .hm-crest-ring::before, .hm-crest-ring::after { content: ''; position: absolute; border-radius: 50%; }
 .hm-crest-ring::before {
-  inset: -5px;
+  inset: -11px;
   background: conic-gradient(#1e9ad6, #f2e52b, #3baa34, #f5c518, #1e9ad6);
   animation: hmSpin 9s linear infinite;
 }
 .hm-crest-ring::after { inset: 0; background: #fff; }
+.hm-aura {
+  position: absolute; inset: -36px; z-index: -1; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(#1e9ad6, #f2e52b, #3baa34, #f5c518, #1e9ad6);
+  filter: blur(18px); opacity: .9;
+  animation: hmAuraSpin 14s linear infinite, hmAuraBreathe 3.5s ease-in-out infinite alternate;
+}
 @keyframes hmSpin { to { transform: rotate(1turn); } }
+@keyframes hmAuraSpin { to { rotate: -1turn; } }
+@keyframes hmAuraBreathe { from { scale: .9; opacity: .65; } to { scale: 1.1; opacity: .95; } }
 .hm-crest { position: relative; z-index: 1; width: 112px; height: auto; filter: drop-shadow(0 3px 6px rgba(0,40,90,.25)); animation: hmCrestIn .9s cubic-bezier(.34,1.4,.64,1) both; }
 @keyframes hmCrestIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: none; } }
 /* One line on a 360px phone; grows with the screen */
 .hm-uni {
-  margin-top: 20px; font-size: clamp(.8rem, 3.9vw, 1.45rem); font-weight: 900; line-height: 1.25;
+  margin-top: 34px; font-size: clamp(.8rem, 3.9vw, 1.45rem); font-weight: 900; line-height: 1.25;
   letter-spacing: .06em; text-transform: uppercase; color: var(--gold-bright); text-wrap: balance;
 }
 .hm-hero h1 { margin-top: 4px; font-size: 2.1rem; font-weight: 900; line-height: 1.1; letter-spacing: -.01em; }
@@ -1820,14 +1828,14 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
   .hm-grid2 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 760px) {
-  .hm-hero { --crest-y: 111px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); padding: 36px 24px 88px; }
+  .hm-hero { --crest-y: 125px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); padding: 50px 24px 88px; }
 }
 /* Wide screens: Home fills the content width. The main column is on the left;
    messages, About and the schools sit on the right. With a mouse nobody swipes
    sideways, so the strips become rows of photos. */
 @media (min-width: 1100px) {
   .hm { max-width: 1200px; padding: 0 24px 32px; }
-  .hm-hero { --crest-y: 126px; padding: 40px 32px 92px; }
+  .hm-hero { --crest-y: 142px; padding: 56px 32px 92px; }
   .hm-crest-ring { width: 172px; height: 172px; }
   .hm-crest { width: 128px; }
   .hm-hero h1 { font-size: 2.9rem; }
@@ -1887,13 +1895,13 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
    ══════════════════════════════════════════════════════════════ */
 .ab { max-width: 760px; margin: 0 auto; padding-bottom: 28px; }
 .ab-hero {
-  --crest-y: 120px;
+  --crest-y: 146px;
   position: relative; text-align: center; color: #fff; padding: 12px 16px 84px;
 }
 .ab-back { display: flex; align-items: center; min-height: 40px; margin-bottom: 6px; font-size: .82rem; font-weight: 700; color: rgba(255,255,255,.8); }
-.ab-ring { width: 124px; height: 124px; }
+.ab-ring { width: 124px; height: 124px; margin-top: 26px; }
 .ab-ring .hm-crest { width: 94px; }
-.ab-hero .hm-uni { font-size: .7rem; letter-spacing: .18em; }   /* the university name is the heading here */
+.ab-hero .hm-uni { margin-top: 46px; font-size: .7rem; letter-spacing: .18em; }   /* the university name is the heading here */
 .ab-hero h1 { margin-top: 4px; font-size: 1.5rem; font-weight: 900; line-height: 1.2; }
 .ab-place { margin-top: 4px; font-size: .8rem; color: rgba(255,255,255,.7); }
 .ab-sec { margin: 22px 16px 0; }
@@ -1918,7 +1926,7 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
   .ab { max-width: 1200px; padding: 0 24px 32px; }
   .ab-sec p { max-width: 78ch; }
 }
-@media (prefers-reduced-motion: reduce) { .hm-crest, .hm-crest-ring::before, .hm-hero::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .hm-crest, .hm-crest-ring::before, .hm-aura, .hm-hero::before { animation: none; } }
 
 /* ══════════════════════════════════════════════════════════════
    STAFF (staff.html) — one lecturer or staff member, or your own
