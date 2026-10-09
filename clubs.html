@@ -40,8 +40,9 @@
     .cl-search:focus-within { background:rgba(255,255,255,.18); border-color:rgba(255,255,255,.45); }
     .cl-search input { flex:1; min-width:0; border:0; outline:0; background:transparent; color:#fff; font:inherit; font-size:.9rem; }
     .cl-search input::placeholder { color:rgba(255,255,255,.6); }
-    .cl-cats { display:flex; gap:8px; overflow-x:auto; padding:12px 16px 4px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
-    .cl-cats::-webkit-scrollbar { display:none; }
+    .cl-cats, .won-cats { display:flex; gap:8px; overflow-x:auto; padding:0 16px 12px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .cl-cats::-webkit-scrollbar, .won-cats::-webkit-scrollbar { display:none; }
+    .won-cats[hidden] { display:none; }
     .cat-chip {
       flex-shrink:0; padding:7px 14px; border-radius:50px; font-size:.74rem; font-weight:700; font-family:inherit;
       border:1.5px solid var(--gray-100); background:var(--surface); color:var(--gray-600); cursor:pointer; white-space:nowrap;
@@ -107,6 +108,71 @@
     .cl-faces i:first-child { margin-left:0; }
     .cl-go { flex-shrink:0; font-size:1.3rem; color:var(--gray-400); }
     .club-empty { padding:30px 24px; text-align:center; color:var(--gray-400); font-size:.85rem; }
+
+    /* What's on: what the clubs have planned and what they have been up to, right under the search */
+    .won[hidden] { display:none; }
+    .won-head { display:flex; align-items:flex-end; gap:10px; padding:0 16px; margin-bottom:10px; }
+    .won-head h2 { flex:1; min-width:0; font-size:1.05rem; font-weight:900; color:var(--gray-800); }
+    .won-head h2 small { display:block; margin-top:2px; font-size:.72rem; font-weight:600; color:var(--gray-600); }
+    .won-all { flex-shrink:0; padding:7px 14px; border-radius:50px; border:0; background:var(--navy); color:#fff; font:inherit; font-size:.74rem; font-weight:800; cursor:pointer; }
+    [data-theme="dark"] .won-all { background:var(--blue-vivid); color:#04152a; }
+    .won-rail { display:flex; gap:10px; overflow-x:auto; padding:2px 16px 8px; scroll-snap-type:x mandatory; scroll-padding:0 16px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .won-rail::-webkit-scrollbar { display:none; }
+    .won-rail[hidden] { display:none; }
+    .won-card {
+      flex:0 0 172px; scroll-snap-align:start; display:flex; flex-direction:column; min-height:200px; border-radius:var(--radius-lg); overflow:hidden;
+      background:var(--surface); border:1px solid var(--gray-100); color:var(--gray-800); box-shadow:var(--shadow-sm);
+    }
+    .won-card:active, .won-item:active { transform:scale(.98); }
+    .won-top, .won-th {
+      position:relative; display:flex; align-items:center; justify-content:center; color:#fff;
+      background:linear-gradient(150deg, color-mix(in srgb, var(--cc,#0f4c81) 78%, #fff) 0%, var(--cc,#0f4c81) 55%, color-mix(in srgb, var(--cc,#0f4c81) 60%, #061020) 100%);
+      background-size:cover; background-position:center;
+    }
+    .won-top { height:96px; flex-shrink:0; }
+    .won-top .ico { font-size:2.3rem; filter:drop-shadow(0 3px 8px rgba(0,0,0,.25)); }
+    .won-date { text-align:center; line-height:1; }
+    .won-top .won-date { margin-top:18px; }                 /* clear of the "Tomorrow" tag */
+    .won-date small { display:block; font-size:.6rem; font-weight:800; letter-spacing:.08em; opacity:.9; }
+    .won-date b { display:block; margin:2px 0; font-size:2rem; font-weight:900; }
+    .won-flag { position:absolute; left:8px; top:8px; max-width:calc(100% - 16px); padding:3px 9px; border-radius:50px; font-size:.62rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:rgba(255,255,255,.94); color:#0b1b33; }
+    .won-flag.up { background:#facc15; color:#3b2a00; }
+    .won-body { flex:1; display:flex; flex-direction:column; gap:3px; min-width:0; padding:9px 11px 11px; }
+    .won-body b { font-size:.82rem; font-weight:800; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .won-body small { font-size:.7rem; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .won-club { margin-top:auto; padding-top:4px; font-size:.68rem; font-weight:700; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .won-more { flex-basis:120px; align-items:center; justify-content:center; gap:6px; border:1.5px dashed var(--gray-200); box-shadow:none; background:none; font:inherit; font-size:.8rem; font-weight:800; color:var(--gray-600); cursor:pointer; }
+    .won-more span { font-size:1.6rem; line-height:1; }
+    .won-card.skel { border:0; box-shadow:none; background:linear-gradient(90deg,var(--gray-100),var(--gray-200),var(--gray-100)); background-size:200% 100%; animation:wonSk 1.2s infinite; }
+    @keyframes wonSk { to { background-position:-200% 0; } }
+    .won-none { margin:0 16px; padding:16px; border-radius:var(--radius-md); border:1.5px dashed var(--gray-200); text-align:center; font-size:.8rem; line-height:1.5; color:var(--gray-600); }
+    .won-none[hidden] { display:none; }
+
+    /* See all: every coming-up event and the latest news, in a sheet */
+    .won-ov { position:fixed; inset:0; z-index:5000; display:flex; align-items:flex-end; background:rgba(4,13,30,.72); }
+    .won-ov[hidden] { display:none; }
+    .won-sheet { width:100%; max-height:92dvh; display:flex; flex-direction:column; background:var(--off-white, var(--surface)); border-radius:24px 24px 0 0; overflow:hidden; animation:wonUp .26s ease-out both; }
+    @keyframes wonUp { from { transform:translateY(36px); opacity:0; } }
+    .won-sh-head { display:flex; align-items:center; gap:10px; padding:16px 16px 10px; }
+    .won-sh-head h2 { flex:1; font-size:1.1rem; font-weight:900; color:var(--gray-800); }
+    .won-x { flex-shrink:0; width:38px; height:38px; border-radius:50%; border:0; background:var(--gray-100); color:var(--gray-800); font-size:1rem; cursor:pointer; }
+    .won-seg { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin:0 16px 12px; padding:4px; border-radius:50px; background:var(--gray-100); }
+    .won-seg button { padding:8px 6px; border:0; border-radius:50px; background:none; font:inherit; font-size:.78rem; font-weight:800; color:var(--gray-600); cursor:pointer; }
+    .won-seg button.active { background:var(--surface); color:var(--gray-800); box-shadow:var(--shadow-sm); }
+    .won-seg i { font-style:normal; margin-left:4px; padding:1px 7px; border-radius:50px; font-size:.66rem; background:var(--navy); color:#fff; }
+    .won-list { flex:1; overflow-y:auto; display:grid; gap:8px; align-content:start; padding:0 16px calc(24px + env(safe-area-inset-bottom, 0px)); overscroll-behavior:contain; }
+    .won-item { display:flex; gap:12px; padding:10px; border-radius:var(--radius-md); background:var(--surface); border:1px solid var(--gray-100); color:var(--gray-800); }
+    .won-th { flex-shrink:0; width:66px; height:66px; border-radius:12px; font-size:1.7rem; }
+    .won-th .won-date b { font-size:1.45rem; }
+    .won-it { flex:1; min-width:0; }
+    .won-it small { display:block; font-size:.68rem; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .won-it b { display:block; margin:2px 0; font-size:.86rem; font-weight:800; line-height:1.3; }
+    .won-it p { margin:0 0 2px; font-size:.76rem; line-height:1.45; color:var(--gray-600); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .won-it .up { color:#a16207; font-weight:800; }
+    [data-theme="dark"] .won-it .up { color:#fde047; }
+    .won-empty { padding:28px 12px; text-align:center; font-size:.82rem; line-height:1.55; color:var(--gray-600); }
+    .won-empty .big { display:block; margin-bottom:6px; font-size:2rem; }
+    .won-empty b { display:block; color:var(--gray-800); font-size:.95rem; }
     .club-empty[hidden] { display:none; }
 
     @media (min-width: 600px) {
@@ -117,9 +183,12 @@
     @media (min-width: 860px) {
       .cl-hero { padding-left:max(28px, calc((100% - var(--content-max, 920px)) / 2)); padding-right:max(28px, calc((100% - var(--content-max, 920px)) / 2)); padding-top:22px; padding-bottom:28px; }
       .cl-search { max-width:560px; }
-      .cl-cats, .cl-main { max-width:var(--content-max, 920px); margin:0 auto; }
-      .cl-cats { padding-left:0; padding-right:0; }
-      .cl-sec > h2, .cl-mine, .cl-top, .cl-list { padding-left:0; padding-right:0; }
+      .cl-main { max-width:var(--content-max, 920px); margin:0 auto; }
+      .cl-sec > h2, .cl-mine, .cl-top, .cl-list, .cl-cats, .won-head, .won-rail { padding-left:0; padding-right:0; }
+      .won-rail { scroll-padding:0; }
+      .won-none { margin:0; }
+      .won-ov { align-items:center; padding:20px; }
+      .won-sheet { max-width:640px; margin:0 auto; border-radius:24px; max-height:calc(100dvh - 40px); }
     }
     @media (min-width: 1100px) { .cl-list { grid-template-columns:repeat(3, minmax(0, 1fr)); } }
   </style>
@@ -147,9 +216,15 @@
     <label class="cl-search"><span aria-hidden="true">🔍</span><input type="search" id="clubSearch" placeholder="Search clubs" autocomplete="off" aria-label="Search clubs"></label>
   </header>
 
-  <div class="cl-cats" id="catRow"></div>
-
   <main class="cl-main">
+    <section class="cl-sec won" id="secOn" aria-labelledby="onTitle">
+      <div class="won-head">
+        <h2 id="onTitle">What's on in clubs<small id="onSub">News, plans and photos from every club</small></h2>
+        <button type="button" class="won-all" id="onAll">See all ›</button>
+      </div>
+      <div class="won-rail" id="onRail"><span class="won-card skel"></span><span class="won-card skel"></span><span class="won-card skel"></span></div>
+      <div class="won-none" id="onNone" hidden></div>
+    </section>
     <section class="cl-sec" id="secMine" hidden>
       <h2>Your clubs</h2>
       <div class="cl-mine" id="mineRow"></div>
@@ -160,10 +235,23 @@
     </section>
     <section class="cl-sec">
       <h2 id="allTitle">All clubs</h2>
+      <div class="cl-cats" id="catRow"></div>
       <div class="cl-list" id="clubGrid"></div>
       <div class="club-empty" id="clubEmpty" hidden>No clubs match your search.</div>
     </section>
   </main>
+
+  <div class="won-ov" id="onOv" hidden>
+    <div class="won-sheet" role="dialog" aria-modal="true" aria-labelledby="onShTitle">
+      <div class="won-sh-head"><h2 id="onShTitle">What's on in clubs</h2><button type="button" class="won-x" id="onX" aria-label="Close">✕</button></div>
+      <div class="won-seg" role="tablist">
+        <button type="button" role="tab" data-v="up" id="segUp">📅 Coming up</button>
+        <button type="button" role="tab" data-v="recent" id="segRecent">🕒 Latest</button>
+      </div>
+      <div class="won-cats" id="onCats" hidden></div>
+      <div class="won-list" id="onList"></div>
+    </div>
+  </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -207,6 +295,7 @@
 
     function render() {
       const lq = q.toLowerCase(), filtering = cat !== 'All' || !!lq;
+      $('secOn').hidden = !!lq;                      // searching: just the matching clubs
       const list = ALL.filter(c =>
         (cat === 'All' || c.cat === cat) &&
         (!lq || c.name.toLowerCase().includes(lq) || c.desc.toLowerCase().includes(lq) || c.cat.toLowerCase().includes(lq)));
@@ -215,14 +304,14 @@
 
       // Your clubs
       const myClubs = ALL.filter(c => mine.some(m => m.toLowerCase() === c.name.toLowerCase()));
-      $('secMine').hidden = filtering || !myClubs.length;
+      $('secMine').hidden = !!lq || !myClubs.length;
       $('mineRow').innerHTML = myClubs.map(c => `<a class="cl-chip" href="${href(c)}" style="--cc:${E(c.color)}">
         <span class="cl-tile">${c.icon}</span><span><b>${E(c.name)}</b><small>${E(members(count(c)) || c.cat)}</small></span></a>`).join('');
 
       // Most active (newest posts in the last month), else the biggest clubs
       const recent = ALL.filter(c => lastAt(c) && Date.now() - lastAt(c) < MONTH).sort(byActivity);
       const top = (recent.length >= 2 ? recent : ALL.slice().sort(byActivity)).slice(0, 4);
-      $('secTop').hidden = filtering || !stats;
+      $('secTop').hidden = !!lq || !stats;
       $('topTitle').textContent = recent.length >= 2 ? 'Most active' : 'Biggest clubs';
       $('topGrid').innerHTML = top.map(c => `<a class="cl-big" href="${href(c)}" style="--cc:${E(c.color)}">
         <span class="cl-tile">${c.icon}</span><b>${E(c.name)}</b>
@@ -252,6 +341,134 @@
     window.getClubStats()
       .then(s => { stats = s; render(); })
       .catch(e => console.warn('[club stats]', e));
+
+    // ── What's on: what the clubs have planned (events from today on) and what they have been up to ──
+    const ON_COLS = 'id,club_name,type,title,body,post_date,created_at,file_urls';
+    const KIND = { notice: '📢 Notice', event: '📅 Event', activity: '🎯 Activity', photo: '📸 Photos' };
+    let upcoming = null, recent = [], onFailed = false, onView = 'up', onCat = 'All', onOpenedHere = false;
+    const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const dayOf   = v => { const [y, m, d] = String(v).slice(0, 10).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1); };
+    const daysTo  = v => Math.round((dayOf(v) - dayOf(todayStr())) / 864e5);
+    const soon    = n => n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : `In ${n} days`;
+    const longDay = v => dayOf(v).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const isUp    = p => p.type === 'event' && !!p.post_date && daysTo(p.post_date) >= 0;
+    const metaOf  = n => window.clubMeta(n) || { icon: '🏛️', color: '#0f4c81', cat: 'Club' };
+    const postUrl = p => 'club.html?club=' + encodeURIComponent(p.club_name) + '&post=' + Number(p.id) + '#feed';
+    const imgOf   = p => (Array.isArray(p.file_urls) ? p.file_urls : []).map(window.safeUrl)
+      .filter(u => u && /\.(jpe?g|png|gif|webp|avif)$/i.test(u.split('?')[0]))[0] || '';
+    const bgImg   = u => u ? `background-image:url('${E(u).replace(/'/g, '%27')}')` : '';
+    const titleOf = p => p.title || (p.type === 'photo' ? 'New photos' : String(p.body || '').slice(0, 90)) || 'Club update';
+    function ago(iso) {
+      const sec = (Date.now() - Date.parse(iso)) / 1000;
+      if (!(sec >= 0)) return '';
+      if (sec < 3600) return Math.max(1, Math.floor(sec / 60)) + ' min ago';
+      if (sec < 86400) return Math.floor(sec / 3600) + ' h ago';
+      const d = Math.floor(sec / 86400);
+      if (d === 1) return 'Yesterday';
+      if (d < 7) return d + ' days ago';
+      if (d < 30) { const w = Math.floor(d / 7); return w + (w === 1 ? ' week ago' : ' weeks ago'); }
+      return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+    function dateBlock(p) {
+      const d = dayOf(p.post_date), part = o => E(d.toLocaleDateString('en-GB', o).toUpperCase());
+      return `<span class="won-date"><small>${part({ weekday: 'short' })}</small><b>${d.getDate()}</b><small>${part({ month: 'short' })}</small></span>`;
+    }
+    function cardHTML(p) {
+      const m = metaOf(p.club_name), up = isUp(p), img = up ? '' : imgOf(p);
+      const flag = up ? `<span class="won-flag up">${E(soon(daysTo(p.post_date)))}</span>` : `<span class="won-flag">${E(KIND[p.type] || KIND.notice)}</span>`;
+      const sub = up ? String(p.body || '') : ago(p.created_at);
+      return `<a class="won-card" href="${postUrl(p)}" style="--cc:${E(m.color)}">
+        <span class="won-top" style="${bgImg(img)}">${flag}${up ? dateBlock(p) : (img ? '' : `<span class="ico">${m.icon}</span>`)}</span>
+        <span class="won-body"><b>${E(titleOf(p))}</b>${sub ? `<small>${E(sub)}</small>` : ''}<span class="won-club">${m.icon} ${E(p.club_name)}</span></span>
+      </a>`;
+    }
+    function itemHTML(p) {
+      const m = metaOf(p.club_name), up = isUp(p), img = up ? '' : imgOf(p);
+      const when = up ? `<small class="up">${E(soon(daysTo(p.post_date)))} · ${E(longDay(p.post_date))}</small>` : `<small>${E(ago(p.created_at))}</small>`;
+      return `<a class="won-item" href="${postUrl(p)}" style="--cc:${E(m.color)}">
+        <span class="won-th" style="${bgImg(img)}">${up ? dateBlock(p) : (img ? '' : m.icon)}</span>
+        <span class="won-it"><small>${m.icon} ${E(p.club_name)} · ${E(KIND[p.type] || KIND.notice)}</small><b>${E(titleOf(p))}</b>${p.title && p.body ? `<p>${E(p.body)}</p>` : ''}${when}</span>
+      </a>`;
+    }
+
+    function paintRail() {
+      if (!upcoming) return;                                      // still loading
+      const items = [...upcoming.slice(0, 6), ...recent.slice(0, 8)];
+      const week = recent.filter(p => Date.now() - Date.parse(p.created_at) < 7 * 864e5).length;
+      $('onSub').textContent = [upcoming.length ? `${upcoming.length} coming up` : '', week ? `${week} new this week` : ''].filter(Boolean).join(' · ')
+        || 'News, plans and photos from every club';
+      $('onAll').hidden = !items.length;
+      $('onNone').hidden = !!items.length;
+      $('onNone').textContent = onFailed ? 'Could not load club news. Check your connection and try again.'
+        : 'Nothing posted yet. When clubs share their plans, news and photos, they show up here.';
+      $('onRail').hidden = !items.length;
+      $('onRail').innerHTML = items.map(cardHTML).join('') + (items.length ? '<button type="button" class="won-card won-more" id="onMore">See everything<span>›</span></button>' : '');
+    }
+    function paintSheet() {
+      const up = upcoming || [];
+      $('segUp').innerHTML = `📅 Coming up${up.length ? ` <i>${up.length}</i>` : ''}`;
+      $('segRecent').innerHTML = '🕒 Latest';
+      document.querySelectorAll('.won-seg button').forEach(b => { const on = b.dataset.v === onView; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
+      if (!upcoming) { $('onCats').hidden = true; $('onList').innerHTML = '<span class="won-card skel" style="min-height:80px"></span>'.repeat(3); return; }
+      const base = onView === 'up' ? up : recent;
+      const cats = CATS.filter(c => base.some(p => metaOf(p.club_name).cat === c));
+      if (!cats.includes(onCat)) onCat = 'All';
+      $('onCats').hidden = cats.length < 2;
+      $('onCats').innerHTML = ['All', ...cats].map(k => `<button type="button" class="cat-chip${k === onCat ? ' active' : ''}" data-cat="${E(k)}">${E(k)}</button>`).join('');
+      const items = onCat === 'All' ? base : base.filter(p => metaOf(p.club_name).cat === onCat);
+      $('onList').innerHTML = items.length ? items.map(itemHTML).join('') : (onView === 'up'
+        ? '<div class="won-empty"><span class="big">📅</span><b>Nothing planned yet</b>When a club adds an event, it shows up here, soonest first.<br>Club officials: open your club, tap ＋ and choose 📅 Event.</div>'
+        : '<div class="won-empty"><span class="big">📭</span><b>No club news yet</b>Notices, activities and photos from every club will show up here.</div>');
+      $('onList').scrollTop = 0;
+    }
+    function showSheet(on) {
+      const was = !$('onOv').hidden;
+      $('onOv').hidden = !on;
+      document.documentElement.style.overflow = on ? 'hidden' : '';
+      if (on && !was) { onCat = 'All'; paintSheet(); $('onX').focus({ preventScroll: true }); }
+    }
+    function openSheet() {
+      onView = (upcoming || []).length ? 'up' : 'recent';
+      if (location.hash === '#whats-on') { showSheet(true); return; }
+      onOpenedHere = true; location.hash = 'whats-on';                 // the phone's back button closes it
+    }
+    function closeSheet() {
+      if (location.hash === '#whats-on') {
+        if (onOpenedHere) { onOpenedHere = false; history.back(); return; }
+        history.replaceState(null, '', location.pathname + location.search);
+      }
+      showSheet(false);
+    }
+    async function loadOn() {
+      try {
+        const [u, r] = await Promise.all([
+          supabase.from('club_posts').select(ON_COLS).eq('type', 'event').gte('post_date', todayStr())
+            .order('post_date', { ascending: true }).order('created_at', { ascending: true }).limit(30),
+          supabase.from('club_posts').select(ON_COLS).neq('type', 'minutes')
+            .order('created_at', { ascending: false }).limit(40),
+        ]);
+        if (u.error && r.error) throw r.error;
+        upcoming = u.error ? [] : (u.data || []);
+        const shown = new Set(upcoming.map(p => p.id));
+        recent = (r.error ? [] : (r.data || [])).filter(p => !shown.has(p.id));
+        onFailed = false;
+      } catch (e) { console.warn('[whats on]', e); upcoming = []; recent = []; onFailed = true; }
+      paintRail();
+      if (!$('onOv').hidden) { if (onView === 'up' && !upcoming.length) onView = 'recent'; paintSheet(); }
+    }
+    $('onAll').addEventListener('click', openSheet);
+    $('onRail').addEventListener('click', e => { if (e.target.closest('#onMore')) openSheet(); });
+    $('onX').addEventListener('click', closeSheet);
+    $('onOv').addEventListener('click', e => { if (e.target === $('onOv')) closeSheet(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('onOv').hidden) closeSheet(); });
+    window.addEventListener('hashchange', () => showSheet(location.hash === '#whats-on'));
+    document.querySelector('.won-seg').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b || b.dataset.v === onView) return;
+      onView = b.dataset.v; onCat = 'All'; paintSheet();
+    });
+    $('onCats').addEventListener('click', e => { const b = e.target.closest('.cat-chip'); if (b) { onCat = b.dataset.cat; paintSheet(); } });
+    if (location.hash === '#whats-on') showSheet(true);
+    loadOn();
 
     // Your own clubs (from your yearbook profile)
     auth.onAuthStateChanged(async user => {

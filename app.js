@@ -1379,7 +1379,7 @@ window.gNotif = (function () {
       .in('club_name', clubs).gt('created_at', iso(since)).order('created_at', { ascending: false }).limit(20);
     if (error) return [];
     return (data || []).filter(r => r.created_by !== _uid)
-      .map(r => ({ type: 'club', key: 'p' + r.id, at: ms(r.created_at), club: r.club_name, kind: r.type, title: r.title, text: r.body }));
+      .map(r => ({ type: 'club', key: 'p' + r.id, id: r.id, at: ms(r.created_at), club: r.club_name, kind: r.type, title: r.title, text: r.body }));
   }
 
   async function classmates(p, since, seenAt) {
@@ -1465,7 +1465,7 @@ window.gNotif = (function () {
   }
 
   /* ── the panel ── */
-  const KIND = { notice: 'New notice', activity: 'New activity', minutes: 'New minutes', photo: 'New photos' };
+  const KIND = { notice: 'New notice', event: 'Coming up', activity: 'New activity', minutes: 'New minutes', photo: 'New photos' };
   function itemHTML(it) {
     const meta = it.type === 'club' && window.clubMeta ? window.clubMeta(it.club) : null;
     let ico, title, sub, href;
@@ -1478,7 +1478,7 @@ window.gNotif = (function () {
     } else if (it.type === 'club') {
       ico = meta ? meta.icon : '🏛'; title = `<b>${esc(it.club)}</b> · ${esc(KIND[it.kind] || 'New post')}`;
       sub = esc(snip(it.title || it.text, 90));
-      href = 'club.html?club=' + encodeURIComponent(it.club) + '#feed';
+      href = 'club.html?club=' + encodeURIComponent(it.club) + (it.id ? '&post=' + Number(it.id) : '') + '#feed';
     } else if (it.type === 'birthday') {
       ico = '🎂'; title = `Add your birthday`; sub = 'Let classmates celebrate with you — it only takes a second.';
       href = 'profile.html?id=' + encodeURIComponent(it.key.replace('bday-', '')) + '#edit';

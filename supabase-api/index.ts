@@ -38,7 +38,7 @@ const CONFIG = {
     'Speaker (SLC)', 'Deputy Speaker (SLC)',
     'Campus Representative – Milimani', 'Campus Representative – Kibos', 'Campus Representative – Nairobi',
   ],
-  postTypes: ['notice', 'activity', 'minutes', 'photo'],
+  postTypes: ['notice', 'event', 'activity', 'minutes', 'photo'],
   supabaseUrl: '',                                  // filled in automatically when the function starts
   // Phone notifications (Web Push). The public key is also in app.js; the private key is the
   // VAPID_PRIVATE_KEY secret in Supabase (Edge Functions → Secrets), never in this file.
@@ -211,7 +211,9 @@ const snip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return
 const pushDbError = e => missingTable(e)
   ? new ApiError(500, 'push_tables_missing', 'Phone notifications are not set up yet (run the push_notifications migration).')
   : new ApiError(500, 'db', 'Could not save the notification settings.');
-const POST_KIND = { notice: 'New notice', activity: 'New activity', minutes: 'New minutes', photo: 'New photos' };
+const POST_KIND = { notice: 'New notice', event: 'Coming up', activity: 'New activity', minutes: 'New minutes', photo: 'New photos' };
+// "Sat 24 Oct" for an event's date (a plain yyyy-mm-dd)
+const eventDay = d => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const docId = (v, label) => { const s = String(v || ''); if (!/^[A-Za-z0-9]{1,40}$/.test(s)) throw bad(`Missing or invalid ${label}.`); return s; };
 
 // A browser's push address must belong to a real push service: the server POSTs to it.
@@ -285,9 +287,10 @@ async function notifyClubMembers(ctx, post) {
   if (r.error) { console.warn('[push] could not find club members', r.error.message); return; }
   const uids = (r.data || []).map(x => x.uid).filter(u => u && u !== ctx.user.uid);
   const n = (post.file_urls || []).length;
-  const body = post.title || post.body || (post.type === 'photo' ? `${n} new photo${n === 1 ? '' : 's'}` : '');
+  let body = post.title || post.body || (post.type === 'photo' ? `${n} new photo${n === 1 ? '' : 's'}` : '');
+  if (post.type === 'event' && post.post_date) body = `${eventDay(post.post_date)} · ${body}`;
   return pushToUids(ctx, uids, { title: `${post.club_name} · ${POST_KIND[post.type] || 'New post'}`, body: snip(body, 140),
-    url: '/club.html?club=' + encodeURIComponent(post.club_name) + '#feed', tag: 'p-' + post.id });
+    url: '/club.html?club=' + encodeURIComponent(post.club_name) + '&post=' + post.id + '#feed', tag: 'p-' + post.id });
 }
 
 // ── Comments (in Supabase since 2026-10-09) ────────────────────────────
@@ -484,10 +487,16 @@ const ACTIONS = {
     const attendees = strList(body.attendees, 300, 80, 'Attendees');
     if (type === 'notice' && !title && !text) throw bad('Add a title or some details.');
     if ((type === 'activity' || type === 'minutes') && !title) throw bad('Add a title.');
+    if (type === 'event' && !title) throw bad('Give the event a name.');
     if (type === 'minutes' && !text && !files.length) throw bad('Add the minutes text or upload the file.');
     if (type === 'photo' && !files.length) throw bad('Add at least one photo.');
     const date = body.post_date ? String(body.post_date) : new Date(ctx.now()).toISOString().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('Date must look like 2026-09-21.');
+    if (type === 'event') {                                 // something planned: today in Kisumu (UTC+3) or later, within a year
+      const today = new Date(ctx.now() + 3 * 3600e3).toISOString().slice(0, 10);
+      if (date < today) throw bad("An event needs today's date or a later one.");
+      if (date > new Date(ctx.now() + 400 * 864e5).toISOString().slice(0, 10)) throw bad('That date is more than a year away.');
+    }
     const row = { club_name: club, type, title: title || null, body: text || null, post_date: date, file_urls: files,
       attendees: (type === 'activity' || type === 'minutes') ? attendees : [], created_by: ctx.user.uid,
       author_name: txt(body.author_name, 120, 'Author') || ctx.user.name || ctx.user.email.split('@')[0] };

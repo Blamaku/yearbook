@@ -124,6 +124,21 @@
     .badge.t-activity { background:#f0fdf4; color:#15803d; }
     .badge.t-minutes  { background:#eff6ff; color:#1d4ed8; }
     .badge.t-photo    { background:#fdf4ff; color:#a21caf; }
+    .badge.t-event    { background:#fef9c3; color:#a16207; }
+    .ev-when { display:inline-flex; align-items:center; gap:6px; margin:2px 0 6px; padding:5px 10px; border-radius:10px; font-size:.76rem; font-weight:700; background:var(--gray-100); color:var(--gray-600); }
+    .ev-when.up { background:color-mix(in srgb, var(--cc,#0f4c81) 14%, transparent); color:var(--cc,var(--navy)); }
+    .post.flash { animation:postFlash 2.4s ease-out 1; }
+    @keyframes postFlash { 0%, 40% { box-shadow:0 0 0 3px var(--cc,var(--blue)); } 100% { box-shadow:var(--shadow-sm); } }
+    /* Coming up: the club's next events, at the top of About */
+    .coming h2 { margin-bottom:8px; }
+    .cu { display:flex; align-items:center; gap:12px; width:100%; padding:8px 0; border:0; background:none; font:inherit; text-align:left; cursor:pointer; color:inherit; }
+    .cu + .cu { border-top:1px solid var(--gray-100); }
+    .cu-d { flex-shrink:0; width:50px; padding:5px 0; border-radius:12px; text-align:center; line-height:1.05; color:#fff; background:var(--cc,var(--navy)); }
+    .cu-d small { display:block; font-size:.58rem; font-weight:800; letter-spacing:.06em; opacity:.85; }
+    .cu-d b { display:block; font-size:1.25rem; font-weight:900; }
+    .cu-t { flex:1; min-width:0; }
+    .cu-t b { display:block; font-size:.88rem; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cu-t small { display:block; margin-top:2px; font-size:.72rem; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .pin { font-size:.66rem; font-weight:800; color:#b45309; }
     .post-date { margin-left:auto; font-size:.68rem; color:var(--gray-400); }
     .post-title { font-size:.95rem; font-weight:800; color:var(--navy); margin:0 0 4px; }
@@ -188,7 +203,7 @@
     .sheet-ov { position:fixed; inset:0; z-index:5000; display:none; align-items:flex-end; background:rgba(4,13,30,.78); }
     .sheet-ov.open { display:flex; }
     .sheet { background:var(--white); width:100%; max-height:92dvh; overflow-y:auto; border-radius:var(--radius-xl,24px) var(--radius-xl,24px) 0 0; padding:20px 18px 40px; box-sizing:border-box; }
-    .type-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:14px; }
+    .type-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(84px, 1fr)); gap:6px; margin-bottom:14px; }
     .type-row button { padding:9px 2px; border-radius:10px; border:1.5px solid var(--gray-200); background:var(--white); color:var(--gray-600); font-size:.68rem; font-weight:700; font-family:inherit; cursor:pointer; }
     .type-row button.active { background:var(--cc,var(--navy)); border-color:var(--cc,var(--navy)); color:#fff; }
     .hint { font-weight:400; color:var(--gray-400); font-size:.7rem; }
@@ -203,6 +218,8 @@
     [data-theme="dark"] .badge.t-activity { background:#0f2a1a; color:#86efac; }
     [data-theme="dark"] .badge.t-minutes  { background:#172554; color:#93c5fd; }
     [data-theme="dark"] .badge.t-photo    { background:#3b0a3f; color:#f0abfc; }
+    [data-theme="dark"] .badge.t-event    { background:#3a2e05; color:#fde047; }
+    [data-theme="dark"] .ev-when.up { color:#fff; background:color-mix(in srgb, var(--cc,#0f4c81) 45%, transparent); }
 
     /* Desktop only (860px+): cap and centre the hero, tabs and main content,
        and turn the bottom sheets into centred dialogs like the rest of the app. */
@@ -266,6 +283,7 @@
 
     <section class="club-panel active" id="panel-about">
       <div id="officerBanner"></div>
+      <div id="comingUp"></div>
       <div id="latestPost"></div>
       <div class="c-card"><h2>About</h2><p class="c-text" id="aboutText"></p></div>
       <div class="c-card"><h2>Meets</h2><div class="c-text" id="meetBody"></div></div>
@@ -278,6 +296,7 @@
     <section class="club-panel" id="panel-feed">
       <div class="f-chips" id="feedChips">
         <button class="f-chip active" data-f="all"      type="button">All</button>
+        <button class="f-chip"        data-f="event"    type="button">Events</button>
         <button class="f-chip"        data-f="notice"   type="button">Notices</button>
         <button class="f-chip"        data-f="activity" type="button">Activities</button>
         <button class="f-chip"        data-f="minutes"  type="button">Minutes</button>
@@ -318,13 +337,14 @@
       <div class="modal-title">📝 New post</div>
       <div class="type-row" id="typeRow">
         <button type="button" data-type="notice">📢 Notice</button>
+        <button type="button" data-type="event">📅 Event</button>
         <button type="button" data-type="activity">🎯 Activity</button>
         <button type="button" data-type="minutes">📋 Minutes</button>
         <button type="button" data-type="photo">📸 Photos</button>
       </div>
       <div class="form-group" id="gTitle"><label class="form-label" for="pTitle">Title</label><input class="form-input" type="text" id="pTitle" maxlength="120"></div>
       <div class="form-group" id="gBody"><label class="form-label" for="pBody">Details</label><textarea class="form-textarea" id="pBody" rows="4" maxlength="2000"></textarea></div>
-      <div class="form-group" id="gDate"><label class="form-label" for="pDate">Date</label><input class="form-input" type="date" id="pDate"></div>
+      <div class="form-group" id="gDate"><label class="form-label" for="pDate" id="dateLbl">Date</label><input class="form-input" type="date" id="pDate"></div>
       <div class="form-group" id="gReport"><label class="form-label" for="pReport" id="reportLbl">Report (PDF or Word)</label><input type="file" id="pReport" accept=".pdf,.doc,.docx"><div class="hint" id="reportName"></div></div>
       <div class="form-group" id="gPhotos"><label class="form-label" for="pPhotos">Photos <span class="hint">(up to 6 · resized automatically)</span></label><input type="file" id="pPhotos" accept="image/*" multiple><div class="prev-grid" id="prevGrid"></div></div>
       <div class="form-group" id="gAtt">
@@ -375,7 +395,9 @@
 
     const PAGE_SIZE = 15, MAX_PHOTOS = 6, GALLERY_STEP = 30, MAX_DOC_MB = 10;
     const ROLE_ORDER = ['Patron', 'Chairperson', 'Vice chairperson', 'Secretary', 'Treasurer', 'Organizing secretary', 'Officer'];
-    const TYPE_LABEL = { notice: '📢 Notice', activity: '🎯 Activity', minutes: '📋 Minutes', photo: '📸 Photos' };
+    const TYPE_LABEL = { notice: '📢 Notice', event: '📅 Event', activity: '🎯 Activity', minutes: '📋 Minutes', photo: '📸 Photos' };
+    // ?post=ID (from What's on or a notification): open the feed at that post
+    let _jump = Number(new URLSearchParams(location.search).get('post')) || 0, _jumpUntil = _jump ? Date.now() + 8000 : 0;
 
     let _user = null, _me = null;
     let _info = null, _officers = [], _setupNeeded = false;
@@ -394,6 +416,13 @@
     const rank     = r => { const i = ROLE_ORDER.indexOf(r); return i < 0 ? 99 : i; };
     const missing  = err => !!err && /schema cache|does not exist|PGRST205|42P01/i.test((err.message || '') + ' ' + (err.code || ''));
     const emailOk  = s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+    // Event dates are plain days (yyyy-mm-dd), read on the phone's own calendar
+    const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const dayOf    = v => { const [y, m, d] = String(v).slice(0, 10).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1); };
+    const daysTo   = v => Math.round((dayOf(v) - dayOf(todayStr())) / 864e5);
+    const longDay  = v => dayOf(v).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const soon     = n => n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
+    const whenText = v => { const n = daysTo(v); return n < 0 ? 'Was on ' + longDay(v) : longDay(v) + ' · ' + soon(n); };
 
     const isAdminUser = () => !!(_user && typeof ADMIN_EMAIL !== 'undefined' && _user.email === ADMIN_EMAIL);
     // Officials' emails are private, so the secure service tells us whether this person is one
@@ -476,10 +505,30 @@
     }
 
     // The newest post (a pinned one first) at the top of About
+    async function fetchUpcoming() {
+      try {
+        const { data, error } = await supabase.from('club_posts').select('id,title,body,post_date')
+          .eq('club_name', CLUB).eq('type', 'event').gte('post_date', todayStr())
+          .order('post_date', { ascending: true }).order('created_at', { ascending: true }).limit(3);
+        return error ? [] : (data || []);
+      } catch (e) { return []; }
+    }
+    function paintComing(ups) {
+      $('comingUp').innerHTML = ups.length ? `<div class="c-card coming"><h2>📅 Coming up</h2>${ups.map(u => {
+        const d = dayOf(u.post_date);
+        const part = o => E(d.toLocaleDateString('en-GB', o).toUpperCase());
+        return `<button type="button" class="cu" data-post="${Number(u.id)}">
+          <span class="cu-d"><small>${part({ weekday: 'short' })}</small><b>${d.getDate()}</b><small>${part({ month: 'short' })}</small></span>
+          <span class="cu-t"><b>${E(u.title || 'Event')}</b><small>${E(soon(daysTo(u.post_date)).replace(/^./, c => c.toUpperCase()))}${u.body ? ' · ' + E(u.body) : ''}</small></span>
+        </button>`;
+      }).join('')}</div>` : '';
+    }
+
     async function loadLatest() {
       try {
-        const rows = await fetchPosts('all', 0);
-        const p = rows[0];
+        const [rows, ups] = await Promise.all([fetchPosts('all', 0), fetchUpcoming()]);
+        paintComing(ups);
+        const p = rows.find(r => !ups.some(u => u.id === r.id));
         if (!p) { $('latestPost').innerHTML = ''; return; }
         const img = (Array.isArray(p.file_urls) ? p.file_urls : []).map(window.safeUrl).filter(u => u && isImg(u))[0];
         const type = TYPE_LABEL[p.type] ? p.type : 'notice';
@@ -660,13 +709,15 @@
       const mine = !!_user && p.created_by === _user.uid;
       const att = Array.isArray(p.attendees) ? p.attendees : [];
       const type = TYPE_LABEL[p.type] ? p.type : 'notice';
-      return `<article class="post">
+      const ev = type === 'event' && p.post_date;
+      return `<article class="post" id="post-${id}">
         <div class="post-top">
           <span class="badge t-${type}">${E(TYPE_LABEL[type])}</span>
           ${p.pinned ? '<span class="pin">📌 Pinned</span>' : ''}
-          <span class="post-date">${E(fmtDate(p.post_date || p.created_at))}</span>
+          <span class="post-date">${ev ? 'Posted ' : ''}${E(fmtDate(ev ? p.created_at : (p.post_date || p.created_at)))}</span>
         </div>
         ${p.title ? `<h3 class="post-title">${E(p.title)}</h3>` : ''}
+        ${ev ? `<div class="ev-when${daysTo(p.post_date) >= 0 ? ' up' : ''}">📅 ${E(whenText(p.post_date))}</div>` : ''}
         ${p.body ? (() => {
           const long = p.body.length > 260 || (p.body.match(/\n/g) || []).length > 3;
           return `<p class="post-body${long ? ' clamped' : ''}" id="pb-${id}">${E(p.body).replace(/\n/g, '<br>')}</p>${long ? `<button type="button" class="read-more-btn" data-act="more" data-id="${id}">Read more</button>` : ''}`;
@@ -684,9 +735,10 @@
     }
 
     function feedEmptyHTML() {
-      const nm = { all: 'posts', notice: 'notices', activity: 'activities', minutes: 'minutes' }[_filter];
+      const nm = { all: 'posts', event: 'events', notice: 'notices', activity: 'activities', minutes: 'minutes' }[_filter];
       return `<div class="empty"><div class="big">📭</div><b>No ${nm} yet</b>${canManage()
-        ? 'Tap the ＋ button to share the first update.' : 'Club officials share notices, activities and minutes here.'}</div>`;
+        ? (_filter === 'event' ? 'Tap the ＋ button to add something the club has planned.' : 'Tap the ＋ button to share the first update.')
+        : 'Club officials share notices, events, activities and minutes here.'}</div>`;
     }
 
     async function loadFeed(reset) {
@@ -709,11 +761,25 @@
         else list.insertAdjacentHTML('beforeend', rows.map(postHTML).join(''));
         _feedFrom += rows.length;
         more.innerHTML = rows.length === PAGE_SIZE ? '<button type="button" class="load-more" id="loadMoreBtn">Load more</button>' : '';
+        if (reset) jumpNow();
       } catch (e) {
         console.warn('[feed]', e);
         list.innerHTML = `<div class="empty"><div class="big">⚠️</div><b>Could not load posts</b>${missing(e) ? 'The club tables are not set up yet.' : 'Check your connection and try again.'}<br><br><button type="button" class="btn-secondary" id="feedRetry" style="max-width:160px">Try again</button></div>`;
         const r = $('feedRetry'); if (r) r.onclick = () => loadFeed(true);
       } finally { _feedBusy = false; }
+    }
+
+    function jumpNow() {
+      if (!_jump || Date.now() > _jumpUntil) return;
+      const el = $('post-' + _jump); if (!el) return;
+      el.scrollIntoView({ block: 'center' });
+      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    }
+    function jumpTo(id) {                              // show one post in the feed (from Coming up)
+      _jump = id; _jumpUntil = Date.now() + 8000;
+      _filter = 'all';
+      document.querySelectorAll('#feedChips .f-chip').forEach(c => c.classList.toggle('active', c.dataset.f === 'all'));
+      _feedOnce = true; setTab('feed'); loadFeed(true);
     }
 
     async function deletePost(id) {
@@ -836,12 +902,16 @@
       const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
       show('gTitle', t !== 'photo');
       show('gBody', t !== 'photo');
-      show('gDate', t === 'activity' || t === 'minutes');
+      show('gDate', t === 'activity' || t === 'minutes' || t === 'event');
+      $('dateLbl').textContent = t === 'event' ? 'When is it?' : 'Date';
+      $('pDate').min = t === 'event' ? todayStr() : '';
+      if (t === 'event' && $('pDate').value < todayStr()) $('pDate').value = todayStr();
+      $('pBody').placeholder = t === 'event' ? 'Time, place, what to bring…' : '';
       show('gReport', t === 'activity' || t === 'minutes');
       show('gAtt', t === 'activity' || t === 'minutes');
       show('gPhotos', t !== 'minutes');
       $('reportLbl').textContent = t === 'minutes' ? 'Upload the minutes (PDF or Word)' : 'Activity report (PDF or Word)';
-      $('pTitle').placeholder = { notice: 'e.g. Weekly meeting moved to Friday', activity: 'e.g. Blood donation drive', minutes: 'e.g. Meeting minutes, 5 Sep' }[t] || '';
+      $('pTitle').placeholder = { notice: 'e.g. Weekly meeting moved to Friday', event: 'e.g. Chess tournament vs Maseno', activity: 'e.g. Blood donation drive', minutes: 'e.g. Meeting minutes, 5 Sep' }[t] || '';
     }
     function renderPreviews() {
       $('prevGrid').innerHTML = _pfiles.map(f => `<img src="${URL.createObjectURL(f)}" alt="">`).join('');
@@ -849,7 +919,7 @@
     async function openPost(type) {
       if (!canManage()) { toast('Only club officials can post here.'); return; }
       $('pTitle').value = ''; $('pBody').value = ''; $('pGuests').value = '';
-      $('pDate').value = new Date().toISOString().slice(0, 10);
+      $('pDate').value = todayStr();
       $('pReport').value = ''; $('reportName').textContent = ''; $('pPhotos').value = '';
       _pfiles = []; renderPreviews();
       $('postSubmit').disabled = false; $('postSubmit').textContent = 'Post';
@@ -870,6 +940,8 @@
       const t = _ptype;
       if (t === 'notice'   && !title && !body)       return toast('Add a title or some details.');
       if (t === 'activity' && !title)                return toast('Give the activity a title.');
+      if (t === 'event'    && !title)                return toast('Give the event a name.');
+      if (t === 'event'    && date < todayStr())     return toast('Pick today or a later day for the event.');
       if (t === 'minutes'  && !title)                return toast('Give the minutes a title.');
       if (t === 'minutes'  && !body && !report)      return toast('Add the minutes text or upload the file.');
       if (t === 'photo'    && !_pfiles.length)       return toast('Choose at least one photo.');
@@ -964,6 +1036,8 @@
       }
     });
     $('feedMore').addEventListener('click', e => { if (e.target.closest('#loadMoreBtn')) loadFeed(false); });
+    $('comingUp').addEventListener('click', e => { const b = e.target.closest('.cu'); if (b) jumpTo(+b.dataset.post); });
+    ['pointerdown', 'wheel'].forEach(k => window.addEventListener(k, () => { if (_jump && Date.now() > _jumpUntil - 7000) _jumpUntil = 0; }, { passive: true }));
     $('galGrid').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) openLb(_gallery, +b.dataset.i); });
     $('galMore').addEventListener('click', e => {
       if (e.target.closest('#galMoreBtn')) { _galShown = Math.min(_galShown + GALLERY_STEP, _gallery.length); paintGallery(); }

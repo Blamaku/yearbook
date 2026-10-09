@@ -337,7 +337,7 @@
   <div class="a-ov" id="clubOv" data-act="backdrop"><div class="a-sheet">
     <div class="modal-handle"></div>
     <div class="a-sheet-head"><div class="modal-title" style="margin:0" id="clubTitle">Club</div><button type="button" class="a-x" data-act="close" data-v="clubOv" aria-label="Close">✕</button></div>
-    <p style="font-size:.74rem;color:var(--gray-600);line-height:1.5;margin:0 0 12px">Officials can post notices, activities, minutes and photos for this club, pin posts and edit its About details. They must sign in with the email you enter here (Google sign-in is easiest) and verify it.</p>
+    <p style="font-size:.74rem;color:var(--gray-600);line-height:1.5;margin:0 0 12px">Officials can post notices, events, activities, minutes and photos for this club, pin posts and edit its About details. They must sign in with the email you enter here (Google sign-in is easiest) and verify it.</p>
     <div id="ocList"></div>
     <div class="a-card" style="padding:14px;margin-top:14px">
       <div class="a-f-title" style="margin-top:0">Add an official</div>
@@ -1055,7 +1055,7 @@
       } catch (e) { console.error('[posts]', e); M.errP = isMissing(e) ? 'missing' : (e.message || 'Could not load posts'); }
       renderPosts();
     }
-    const TYPE = { notice: '📢 Notice', activity: '🎯 Activity', minutes: '📋 Minutes', photo: '📸 Photos' };
+    const TYPE = { notice: '📢 Notice', event: '📅 Event', activity: '🎯 Activity', minutes: '📋 Minutes', photo: '📸 Photos' };
     function postHTML(p) {
       const meta = window.clubMeta ? window.clubMeta(p.club_name) : null, id = Number(p.id);
       const files = Array.isArray(p.file_urls) ? p.file_urls.length : 0;

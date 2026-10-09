@@ -1464,6 +1464,7 @@ body.has-tabbar .share-bar { bottom: var(--tb-total); }
 body.has-tabbar #editProfileBtn { bottom: calc(80px + var(--tb-total)); }
 body.has-tabbar .gluk-toast { bottom: calc(26px + var(--tb-total)); }
 body.has-tabbar .install-banner.show { bottom: calc(12px + var(--tb-total)); }
+body.has-tabbar .club-fab { bottom: calc(16px + var(--tb-total)); }
 
 @media (min-width: 1024px) {
   body.has-tabbar { padding-bottom: 0; padding-left: var(--tb-w); }
@@ -1477,6 +1478,7 @@ body.has-tabbar .install-banner.show { bottom: calc(12px + var(--tb-total)); }
   body.has-tabbar #editProfileBtn { bottom: 80px; }
   body.has-tabbar .gluk-toast { bottom: 40px; left: calc(50% + var(--tb-w) / 2); }
   body.has-tabbar .install-banner.show { bottom: 20px; left: calc(16px + var(--tb-w)); }
+  body.has-tabbar .club-fab { bottom: 24px; }
 }
 
 /* ══════════════════════════════════════════════════════════════
