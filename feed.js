@@ -6,9 +6,10 @@
 //  bubble opens their comments; the round photo opens their full profile.
 //
 //  • Only profiles with a photo appear, and never anonymous ones.
-//  • Order: profiles added in the last two days first, then everyone else
-//    shuffled. The order and position are kept for this visit, so coming
-//    back from a profile carries on where you were.
+//  • Order: a new shuffle every time the feed is opened, so it never starts
+//    with the same student. Profiles added in the last two days land at
+//    random spots among the first dozen. Coming back (the back button, a
+//    reload, or from a profile) carries on where you were.
 //  • Students load 8 at a time, a few screens before you reach them.
 //  • feed.html?id=123 starts with that student.
 //  • Before the profile_likes table exists the heart says "coming soon"
@@ -17,7 +18,8 @@
 (function () {
   'use strict';
   const BATCH = 8;                         // students fetched at a time
-  const FRESH_MS = 2 * 86400000;           // profiles newer than this go to the top
+  const FRESH_MS = 2 * 86400000;           // profiles newer than this go near the top
+  const FRESH_SPREAD = 12;                 // ... somewhere in the first this-many cards
   const KEEP_MS = 30 * 60000;              // a saved place older than this starts a new shuffle
   const SAVE_KEY = 'gluk-feed';
   const COLS = 'id,uid,name,dept,course,classyear,county,photos,photo_url,mostlikelyto,bio,created_at';
@@ -120,7 +122,22 @@
       if (!data || data.length < 1000) break;
     }
     const now = Date.now(), isNew = r => now - (Date.parse(r.created_at || '') || 0) < FRESH_MS;
-    return [...rows.filter(isNew).map(r => Number(r.id)), ...shuffle(rows.filter(r => !isNew(r)).map(r => Number(r.id)))];
+    const ids = shuffle(rows.filter(r => !isNew(r)).map(r => Number(r.id)));
+    // New faces still come early, but each at a random spot among the first dozen
+    shuffle(rows.filter(isNew).map(r => Number(r.id)))
+      .forEach(id => ids.splice(Math.floor(Math.random() * Math.min(FRESH_SPREAD, ids.length + 1)), 0, id));
+    return ids;
+  }
+
+  // Carry on where you were only when coming back (back button, a reload, or from a profile
+  // opened here); opening the feed any other way starts a new shuffle
+  function cameBack() {
+    try {
+      const nav = performance.getEntriesByType('navigation')[0];
+      if (nav && (nav.type === 'back_forward' || nav.type === 'reload')) return true;
+      const from = document.referrer ? new URL(document.referrer) : null;
+      return !!from && from.origin === location.origin && /\/profile\.html$/.test(from.pathname);
+    } catch (e) { return false; }
   }
 
   // Comments per student. Before the likes file has been run there is no counts view: count the comments themselves
@@ -198,7 +215,7 @@
   async function start(fresh) {
     shown = 0; current = 0; people.clear(); likes.clear(); talk.clear();
     const want = Number(new URLSearchParams(location.search).get('id')) || 0;
-    const kept = !fresh && !want && restore();
+    const kept = !fresh && !want && cameBack() && restore();
     feed.innerHTML = loading();
     try { order = kept ? kept.order.map(Number) : await fetchOrder(); }
     catch (e) {

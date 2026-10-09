@@ -1332,6 +1332,8 @@ footer {
    ══════════════════════════════════════════════════════════════ */
 @media (min-width: 860px) {
   :root { --content-max: 920px; }
+  /* Laptops and bigger: use more of the screen instead of wide empty margins */
+  @media (min-width: 1280px) { :root { --content-max: 1200px; } }
 
   /* Full-width colour bars keep their edge-to-edge background;
      only the content inside them is centred to a readable width. */
@@ -1343,11 +1345,14 @@ footer {
   /* Plain content blocks: capped and centred as a column, instead of
      stretching edge to edge. */
   .about-section, .dept-section, .consent-section,
-  .list-container, .profiles-grid, .profile-body, .install-banner {
+  .list-container, .profiles-grid, .profile-body, .install-banner,
+  .search-wrap, .all-students-banner, .filter-section-lbl, .filter-row, .filter-selects-row, #breadcrumb {
     max-width: var(--content-max);
     margin-left: auto;
     margin-right: auto;
   }
+  /* One person's profile is mostly text: keep it at a comfortable reading width */
+  .profile-body { max-width: min(var(--content-max), 960px); }
 
   /* Short vertical lists (departments, courses, class years): a tidy
      grid instead of one long full-width column. */
@@ -1629,15 +1634,20 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
   background-image: radial-gradient(circle, rgba(197,216,0,.07) 1px, transparent 1px); background-size: 28px 28px;
 }
 .hm-hero > * { position: relative; z-index: 1; }
+/* The crest sits on a white disc inside the gold ring */
 .hm-crest-ring {
   width: 150px; height: 150px; margin: 0 auto; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(circle, rgba(255,255,255,.16) 0, rgba(255,255,255,.04) 68%);
-  box-shadow: 0 0 0 1.5px rgba(245,197,24,.55), 0 0 0 9px rgba(245,197,24,.09), 0 0 60px rgba(245,197,24,.35);
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 11px rgba(245,197,24,.14), 0 0 60px rgba(245,197,24,.35);
 }
-.hm-crest { width: 116px; height: auto; filter: drop-shadow(0 8px 18px rgba(0,0,0,.45)); animation: hmCrestIn .9s cubic-bezier(.34,1.4,.64,1) both; }
+.hm-crest { width: 112px; height: auto; filter: drop-shadow(0 3px 6px rgba(0,40,90,.25)); animation: hmCrestIn .9s cubic-bezier(.34,1.4,.64,1) both; }
 @keyframes hmCrestIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: none; } }
-.hm-uni { margin-top: 18px; font-size: .68rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-bright); }
+/* One line on a 360px phone; grows with the screen */
+.hm-uni {
+  margin-top: 20px; font-size: clamp(.8rem, 3.9vw, 1.45rem); font-weight: 900; line-height: 1.25;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--gold-bright); text-wrap: balance;
+}
 .hm-hero h1 { margin-top: 4px; font-size: 2.1rem; font-weight: 900; line-height: 1.1; letter-spacing: -.01em; }
 .hm-hero h1 span {
   background: linear-gradient(135deg, var(--lime), var(--lime-bright), var(--lime-vivid));
@@ -1769,6 +1779,25 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 @media (min-width: 760px) {
   .hm-hero { border-radius: 0 0 var(--radius-lg) var(--radius-lg); padding: 36px 24px 28px; }
 }
+/* Wide screens: Home fills the content width. The main column is on the left;
+   messages, About and the schools sit on the right. With a mouse nobody swipes
+   sideways, so the strips become rows of photos. */
+@media (min-width: 1100px) {
+  .hm { max-width: 1200px; padding: 0 24px 32px; }
+  .hm-hero { padding: 40px 32px 32px; }
+  .hm-crest-ring { width: 172px; height: 172px; }
+  .hm-crest { width: 128px; }
+  .hm-hero h1 { font-size: 2.9rem; }
+  .hm-hello { font-size: 1.1rem; }
+  .hm-count { max-width: 520px; }
+  .hm-cols { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 0 28px; align-items: start; }
+  .hm-main .hm-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 12px; overflow: visible; }
+  .hm-main .hm-face { justify-self: center; }
+  .hm-side .hm-grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .hm-main .hm-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
 @media (prefers-reduced-motion: reduce) {
   .hm-sk, .hm-act.is-loading { animation: none; }
 }
@@ -1821,6 +1850,7 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 .ab-back { display: flex; align-items: center; min-height: 40px; margin-bottom: 6px; font-size: .82rem; font-weight: 700; color: rgba(255,255,255,.8); }
 .ab-ring { width: 124px; height: 124px; }
 .ab-ring .hm-crest { width: 94px; }
+.ab-hero .hm-uni { font-size: .7rem; letter-spacing: .18em; }   /* the university name is the heading here */
 .ab-hero h1 { margin-top: 4px; font-size: 1.5rem; font-weight: 900; line-height: 1.2; }
 .ab-place { margin-top: 4px; font-size: .8rem; color: rgba(255,255,255,.7); }
 .ab-sec { margin: 22px 16px 0; }
@@ -1840,6 +1870,11 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 [data-theme="dark"] .ab-soon { background: #2a2208; border-color: #5c4a12; }
 [data-theme="dark"] .ab-soon h2, [data-theme="dark"] .ab-soon p { color: #fcd34d; }
 @media (min-width: 760px) { .ab-hero { border-radius: 0 0 var(--radius-lg) var(--radius-lg); } }
+/* Wide screens: as wide as Home; paragraphs keep a readable line length */
+@media (min-width: 1100px) {
+  .ab { max-width: 1200px; padding: 0 24px 32px; }
+  .ab-sec p { max-width: 78ch; }
+}
 @media (prefers-reduced-motion: reduce) { .hm-crest { animation: none; } }
 
 /* ══════════════════════════════════════════════════════════════
