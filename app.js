@@ -256,6 +256,38 @@ const KENYA_COUNTIES = [
 ];
 window.KENYA_COUNTIES = KENYA_COUNTIES;
 
+// ── Home countries (international students) ──────────
+// Kenya comes first in the profile form; a profile with no country is from before we asked, so counts as Kenya.
+const COUNTRIES = [
+  'Afghanistan','Albania','Algeria','Andorra','Angola','Antigua and Barbuda','Argentina','Armenia','Australia',
+  'Austria','Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bhutan',
+  'Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso','Burundi','Cabo Verde',
+  'Cambodia','Cameroon','Canada','Central African Republic','Chad','Chile','China','Colombia','Comoros',
+  'Congo (Brazzaville)','Congo (DRC)','Costa Rica',"Côte d'Ivoire",'Croatia','Cuba','Cyprus','Czechia','Denmark',
+  'Djibouti','Dominica','Dominican Republic','Ecuador','Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia',
+  'Eswatini','Ethiopia','Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana','Greece','Grenada',
+  'Guatemala','Guinea','Guinea-Bissau','Guyana','Haiti','Honduras','Hungary','Iceland','India','Indonesia','Iran',
+  'Iraq','Ireland','Israel','Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kiribati','Kosovo','Kuwait',
+  'Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya','Liechtenstein','Lithuania','Luxembourg',
+  'Madagascar','Malawi','Malaysia','Maldives','Mali','Malta','Marshall Islands','Mauritania','Mauritius','Mexico',
+  'Micronesia','Moldova','Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal',
+  'Netherlands','New Zealand','Nicaragua','Niger','Nigeria','North Korea','North Macedonia','Norway','Oman',
+  'Pakistan','Palau','Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland','Portugal',
+  'Qatar','Romania','Russia','Rwanda','Saint Kitts and Nevis','Saint Lucia','Saint Vincent and the Grenadines',
+  'Samoa','San Marino','São Tomé and Príncipe','Saudi Arabia','Senegal','Serbia','Seychelles','Sierra Leone',
+  'Singapore','Slovakia','Slovenia','Solomon Islands','Somalia','South Africa','South Korea','South Sudan','Spain',
+  'Sri Lanka','Sudan','Suriname','Sweden','Switzerland','Syria','Taiwan','Tajikistan','Tanzania','Thailand',
+  'Timor-Leste','Togo','Tonga','Trinidad and Tobago','Tunisia','Turkey','Turkmenistan','Tuvalu','Uganda','Ukraine',
+  'United Arab Emirates','United Kingdom','United States','Uruguay','Uzbekistan','Vanuatu','Vatican City',
+  'Venezuela','Vietnam','Yemen','Zambia','Zimbabwe',
+];
+window.COUNTRIES = COUNTRIES;
+// The international students' value in the directory and admin filters (it is not a county)
+const INTL = '__intl';
+window.INTL_FILTER = INTL;
+// From outside Kenya? (blank = before we asked, so Kenya)
+window.isInternational = s => !!(s && s.country && s.country !== 'Kenya');
+
 // ── GLUK Programme Catalogue (mirrors department.html) ─
 // Exposed on window so profiles.html inline script can reference it too.
 const DEPT_COURSES_MAP = {
@@ -320,6 +352,7 @@ function normalizeProfile(s) {
     whatareyouto:  s.whatareyouto  || '',
     currentcounty:    s.currentcounty    || '',
     currentlocation:  s.currentlocation  || '',
+    country:          s.country          || '',
     isAnonymous:   s.isAnonymous   ?? s.isanonymous   ?? false,
     photo_url:     s.photo_url     || null,
     photos:        s.photos        || [],
@@ -735,6 +768,14 @@ window.buildFormOptions=function(form){
     currCountyEl.innerHTML=`<option value="">— Select County —</option>`+
       KENYA_COUNTIES.map(c=>`<option value="${c}">${c}</option>`).join('');
   }
+  // Home country: Kenya first, then every other country
+  const countryEl=form.querySelector('select[name="country"]');
+  if(countryEl){
+    countryEl.innerHTML=`<option value="Kenya">Kenya</option><option disabled>──────────</option>`+
+      COUNTRIES.filter(c=>c!=='Kenya').map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    countryEl.value='Kenya';
+    syncHomeCountry(form);
+  }
   const grid=form.querySelector('.clubs-check-grid');
   if(grid){
     grid.innerHTML=GLUK_CLUBS.map(c=>`
@@ -750,6 +791,30 @@ window.preCheckClubs=function(form,clubs=[]){
 window.preSetCounty=function(form,county){
   const s=form.querySelector('select[name="county"]');
   if(s&&county)s.value=county;
+};
+// Kenyan students give their home county and constituency; international students their country instead
+window.syncHomeCountry=function(form){
+  const sel=form&&form.querySelector('select[name="country"]');
+  if(!sel) return;
+  const intl=window.isInternational({country:sel.value});
+  form.querySelectorAll('[data-kenya-only]').forEach(el=>{ el.style.display=intl?'none':''; });
+  form.querySelectorAll('[data-intl-only]').forEach(el=>{ el.style.display=intl?'':'none'; });
+};
+// A profile from before we asked has no country: the form shows Kenya
+window.preSetCountry=function(form,country){
+  const s=form.querySelector('select[name="country"]');
+  if(!s) return;
+  if(country&&!Array.from(s.options).some(o=>o.value===country)) s.add(new Option(country,country));   // e.g. typed by the admin
+  s.value=country||'Kenya';
+  syncHomeCountry(form);
+};
+// Where a student is from, as saved: an international student has no Kenyan county or constituency
+window.homeFields=function(fd){
+  const country=fd.has('country') ? (fd.get('country')||'') : null;
+  const intl=window.isInternational({country});
+  const out={ county: intl?'':(fd.get('county')||''), constituency: intl?'':(fd.get('constituency')||'').trim() };
+  if(country!==null) out.country=country;              // a form without the question leaves the saved country alone
+  return out;
 };
 function getCheckedClubs(form){
   return Array.from(form.querySelectorAll('input[name="club_cb"]:checked')).map(cb=>cb.value);
@@ -891,7 +956,7 @@ async function initProfilesPage(){
     // ── County filter ──────────────────────────────────────
     const countySel = document.getElementById('countyFilterSel');
     if (countySel) {
-      countySel.innerHTML = `<option value="">All Counties</option>` +
+      countySel.innerHTML = `<option value="">All Counties</option><option value="${INTL}">🌍 International students</option>` +
         KENYA_COUNTIES.map(c => `<option value="${c}">${c}</option>`).join('');
       countySel.addEventListener('change', () => {
         window._activeFilters.county = countySel.value;
@@ -986,7 +1051,8 @@ function gridQuery(a, from) {
   if (a.dept)      q = q.eq('dept', a.dept);
   if (a.course)    q = q.eq('course', a.course);
   if (a.classYear) q = q.eq('classyear', a.classYear);
-  if (a.county)    q = q.eq('county', a.county);
+  if (a.county === INTL) q = q.neq('country', 'Kenya').neq('country', '');   // "<>" also leaves out profiles with no country
+  else if (a.county) q = q.eq('county', a.county);
   // Only alumni mode applies a range filter — default (All Students) shows everyone
   if (!a.classYear && window._activeFilters?.mode === 'alumni') q = q.lte('classyear', String(GRAD_YEAR - 1));
   if (a.club)      q = q.filter('clubs', 'cs', '{"' + String(a.club).replace(/["\\]/g, '\\$&') + '"}');
@@ -1810,8 +1876,7 @@ window.submitProfile=async function(e){
       dept:          deptVal,
       course:        courseVal,
       classyear:     yearVal,
-      county:        fd.get('county')||'',
-      constituency:  (fd.get('constituency')||'').trim(),
+      ...window.homeFields(fd),                        // country, county, constituency
       currentcounty:   (fd.get('currentcounty')||'').trim(),
       currentlocation: (fd.get('currentlocation')||'').trim(),
       whatsapp:      window.normalizePhone(fd.get('whatsapp')),
@@ -2029,10 +2094,17 @@ function paintProfile(s){
   }
 
   // ── Home origin display ───────────────────────────
+  // An international student shows their home country in place of the Kenyan county and constituency
+  const intl = !isAnon && window.isInternational(s);
   const homeDisplay = document.getElementById('profileCountyDisplay');
-  if (homeDisplay && s.county) {
-    homeDisplay.textContent = `🏠 ${s.county}${s.constituency ? ', ' + s.constituency : ''}`;
+  if (homeDisplay) {
+    homeDisplay.textContent = intl ? `🌍 ${s.country} · International student`
+      : s.county ? `🏠 ${s.county}${s.constituency ? ', ' + s.constituency : ''}` : '';
   }
+  [['rowCountry', intl], ['rowCounty', !intl], ['rowConst', !intl]].forEach(([id, on]) => {
+    const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none';
+  });
+  if (intl) tx('profileCountry', s.country);
 
   // Legacy What Are You Up To card (kept for back-compat, hidden if new card shows)
   const wauCard = document.getElementById('whatUpToCard');
@@ -2102,6 +2174,7 @@ window.openEditMyProfile=async function(){
   if(q('mostLikelyTo'))    q('mostLikelyTo').value=s.mostLikelyTo||'';
   if(q('whatareyouto'))    q('whatareyouto').value=s.whatareyouto||'';
   preSetCounty(form,s.county||'');
+  preSetCountry(form,s.country||'');
   // Pre-set current county select (separate from home county)
   const ccSel = form.querySelector('select[name="currentcounty"]');
   if(ccSel) ccSel.value = s.currentcounty||'';
@@ -2194,8 +2267,7 @@ window.saveMyProfile=async function(e){
       whatsapp:      window.normalizePhone(fd.get('whatsapp')),
       birthday:      window.birthdayFromInput(fd.get('birthday')),
       email:         (fd.get('email')||'').trim(),
-      county:        fd.get('county')||'',
-      constituency:  (fd.get('constituency')||'').trim(),
+      ...window.homeFields(fd),                        // country, county, constituency
       currentcounty:    (fd.get('currentcounty')||'').trim(),
       currentlocation:  (fd.get('currentlocation')||'').trim(),
       bio:           (fd.get('bio')||'').trim(),

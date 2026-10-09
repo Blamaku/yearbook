@@ -805,6 +805,7 @@ button { font-family:inherit; }
   background:var(--white); box-shadow:0 0 0 3px var(--blue-glow);
 }
 .form-textarea { resize:vertical; min-height:80px; }
+.form-hint   { font-size:.65rem; color:var(--gray-500); line-height:1.5; margin:6px 0 0; }
 .form-select { appearance:none; -webkit-appearance:none; cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%238896b3'/%3E%3C/svg%3E");
   background-repeat:no-repeat; background-position:right 14px center; padding-right:36px;

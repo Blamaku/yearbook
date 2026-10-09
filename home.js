@@ -17,7 +17,7 @@
 
   const STRIP = 12;                        // people per strip
   const COLS = 'id,name,dept,course,classyear,photo_url,photos';
-  const MINE = 'id,name,dept,course,classyear,isanonymous,photo_url,photos,bio,hobbies,clubs,bestmemory,biggestlesson,mostlikelyto,county,has_birthday';
+  const MINE = 'id,name,dept,course,classyear,isanonymous,photo_url,photos,bio,hobbies,clubs,bestmemory,biggestlesson,mostlikelyto,county,country,has_birthday';
 
   // ── small helpers ──
   const first = n => String(n || '').trim().split(/\s+/)[0] || '';
@@ -47,7 +47,7 @@
     ['list your hobbies',                 s => !!s.hobbies],
     ['add your clubs',                    s => window.parseClubField(s.clubs).length > 0],
     ['add your birthday',                 s => !!s.has_birthday],
-    ['add your home county',              s => !!s.county, true],
+    ['add where you are from',            s => !!s.county || (!!s.country && s.country !== 'Kenya'), true],   // a county, or a home country outside Kenya
   ];
   function act(cls, title, text, button, bar) {
     const el = $('hmAct');

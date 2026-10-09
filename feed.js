@@ -25,7 +25,7 @@
   const AUTO_MS = 3500;                    // time on each photo before the next one slides in
   const AUTO_REST_MS = 6000;               // after someone swipes or holds a photo, wait this long
   const SAVE_KEY = 'gluk-feed';
-  const COLS = 'id,uid,name,dept,course,classyear,county,photos,photo_url,mostlikelyto,bio,created_at';
+  const COLS = 'id,uid,name,dept,course,classyear,county,country,photos,photo_url,mostlikelyto,bio,created_at';
 
   const feed = document.getElementById('feed');
   const sheet = document.getElementById('fdSheet');
@@ -89,7 +89,8 @@
             ${lv.badge ? `<span class="fd-chip">${lv.icon} ${esc(lv.badge)}</span>` : ''}
             <a class="fd-name" href="${link}">${name}</a>
             ${meta ? `<div class="fd-meta">${meta}</div>` : ''}
-            ${s.county ? `<div class="fd-meta">📍 ${esc(s.county)}</div>` : ''}
+            ${s.country && s.country !== 'Kenya' ? `<div class="fd-meta">🌍 ${esc(s.country)}</div>`
+              : s.county ? `<div class="fd-meta">📍 ${esc(s.county)}</div>` : ''}
             ${cap ? `<p class="fd-cap">${cap}</p>` : ''}
           </div>
         </div>

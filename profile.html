@@ -73,9 +73,11 @@
       <div class="info-card-title">🏠 Where Are You From?</div>
       <div id="profileCountyDisplay"
         style="font-size:.8rem;color:var(--gray-600);padding:2px 0 6px"></div>
-      <div class="info-row"><span class="info-lbl">Home County</span>
+      <div class="info-row" id="rowCountry" style="display:none"><span class="info-lbl">Home Country</span>
+        <span class="info-val" id="profileCountry">---</span></div>
+      <div class="info-row" id="rowCounty"><span class="info-lbl">Home County</span>
         <span class="info-val" id="profileCounty">---</span></div>
-      <div class="info-row"><span class="info-lbl">Constituency</span>
+      <div class="info-row" id="rowConst"><span class="info-lbl">Constituency</span>
         <span class="info-val" id="profileConst">---</span></div>
       <div class="info-row"><span class="info-lbl">Email</span>
         <span class="info-val" id="profileEmail" style="font-size:.72rem;word-break:break-all">---</span></div>
@@ -224,6 +226,7 @@
         <div class="form-group">
             <label class="form-label">WhatsApp</label>
             <input class="form-input" type="tel" name="whatsapp" placeholder="+254 7XX XXX XXX">
+            <p class="form-hint" data-intl-only style="display:none">A number from home? Start it with its country code, e.g. +256.</p>
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
@@ -261,7 +264,14 @@
                     letter-spacing:.5px;padding:8px 0 6px;border-top:1px solid var(--gray-100);margin-top:4px">
           🏠 Where Are You From?
         </div>
-        <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="e-country">Home Country</label>
+          <select class="form-select" name="country" id="e-country" onchange="syncHomeCountry(this.form)">
+            <option value="Kenya">Kenya</option>
+          </select>
+          <p class="form-hint" data-intl-only style="display:none">🌍 Your country shows on your profile in place of a Kenyan county.</p>
+        </div>
+        <div class="form-row" data-kenya-only>
           <div class="form-group">
             <label class="form-label">Home County</label>
             <select class="form-select" name="county">

@@ -102,7 +102,7 @@
       <div class="consent-body">
         <div class="consent-section">
           <div class="consent-section-title">📋 What we collect</div>
-          <p>Your name, registration number, school, programme, class year, home county, WhatsApp number, email address, bio, hobbies, club memberships, personal memories, and any photos you choose to share.</p>
+          <p>Your name, registration number, school, programme, class year, home county (or home country), WhatsApp number, email address, bio, hobbies, club memberships, personal memories, and any photos you choose to share.</p>
         </div>
         <div class="consent-section">
           <div class="consent-section-title">🎯 How it is used</div>
@@ -221,6 +221,7 @@
         <div class="form-group">
             <label class="form-label">WhatsApp</label>
             <input class="form-input" type="tel" name="whatsapp" placeholder="+254 7XX XXX XXX">
+            <p class="form-hint" data-intl-only style="display:none">A number from home? Start it with its country code, e.g. +256.</p>
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
@@ -258,7 +259,14 @@
                     letter-spacing:.5px;padding:10px 0 6px;border-top:1px solid var(--gray-100);margin-top:4px">
           🏠 Where Are You From?
         </div>
-        <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="f-country">Home Country</label>
+          <select class="form-select" name="country" id="f-country" onchange="syncHomeCountry(this.form)">
+            <option value="Kenya">Kenya</option>
+          </select>
+          <p class="form-hint" data-intl-only style="display:none">🌍 Welcome, international student! Your country shows on your profile in place of a Kenyan county.</p>
+        </div>
+        <div class="form-row" data-kenya-only>
           <div class="form-group">
             <label class="form-label">Home County</label>
             <select class="form-select" name="county">

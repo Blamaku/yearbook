@@ -344,6 +344,7 @@
         <div class="form-group"><label class="form-label" for="eCounty">Home county</label><input class="form-input" type="text" id="eCounty"></div>
         <div class="form-group"><label class="form-label" for="eYear">Class year</label><select class="form-select" id="eYear"></select></div>
       </div>
+      <div class="form-group"><label class="form-label" for="eCountry">Home country <span style="font-weight:400;color:var(--gray-400)">(blank = Kenya)</span></label><input class="form-input" type="text" id="eCountry" list="eCountryList" placeholder="Kenya"><datalist id="eCountryList"></datalist></div>
       <div class="form-group"><label class="form-label" for="eDept">School / faculty</label><input class="form-input" type="text" id="eDept"></div>
       <div class="form-group"><label class="form-label" for="eCourse">Programme</label><input class="form-input" type="text" id="eCourse"></div>
       <div class="form-row">
@@ -590,7 +591,8 @@
         if (f.dept && s.dept !== f.dept) return false;
         if (f.year && String(s.classyear) !== f.year) return false;
         if (f.club && !clubsOf(s).includes(f.club)) return false;
-        if (f.county && String(s.county || '').toLowerCase() !== f.county.toLowerCase()) return false;
+        if (f.county === window.INTL_FILTER) { if (!window.isInternational(s)) return false; }
+        else if (f.county && String(s.county || '').toLowerCase() !== f.county.toLowerCase()) return false;
         if (f.noPhoto && hasPhoto(s)) return false;
         if (q && !(String(s.name || '') + ' ' + String(s.reg || '') + ' ' + String(s.email || '') + ' ' + String(s.course || '')).toLowerCase().includes(q)) return false;
         return true;
@@ -669,7 +671,9 @@
       $('fDept').innerHTML = depts.map(d => chipHTML('dept', d, shortDept(d), S.d.dept === d)).join('');
       $('fYear').innerHTML = yearOptions().map(y => chipHTML('year', y, yearLabel(y), S.d.year === y)).join('');
       $('fClub').innerHTML = '<option value="">Any club</option>' + (window.GLUK_CLUBS || []).map(c => `<option value="${E(c)}"${S.d.club === c ? ' selected' : ''}>${E(c)}</option>`).join('');
-      $('fCounty').innerHTML = '<option value="">Any county</option>' + (window.KENYA_COUNTIES || []).map(c => `<option value="${E(c)}"${S.d.county === c ? ' selected' : ''}>${E(c)}</option>`).join('');
+      $('fCounty').innerHTML = '<option value="">Any county</option>'
+        + `<option value="${window.INTL_FILTER}"${S.d.county === window.INTL_FILTER ? ' selected' : ''}>🌍 International students</option>`
+        + (window.KENYA_COUNTIES || []).map(c => `<option value="${E(c)}"${S.d.county === c ? ' selected' : ''}>${E(c)}</option>`).join('');
       $('fNoPhoto').classList.toggle('on', !!S.d.noPhoto);
       const n = filtered(cur(), S.d).length;
       $('fApply').textContent = 'Show ' + n.toLocaleString('en') + ' ' + plural(n, 'student', 'students');
@@ -715,6 +719,8 @@
     /* — edit — */
     function fillEditForm(s) {
       $('eId').value = s.id; $('eName').value = s.name || ''; $('eReg').value = s.reg || ''; $('eCounty').value = s.county || '';
+      if (!$('eCountryList').options.length) $('eCountryList').innerHTML = (window.COUNTRIES || []).map(c => `<option value="${E(c)}">`).join('');
+      $('eCountry').value = s.country || '';
       const yr = String(s.classyear || GY());
       $('eYear').innerHTML = uniq(yearOptions().concat([yr])).sort((a, b) => b - a).map(y => `<option value="${E(y)}">${E(y)}</option>`).join('');
       $('eYear').value = yr;
@@ -738,7 +744,7 @@
       if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
       try {
         const update = {
-          name: $('eName').value.trim(), reg: $('eReg').value.trim(), county: $('eCounty').value.trim(),
+          name: $('eName').value.trim(), reg: $('eReg').value.trim(), county: $('eCounty').value.trim(), country: $('eCountry').value.trim(),
           classyear: $('eYear').value || undefined,               // never overwrite with a blank year
           dept: $('eDept').value.trim(), course: $('eCourse').value.trim(), email: $('eEmail').value.trim(), whatsapp: window.normalizePhone ? window.normalizePhone($('eWhatsapp').value) : $('eWhatsapp').value.trim(),
           birthday: window.birthdayFromInput ? window.birthdayFromInput($('eBirthday').value) : '',
@@ -847,7 +853,7 @@
       catch (e) { toast('❌ ' + (e.message || 'Could not load Excel') + '. Check your connection and try again.', 4500); return; }
       const rows = list.map((s, i) => ({
         '#': i + 1, 'Full Name': s.name || '', 'Reg Number': s.reg || '', 'School / Faculty': s.dept || '', 'Programme': s.course || '',
-        'Class Year': s.classyear || '', 'Home County': s.county || '', 'Constituency': s.constituency || '', 'Email': s.email || '', 'WhatsApp': s.whatsapp || '',
+        'Class Year': s.classyear || '', 'Home Country': s.country || 'Kenya', 'Home County': s.county || '', 'Constituency': s.constituency || '', 'Email': s.email || '', 'WhatsApp': s.whatsapp || '',
         'Hobbies': Array.isArray(s.hobbies) ? s.hobbies.join(', ') : (s.hobbies || ''), 'Clubs': clubsOf(s).join(', '),
         'Bio': s.bio || '', 'Best Memory': s.bestmemory || '', 'Biggest Lesson': s.biggestlesson || '', 'Most Likely To': s.mostlikelyto || '',
         'Profile URL': `${window.location.origin}/profile.html?id=${s.id}`, 'Date Added': s.created_at ? new Date(s.created_at).toLocaleDateString('en-KE') : '',
@@ -878,6 +884,7 @@
   <div class="hdr"><img src="${location.origin}/logo-128.png" alt="GLUK" style="height:50px;width:auto;display:block;margin:0 auto 12px">${photoHtml}<div class="nm">${esc(s.name||'—')}</div><div class="rg">${esc(s.reg||'')}</div><span class="badge">${esc((s.dept||'GLUK').replace(/School of |Faculty of /g,''))} · Class of ${esc(s.classyear||new Date().getFullYear())}</span></div>
   <div class="sec"><h3>📋 Personal Info</h3>
   <div class="row"><span class="lbl">Programme</span><span class="val">${esc(s.course||'—')}</span></div>
+  <div class="row"><span class="lbl">Country</span><span class="val">${esc(s.country||'Kenya')}</span></div>
   <div class="row"><span class="lbl">County</span><span class="val">${esc(s.county||'—')}</span></div>
   <div class="row"><span class="lbl">Constituency</span><span class="val">${esc(s.constituency||'—')}</span></div>
   <div class="row"><span class="lbl">Email</span><span class="val">${esc(s.email||'—')}</span></div>
