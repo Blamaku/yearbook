@@ -2,8 +2,9 @@
 //  GLUK YEARBOOK 2026 — STUDENTS FEED  (feed.html)
 //
 //  One student per screen. Swipe up for the next one, sideways for their
-//  other photos. Double-tap a photo (or tap the heart) to like; the speech
-//  bubble opens their comments; the round photo opens their full profile.
+//  other photos (they also move on by themselves every few seconds).
+//  Double-tap a photo (or tap the heart) to like; the speech bubble opens
+//  their comments; the round photo opens their full profile.
 //
 //  • Only profiles with a photo appear, and never anonymous ones.
 //  • Order: a new shuffle every time the feed is opened, so it never starts
@@ -21,6 +22,8 @@
   const FRESH_MS = 2 * 86400000;           // profiles newer than this go near the top
   const FRESH_SPREAD = 12;                 // ... somewhere in the first this-many cards
   const KEEP_MS = 30 * 60000;              // a saved place older than this starts a new shuffle
+  const AUTO_MS = 3500;                    // time on each photo before the next one slides in
+  const AUTO_REST_MS = 6000;               // after someone swipes or holds a photo, wait this long
   const SAVE_KEY = 'gluk-feed';
   const COLS = 'id,uid,name,dept,course,classyear,county,photos,photo_url,mostlikelyto,bio,created_at';
 
@@ -29,6 +32,8 @@
   if (!feed || !sheet) return;
 
   let order = [], shown = 0, busy = false, current = 0, likesOn = true, observer = null;
+  let autoTimer = 0, autoMoving = false, restUntil = 0;   // photos moving on by themselves (see autoArm)
+  const calm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   const people = new Map();                // id -> profile
   const likes = new Map();                 // id -> { n, mine }
   const talk = new Map();                  // id -> number of comments
@@ -204,8 +209,11 @@
   function watch() {
     if (!observer && 'IntersectionObserver' in window) observer = new IntersectionObserver(es => {
       for (const e of es) if (e.isIntersecting) {
+        const was = current;
         current = Number(e.target.dataset.i) || 0;
         save();
+        if (current !== was) restUntil = 0;                // a new student: their photos start moving on time
+        autoArm();
         if (shown - current <= 4) loadMore();
       }
     }, { root: feed, threshold: 0.6 });
@@ -289,6 +297,7 @@
   function openSheet(id) {
     if (!id || !sheet.hidden) return;
     sheet.hidden = false;
+    clearTimeout(autoTimer);
     document.documentElement.style.overflow = 'hidden';
     window.startComments(id);
     history.pushState({ fdSheet: 1 }, '');                                  // the phone's back button closes the sheet
@@ -301,6 +310,7 @@
     window.stopComments();
     if (!fromHistory && history.state && history.state.fdSheet) history.back();
     const b = feed.querySelector(`.fd-slide[data-i="${current}"] [data-act="comments"]`); if (b) b.focus({ preventScroll: true });
+    autoArm();
   }
   sheet.addEventListener('click', e => { if (e.target === sheet || e.target.closest('[data-close]')) closeSheet(false); });
   window.addEventListener('popstate', () => closeSheet(true));
@@ -349,7 +359,32 @@
     if (!box.classList || !box.classList.contains('fd-photos')) return;
     const k = Math.round(box.scrollLeft / Math.max(1, box.clientWidth));
     box.parentElement.querySelectorAll('.fd-dots i').forEach((d, j) => d.classList.toggle('on', j === k));
+    if (!autoMoving) { restUntil = Date.now() + AUTO_REST_MS; autoArm(); }     // someone swiped: give them time
   }, true);
+
+  // ── the photos move on by themselves: the student in view shows their next photo every few
+  //    seconds, back to the first after the last. Touching the photos, the comments sheet, or
+  //    the app going to the background pauses it; phones set to reduce motion don't get it. ──
+  function autoArm() {
+    clearTimeout(autoTimer);
+    const slide = feed.querySelector(`.fd-slide[data-i="${current}"]`), box = slide && slide.querySelector('.fd-photos');
+    if (calm || !box || box.children.length < 2 || !sheet.hidden || document.hidden) return;
+    autoTimer = setTimeout(() => {
+      if (Date.now() < restUntil) return autoArm();
+      const w = Math.max(1, box.clientWidth), k = Math.round(box.scrollLeft / w);
+      autoMoving = true;
+      box.scrollTo({ left: ((k + 1) % box.children.length) * w, behavior: 'smooth' });
+      setTimeout(() => { autoMoving = false; }, 900);
+      autoArm();
+    }, Math.max(AUTO_MS, restUntil - Date.now()));
+  }
+  feed.addEventListener('pointerdown', e => {
+    if (!e.target.closest('.fd-photos')) return;
+    restUntil = Date.now() + AUTO_REST_MS;
+    clearTimeout(autoTimer);
+  });
+  feed.addEventListener('pointerup', e => { if (e.target.closest('.fd-photos')) autoArm(); });
+  document.addEventListener('visibilitychange', autoArm);
 
   // ── keyboard (laptops): ↑ ↓ next/previous student, ← → their photos, L like, Esc close ──
   document.addEventListener('keydown', e => {
