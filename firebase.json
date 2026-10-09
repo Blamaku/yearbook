@@ -1,4 +1,7 @@
 {
+  "database": {
+    "rules": "database.rules.json"
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
@@ -18,6 +21,7 @@
       "**/*.sql",
       "skills-lock.json",
       "firestore.rules",
+      "database.rules.json",
       "firestore.indexes.json",
       "supabase-api/**",
       "supabase/**",

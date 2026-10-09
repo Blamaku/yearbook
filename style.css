@@ -2387,3 +2387,7 @@ a.ku-meet { display: inline-flex; align-items: center; }
 .kq-board b { color: var(--gold-bright); }
 .kq-board span { display: block; font-size: .76rem; color: rgba(255,255,255,.7); }
 .kq-link { margin-left: 6px; padding: 5px 12px; border: 0; border-radius: 50px; cursor: pointer; font: inherit; font-size: .76rem; font-weight: 900; background: var(--gold-bright); color: #1a1300; }
+
+/* Profile: a classmate's contact details come on a tap (20 different profiles a day) */
+.reveal-btn { padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 700; color: var(--blue); text-align: left; }
+.reveal-btn:hover { text-decoration: underline; }

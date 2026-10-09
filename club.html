@@ -402,7 +402,7 @@
     let _user = null, _me = null;
     let _info = null, _officers = [], _setupNeeded = false;
     let _members = [], _membersReady = Promise.resolve();
-    let _tab = 'about', _filter = 'all', _feedFrom = 0, _feedBusy = false, _feedOnce = false;
+    let _tab = 'about', _filter = 'all', _feedFrom = 0, _feedBusy = false, _feedOnce = false, _feedAgain = false, _feedFor = '';
     let _gallery = [], _galShown = 0;
     let _ptype = 'notice', _pfiles = [];
     const _postImgs = {};
@@ -688,6 +688,11 @@
 
     /* ── Feed ──────────────────────────────────────── */
     async function fetchPosts(filter, from) {
+      // Signed in: through the api, which includes the minutes (the public key cannot read them)
+      if (_user) {
+        try { return (await window.gApi('club.feed', { club: CLUB, filter, from, size: PAGE_SIZE })).rows || []; }
+        catch (e) { console.warn('[feed] api failed, showing the public posts (no minutes)', e); }
+      }
       const build = withPinned => {
         let q = supabase.from('club_posts').select('*').eq('club_name', CLUB);
         if (filter !== 'all') q = q.eq('type', filter);
@@ -742,7 +747,7 @@
     }
 
     async function loadFeed(reset) {
-      if (_feedBusy) return;
+      if (_feedBusy) { if (reset) _feedAgain = true; return; }   // e.g. signing in during the first load: load again after it
       const list = $('feedList'), more = $('feedMore');
       if (reset) { _feedFrom = 0; more.innerHTML = ''; list.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>'; }
       $('feedNote').innerHTML = (!_user && _filter === 'all')
@@ -753,7 +758,7 @@
         $('lockSignIn').onclick = () => openAuthModal(() => { _user = _user || auth.currentUser; loadFeed(true); }, 'login');
         return;
       }
-      _feedBusy = true;
+      _feedBusy = true; _feedFor = _user ? _user.uid : '';   // who the posts are being loaded for
       try {
         const rows = await fetchPosts(_filter, _feedFrom);
         if (reset) list.innerHTML = '';
@@ -766,7 +771,10 @@
         console.warn('[feed]', e);
         list.innerHTML = `<div class="empty"><div class="big">⚠️</div><b>Could not load posts</b>${missing(e) ? 'The club tables are not set up yet.' : 'Check your connection and try again.'}<br><br><button type="button" class="btn-secondary" id="feedRetry" style="max-width:160px">Try again</button></div>`;
         const r = $('feedRetry'); if (r) r.onclick = () => loadFeed(true);
-      } finally { _feedBusy = false; }
+      } finally {
+        _feedBusy = false;
+        if (_feedAgain) { _feedAgain = false; if ((_user ? _user.uid : '') !== _feedFor) loadFeed(true); }   // only if the sign-in changed meanwhile
+      }
     }
 
     function jumpNow() {

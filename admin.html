@@ -1073,10 +1073,8 @@
     async function loadPosts(reset) {
       if (reset) { M.from = 0; M.posts = []; M.done = false; $('pList').innerHTML = '<div class="a-empty">Loading…</div>'; }
       try {
-        let q = supabase.from('club_posts').select('*').order('created_at', { ascending: false }).range(M.from, M.from + 19);
-        if (M.club) q = q.eq('club_name', M.club);
-        const { data, error } = await q;
-        if (error) throw error;
+        // through the api: it includes the minutes, which the public key cannot read
+        const data = (await window.gApi('admin.club.posts', { from: M.from, club: M.club || '' })).rows;
         M.posts = M.posts.concat(data || []); M.from += (data || []).length; M.done = (data || []).length < 20;
         M.loadedP = true; M.errP = '';
       } catch (e) { console.error('[posts]', e); M.errP = isMissing(e) ? 'missing' : (e.message || 'Could not load posts'); }
@@ -1325,10 +1323,12 @@ let _ocSearchT = null;
         const x = e.details || {};
         if (e.kind === 'backup') return 'Backup ' + (e.ok ? 'OK' : 'had problems') + (x.files != null ? ' · ' + nfmt(x.files) + ' files' : '');
         if (e.kind === 'push') return (x.what && x.what !== 'other' ? 'Notification for a ' + x.what : 'Notification') + ' · ' + nfmt(x.sent) + ' of ' + nfmt(x.devices) + ' delivered';
+        if (e.kind === 'contact_limit') return 'Reached the daily limit of classmates’ contact details: ' + (x.email || 'an account');
+        if (e.kind === 'letter_report') return 'A letter was reported';
         return String(e.kind);
       };
       $('devRecent').innerHTML = (d.recent || []).length
-        ? d.recent.map(e => drow(e.kind === 'backup' ? '💾' : '🔔', desc(e), E(when(e.created_at)), e.ok ? '' : '<span class="a-badge warn">problem</span>')).join('')
+        ? d.recent.map(e => drow(e.kind === 'backup' ? '💾' : e.kind === 'contact_limit' ? '🛡' : e.kind === 'letter_report' ? '💌' : '🔔', desc(e), E(when(e.created_at)), e.ok ? '' : '<span class="a-badge warn">problem</span>')).join('')
         : '<div class="a-empty" style="padding:22px 16px">Nothing yet. Backups and notifications show up here.</div>';
       renderDevLinks();
     }

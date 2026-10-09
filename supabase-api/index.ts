@@ -52,6 +52,7 @@ const CONFIG = {
   lettersOpenAt: '2026-11-14T21:00:00Z',            // letters open on Sunday 15 November 2026, 00:00 in Kisumu (also in letters.js and the SQL)
   lettersClass: '2026',                             // the graduating class letters are written to
   lettersPerPerson: 30,                             // at most this many new letters by one person per 24 hours
+  contactsPerDay: 20,                               // different classmates' contact details one person may open per 24 hours
   kyuRound: 10,                                     // questions in a round of Who's who? (university.js)
   kyuMinSeconds: 15,                                // a round finished faster than this does not count
   kyuPerHour: 40,                                   // at most this many rounds started by one person per hour
@@ -102,6 +103,12 @@ function phoneOrBlank(v, label) {
   if (s && !/^[+\d][\d\s\-()]{5,29}$/.test(s)) throw bad(`${label} does not look like a phone number.`);
   return s;
 }
+// A country's name as the profile form lists it: letters, spaces and a little punctuation, e.g. "Côte d'Ivoire"
+function countryOrBlank(v, label) {
+  const s = txt(v, 60, label);
+  if (s && !/^\p{L}[\p{L} .,'’()-]*$/u.test(s)) throw bad(`${label} does not look like a country.`);
+  return s;
+}
 function strList(v, maxItems, maxLen, label) {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v)) throw bad(`${label} must be a list.`);
@@ -126,6 +133,7 @@ function ownerFields(cfg, uid, p, out) {
   if (has('reg'))             out.reg = txt(p.reg, 60, 'Reg number');
   if (has('whatsapp'))        out.whatsapp = phoneOrBlank(p.whatsapp, 'WhatsApp number');
   if (has('email'))           out.email = emailOrBlank(p.email, 'Email');
+  if (has('country'))         out.country = countryOrBlank(p.country, 'Home country');
   if (has('county'))          out.county = txt(p.county, 60, 'County');
   if (has('constituency'))    out.constituency = txt(p.constituency, 80, 'Constituency');
   if (has('currentcounty'))   out.currentcounty = txt(p.currentcounty, 60, 'Current county');
@@ -306,6 +314,29 @@ const commentDbError = e => missingTable(e)
 // The name shown on a comment: the account's name when the login carries it, else what the page sent, else the email's first part
 const authorName = (ctx, body) => snip(ctx.user.name, 60) || snip(typeof body.authorName === 'string' ? body.authorName : '', 60)
   || snip(String(ctx.user.email || '').split('@')[0], 60) || 'Someone';
+// The name on what someone writes or does (comments, replies, likes, letters): their yearbook name, else their
+// approved staff name, else their account's name marked "(guest)", so nobody can pass as a student just by
+// renaming their account. Someone with an anonymous yearbook profile keeps their account's name. Looked up once per request.
+async function shownName(ctx, body, max = 60) {
+  if (ctx.shown === undefined) {
+    const p = await ctx.db.from('profiles').select('name,isanonymous').eq('uid', ctx.user.uid).limit(1);
+    const row = !p.error && p.data && p.data[0];
+    if (row) ctx.shown = !row.isanonymous && String(row.name || '').trim() ? row.name : authorName(ctx, body || {});
+    else {
+      const s = await ctx.db.from('staff_profiles').select('name,title').eq('uid', ctx.user.uid).eq('status', 'approved').limit(1);
+      const st = !s.error && s.data && s.data[0];
+      ctx.shown = st && String(st.name || '').trim() ? [st.title, st.name].filter(Boolean).join(' ') : snip(authorName(ctx, body || {}), 52) + ' (guest)';
+    }
+  }
+  return snip(ctx.shown, max);
+}
+// Someone with their own yearbook profile, or an approved staff profile: the people who may see classmates' contacts
+async function isMember(ctx) {
+  const p = await ctx.db.from('profiles').select('id').eq('uid', ctx.user.uid).limit(1);
+  if (!p.error && p.data && p.data.length) return true;
+  const s = await ctx.db.from('staff_profiles').select('id').eq('uid', ctx.user.uid).eq('status', 'approved').limit(1);
+  return !s.error && !!(s.data && s.data.length);
+}
 // At most 20 comments + replies per person per 10 minutes (Firebase had no limit at all)
 async function commentRateLimit(ctx) {
   const since = new Date(ctx.now() - 10 * 60 * 1000).toISOString();
@@ -329,7 +360,7 @@ const likeDbError = e => missingTable(e)
 // The owner hears about each person's like once, ever: liking, unliking and liking again sends nothing new
 async function notifyLike(ctx, pid, owner) {
   if (await claimEvent(ctx, `l:${pid}:${ctx.user.uid}`) !== 'ok') return { sent: 0 };
-  return pushToUids(ctx, [owner], { title: `${authorName(ctx, {})} liked your profile ❤️`,
+  return pushToUids(ctx, [owner], { title: `${await shownName(ctx, {})} liked your profile ❤️`,
     body: 'Open the yearbook to see your page.', url: `/profile.html?id=${pid}`, tag: 'l-' + pid });
 }
 
@@ -375,14 +406,8 @@ async function letterRow(ctx, id) {
   if (!r.data || !r.data[0]) throw notFound('That letter could not be found.');
   return r.data[0];
 }
-// A letter is signed with the writer's yearbook name, else their staff name, else their account's name. Never anonymous.
-async function signedName(ctx) {
-  const p = await ctx.db.from('profiles').select('name').eq('uid', ctx.user.uid).limit(1);
-  if (!p.error && p.data && p.data[0] && String(p.data[0].name || '').trim()) return snip(p.data[0].name, 80);
-  const s = await ctx.db.from('staff_profiles').select('name,title').eq('uid', ctx.user.uid).limit(1);
-  if (!s.error && s.data && s.data[0] && String(s.data[0].name || '').trim()) return snip([s.data[0].title, s.data[0].name].filter(Boolean).join(' '), 80);
-  return authorName(ctx, {});
-}
+// A letter is signed the same way as a comment (see shownName). Never anonymous.
+const signedName = ctx => shownName(ctx, {}, 80);
 // What the writer gets back about their own letter (never the logins)
 const ownLetter = r => ({ id: r.id, to_kind: r.to_kind, to_profile: r.to_profile, to_name: r.to_name, body: r.body,
   on_wall: r.on_wall, hidden: r.hidden, created_at: r.created_at, updated_at: r.updated_at });
@@ -478,12 +503,30 @@ const ACTIONS = {
   },
 
   // Contact details and birthday are not in the public view (profiles_public).
-  // The owner and the admin get the whole row; other signed-in people get the
-  // contact details of non-anonymous profiles only. Birthday stays with the owner.
+  // The owner and the admin get the whole row. A classmate's contact details (never the birthday) go only to
+  // people with their own yearbook or approved staff profile, and to each of them for at most contactsPerDay
+  // different profiles a day, so nobody can collect every student's WhatsApp number and email.
   async 'profile.private'(ctx, body) {
     const row = await getRow(ctx, 'profiles', body.id);
     if (row.uid === ctx.user.uid || ctx.isAdmin) return { profile: row };
     if (row.isanonymous) return { profile: {} };
+    if (!(await isMember(ctx))) return { profile: {}, locked: 'profile' };
+    const since = new Date(ctx.now() - 24 * 3600e3).toISOString();
+    const seen = await ctx.db.from('contact_views').select('profile_id').eq('uid', ctx.user.uid).gte('at', since).limit(1000);
+    if (seen.error && !missingTable(seen.error)) throw new ApiError(500, 'db', 'Could not load the contact details.');
+    if (!seen.error) {                                     // (before the contact_views table exists there is no daily limit)
+      const opened = new Set((seen.data || []).map(r => Number(r.profile_id)));
+      if (!opened.has(row.id)) {
+        if (opened.size >= ctx.config.contactsPerDay) {
+          // the Developer tab hears once a day about each account that hits the limit
+          if (await claimEvent(ctx, `k:${ctx.user.uid}:${new Date(ctx.now()).toISOString().slice(0, 10)}`) === 'ok')
+            await logEvent(ctx, 'contact_limit', false, { email: ctx.user.email, profiles: opened.size });
+          return { profile: {}, locked: 'limit', limit: ctx.config.contactsPerDay };
+        }
+        const ins = await ctx.db.from('contact_views').insert({ uid: ctx.user.uid, profile_id: row.id, at: new Date(ctx.now()).toISOString() });
+        if (ins.error && !missingTable(ins.error)) throw new ApiError(500, 'db', 'Could not load the contact details.');
+      }
+    }
     return { profile: { email: row.email || '', whatsapp: row.whatsapp || '',
       constituency: row.constituency || '', currentlocation: row.currentlocation || '' } };
   },
@@ -584,6 +627,23 @@ const ACTIONS = {
     return { officer: o ? { role: o.role, officer_name: o.officer_name } : null };
   },
 
+  // A club's posts for a signed-in student, minutes included (the public key does not read minutes)
+  async 'club.feed'(ctx, body) {
+    const club = txt(body.club, 80, 'Club', { required: true }), filter = String(body.filter || 'all');
+    if (filter !== 'all' && !ctx.config.postTypes.includes(filter)) throw bad('Unknown filter.');
+    const from = Math.max(0, Math.min(5000, Number(body.from) || 0)), size = Math.max(1, Math.min(50, Number(body.size) || 15));
+    const build = withPinned => {
+      let q = ctx.db.from('club_posts').select('*').eq('club_name', club);
+      if (filter !== 'all') q = q.eq('type', filter);
+      if (withPinned) q = q.order('pinned', { ascending: false, nullsFirst: false });
+      return q.order('created_at', { ascending: false }).range(from, from + size - 1);
+    };
+    let r = await build(true);
+    if (r.error && /pinned/i.test(r.error.message || '')) r = await build(false);   // pinning not set up
+    if (r.error) throw new ApiError(500, 'db', 'Could not load the posts.');
+    return { rows: r.data || [] };
+  },
+
   // ── phone notifications ──
   // This device wants notifications for the signed-in person (a device moves to whoever signed in last).
   async 'push.subscribe'(ctx, body) {
@@ -649,7 +709,7 @@ const ACTIONS = {
     if (p.error) throw new ApiError(500, 'db', 'Could not check the profile.');
     if (!p.data || !p.data.length) throw notFound('That profile is not in the yearbook any more.');
     await commentRateLimit(ctx);
-    const row = { id: ctx.newId(), profile_id: pid, author_uid: ctx.user.uid, author_name: authorName(ctx, body), text };
+    const row = { id: ctx.newId(), profile_id: pid, author_uid: ctx.user.uid, author_name: await shownName(ctx, body), text };
     const ins = await ctx.db.from('comments').insert(row).select();
     if (ins.error) throw commentDbError(ins.error);
     const owner = p.data[0].uid;
@@ -662,7 +722,7 @@ const ACTIONS = {
     const cid = docId(body.commentId, 'comment');
     const text = txt(body.text, 144, 'Reply', { required: true });
     await commentRateLimit(ctx);
-    const id = ctx.newId(), name = authorName(ctx, body);
+    const id = ctx.newId(), name = await shownName(ctx, body);
     const r = await ctx.db.rpc('comment_add_reply', { p_id: id, p_comment: cid, p_uid: ctx.user.uid, p_name: name, p_text: text });
     if (r.error) throw commentDbError(r.error);
     if (!r.data) throw notFound('That comment was deleted.');
@@ -911,6 +971,17 @@ const ACTIONS = {
       (s.data || []).forEach(x => { names['staff:' + x.id] = [x.title, x.name].filter(Boolean).join(' '); });
     }
     return { at: new Date(ctx.now()).toISOString(), traffic: t, names };
+  },
+
+  // Every club's posts, minutes included, 20 at a time (Moderation › Posts)
+  async 'admin.club.posts'(ctx, body) {
+    requireAdmin(ctx);
+    const from = Math.max(0, Math.min(50000, Number(body.from) || 0));
+    let q = ctx.db.from('club_posts').select('*').order('created_at', { ascending: false }).range(from, from + 19);
+    if (body.club) q = q.eq('club_name', txt(body.club, 80, 'Club'));
+    const r = await q;
+    if (r.error) throw new ApiError(500, missingTable(r.error) ? 'club_tables_missing' : 'db', 'Could not load the posts.');
+    return { rows: r.data || [] };
   },
 
   // The Who's who? board with the logins, so the admin can take off anyone who cheated

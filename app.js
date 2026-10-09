@@ -1864,9 +1864,11 @@ window.submitProfile=async function(e){
 // ──────────────────────────────────────────────────────
 let _currentProfile=null;
 
-// Contact details and birthday are not in the public view, so they come from the secure
-// service: signed-in visitors get a classmate's contact details, the owner gets everything.
+// Contact details and birthday are not in the public view, so they come from the secure service. The owner's
+// load by themselves; a classmate's come on a tap, because each person (with a yearbook profile) may open the
+// contact details of 20 different classmates a day. Browsing profiles costs nothing.
 let _privateFor=null;                                   // "uid:id" the private fields were loaded for
+let _contact='';                                        // a classmate's details: '' | 'loading' | 'shown' | 'profile' | 'limit' (why not)
 async function loadPrivateFields(){
   const p=_currentProfile, user=auth&&auth.currentUser;
   if(!p||!user) return false;
@@ -1875,12 +1877,48 @@ async function loadPrivateFields(){
   try{
     const r=await window.gApi('profile.private',{id:p.id});
     if(_currentProfile!==p) return false;               // the page moved on meanwhile
+    if(r.locked){ _contact=r.locked; paintProfile(_currentProfile); return false; }
     _currentProfile=normalizeProfile({...p,...(r.profile||{})});
-    _privateFor=key;
+    _privateFor=key; _contact='shown';
     paintProfile(_currentProfile);
     return true;
   }catch(e){ console.warn('[profile.private]',e); return false; }
 }
+// A tap on WhatsApp, Email or "Tap to show": sign in first if needed, fetch the details, then do what was asked
+async function revealContacts(then){
+  if(!(auth&&auth.currentUser)){ window.openAuthModal(()=>revealContacts(then),'login'); return; }
+  if(_contact==='loading') return;
+  if(_contact!=='shown'){
+    _contact='loading'; paintProfile(_currentProfile);
+    const ok=await loadPrivateFields();
+    if(!ok){
+      if(_contact==='loading') _contact='';
+      paintProfile(_currentProfile);
+      showToast(_contact==='profile' ? 'Create your yearbook profile to see classmates\u2019 contact details.'
+        : _contact==='limit' ? 'You have opened 20 classmates\u2019 contact details today. Try again tomorrow.'
+        : 'Could not load the contact details. Check your connection and try again.', 4500);
+      return;
+    }
+  }
+  if(then) then(_currentProfile);
+}
+const _waHref = s => { const l=s&&s.whatsapp ? window.waLink(s.whatsapp) : ''; return l ? `${l}?text=Hi%20${encodeURIComponent(s.name || '')}%2C%20I%20saw%20your%20GLUK%20Yearbook%20profile!` : ''; };
+document.addEventListener('click', e=>{
+  const b=e.target.closest&&e.target.closest('[data-reveal]');
+  if(!b||!b.dataset.reveal||!_currentProfile) return;
+  e.preventDefault();
+  const what=b.dataset.reveal;
+  revealContacts(s=>{
+    if(what==='wa'){
+      const h=_waHref(s); if(!h){ showToast('No WhatsApp number on this profile.'); return; }
+      const w=window.open(h,'_blank');                // (with 'noopener' the browser would hide whether it opened)
+      if(w) w.opener=null; else location.href=h;      // a blocked pop-up: open WhatsApp here instead
+    } else if(what==='email'){
+      if(!s.email){ showToast('No email address on this profile.'); return; }
+      location.href='mailto:'+s.email;
+    }
+  });
+});
 
 function initProfilePage(){
   const id=Params.get('id'); if(!id){window.location.href='profiles.html';return;}
@@ -1894,7 +1932,14 @@ function initProfilePage(){
       }
       _currentProfile = normalizeProfile(data);
       paintProfile(_currentProfile);
-      auth.onAuthStateChanged(()=>loadPrivateFields());   // runs now, and again after signing in
+      auth.onAuthStateChanged(u=>{                         // the owner's own details load by themselves
+        if(u&&u.uid===data.uid){ loadPrivateFields(); return; }
+        if(_privateFor && _privateFor!==(u ? u.uid+':'+data.id : '')){   // signed out, or someone else signed in: forget what was opened
+          _currentProfile=normalizeProfile({..._currentProfile,email:'',whatsapp:'',constituency:'',currentlocation:'',birthday:''});
+          _privateFor=null;
+        }
+        _contact=_privateFor ? 'shown' : ''; paintProfile(_currentProfile);
+      });
       startComments(id);
       // Show edit button to profile owner — check immediately + on auth change
       function _refreshEditBtn(user){
@@ -1953,11 +1998,15 @@ function paintProfile(s){
   const privateIds = ['profileCounty','profileConst','profileEmail'];
   privateIds.forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=isAnon?'🔒 Hidden':'---'; });
   if(!isAnon){
-    // Contact details only reach the page for signed-in visitors (see loadPrivateFields)
-    const signIn = (auth && auth.currentUser) ? '' : '🔒 Sign in to see';
+    // Contact details: shown once loaded (the owner, or after a tap); until then a button that fetches them
+    const user = auth && auth.currentUser, open = _contact==='shown' || (user && user.uid===s.uid);
+    const why = !user ? '🔒 Sign in to see' : _contact==='profile' ? '🔒 Create your profile to see' : _contact==='limit' ? '🔒 Daily limit reached' : _contact==='loading' ? 'Loading…' : '🔒 Tap to show';
+    const contact = (id, v) => { const el=document.getElementById(id); if(!el) return;
+      if(v || open) el.textContent = v || '---';
+      else el.innerHTML = `<button type="button" class="reveal-btn" data-reveal="show">${esc(why)}</button>`; };
     tx('profileCounty',s.county);
-    tx('profileConst', s.constituency || signIn);
-    tx('profileEmail', s.email || signIn);
+    contact('profileConst', s.constituency);
+    contact('profileEmail', s.email);
   }
   tx('profileBio',   isAnon?'This student chose to keep their profile private.':s.bio);
   tx('profileMemory',isAnon?'🔒 Private':s.bestMemory);
@@ -1999,7 +2048,12 @@ function paintProfile(s){
 
   paintWhatsappButtons(s, isAnon);
   const em=document.getElementById('emailBtn');
-  if(em){ const ok=!isAnon&&s.email; if(ok) em.href=`mailto:${s.email}`; em.style.display=ok?'':'none'; }
+  if(em){                                               // until the details are open, a tap fetches them first
+    const ok=!isAnon&&s.email, maybe=!isAnon&&!ok&&_contact!=='shown'&&s.has_email!==false;
+    if(ok) em.href=`mailto:${s.email}`; else em.setAttribute('href','#');
+    em.dataset.reveal = ok ? '' : (maybe ? 'email' : '');
+    em.style.display=(ok||maybe)?'':'none';
+  }
 
   const hEl=document.getElementById('profileHobbies');
   if(hEl){ if(isAnon){ hEl.innerHTML=`<span style="font-size:.8rem;color:var(--gray-400)">🔒 Private</span>`; } else { const h=parseList(s.hobbies);hEl.innerHTML=h.length?h.map(x=>`<span class="pill">${esc(x)}</span>`).join(''):`<span style="font-size:.8rem;color:var(--gray-400)">No hobbies listed</span>`; } }
@@ -2010,13 +2064,17 @@ function paintProfile(s){
 
 }
 
-// Both "chat on WhatsApp" buttons on a profile: hidden when there is no usable number.
+// Both "chat on WhatsApp" buttons on a profile: hidden when there is no number. Until the details are open
+// (has_whatsapp says a number is there), a tap fetches them first and then opens WhatsApp.
 function paintWhatsappButtons(s, isAnon) {
-  const wa = document.getElementById('whatsappBtn'), waS = document.getElementById('waShareBtn');
-  const link = (!isAnon && s.whatsapp) ? window.waLink(s.whatsapp) : '';
-  const href = link ? `${link}?text=Hi%20${encodeURIComponent(s.name || '')}%2C%20I%20saw%20your%20GLUK%20Yearbook%20profile!` : '';
-  if (wa)  { if (href) wa.href = href;  wa.style.display  = href ? '' : 'none'; }
-  if (waS) { if (href) waS.href = href; waS.style.display = href ? '' : 'none'; }
+  const href = isAnon ? '' : _waHref(s);
+  const maybe = !isAnon && !href && _contact !== 'shown' && s.has_whatsapp !== false;
+  ['whatsappBtn', 'waShareBtn'].forEach(id => {
+    const b = document.getElementById(id); if (!b) return;
+    b.setAttribute('href', href || '#');
+    b.dataset.reveal = href ? '' : (maybe ? 'wa' : '');
+    b.style.display = (href || maybe) ? '' : 'none';
+  });
 }
 
 // ── Edit own profile ──────────────────────────────────
