@@ -885,6 +885,8 @@ button { font-family:inherit; }
 
 /* ── AUTH MODAL ─────────────────────────────────── */
 .auth-overlay {
+  /* It hangs off <html>, not <body>, so it must set the site font itself */
+  font-family: 'Segoe UI',system-ui,-apple-system,sans-serif;
   position: fixed;
   top: 0; left: 0;
   width: 100%;
@@ -1010,6 +1012,23 @@ button { font-family:inherit; }
   transition:all var(--transition);
 }
 .auth-field input:focus { outline:none; border-color:var(--blue-light); background:var(--white); box-shadow:0 0 0 3px var(--blue-glow); }
+/* Show / hide password: a closed book while hidden, an open book while shown */
+.pw-wrap { position:relative; }
+.pw-wrap input { padding-right:52px; }
+.pw-book {
+  position:absolute; top:50%; right:6px; transform:translateY(-50%);
+  width:40px; height:40px; border:0; border-radius:var(--radius-sm); background:transparent;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--gray-400);
+  transition:color var(--transition), background var(--transition);
+}
+.pw-book:hover { color:var(--blue); background:var(--blue-glow); }
+.pw-book:focus-visible { outline:2px solid var(--blue-light); outline-offset:1px; }
+.pw-book svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.pw-book .pw-open, .pw-book[aria-pressed="true"] .pw-closed { display:none; }
+.pw-book[aria-pressed="true"] .pw-open { display:block; animation:pwOpen .25s ease-out; }
+.pw-book[aria-pressed="true"] { color:var(--blue); }
+@keyframes pwOpen { from { transform:scaleX(.4); opacity:.4; } to { transform:none; opacity:1; } }
+@media (prefers-reduced-motion: reduce) { .pw-book[aria-pressed="true"] .pw-open { animation:none; } }
 .auth-error { background:#fef2f2; color:#dc2626; font-size:.75rem; padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px; border:1px solid #fecaca; }
 .auth-submit {
   width:100%; padding:14px;

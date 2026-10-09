@@ -19,6 +19,31 @@ let currentUser   = null;
 let _afterLogin   = null;   // callback to run after successful auth
 let _defaultTab   = 'login';
 
+// Show / hide password: a closed book while hidden, an open book while it can be read
+const _PW_BOOK = `<button type="button" class="pw-book" aria-label="Show password" title="Show password" aria-pressed="false"
+    onmousedown="event.preventDefault()" onclick="togglePasswordShown(this)">
+    <svg class="pw-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19.5v-15A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5 1.5 1.5 0 0 0 6.5 21H19v-3"/><path d="M9 7.5h6"/></svg>
+    <svg class="pw-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5C10.3 5.2 7.9 4.5 3 4.5v13c4.9 0 7.3.7 9 2 1.7-1.3 4.1-2 9-2v-13c-4.9 0-7.3.7-9 2z"/><path d="M12 6.5v13"/><path d="M6 8.6c1.6.1 2.8.4 3.8.9M6 12c1.6.1 2.8.4 3.8.9M18 8.6c-1.6.1-2.8.4-3.8.9M18 12c-1.6.1-2.8.4-3.8.9"/></svg>
+  </button>`;
+
+function togglePasswordShown(btn) {
+  const input = btn.parentElement.querySelector('input');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  const label = show ? 'Hide password' : 'Show password';
+  btn.setAttribute('aria-pressed', String(show));
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+}
+
+// Every password goes back to hidden (closed book), e.g. when the sign-in window closes
+function hidePasswords() {
+  document.querySelectorAll('.pw-wrap input').forEach(i => { i.type = 'password'; });
+  document.querySelectorAll('.pw-book').forEach(b => {
+    b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', 'Show password'); b.title = 'Show password';
+  });
+}
+
 // ── Inject Auth Modal HTML (runs immediately) ──────
 (function buildAuthModal() {
   const el = document.createElement('div');
@@ -71,7 +96,7 @@ let _defaultTab   = 'login';
         </div>
         <div class="auth-field">
           <label>Password</label>
-          <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+          <div class="pw-wrap"><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">${_PW_BOOK}</div>
         </div>
 
         <button type="button" class="auth-link-btn" onclick="forgotPassword()"
@@ -120,7 +145,7 @@ let _defaultTab   = 'login';
         </div>
         <div class="auth-field">
           <label>Password <span style="font-weight:400;color:#8a97b0">(min 6 characters)</span></label>
-          <input type="password" id="signupPass" placeholder="••••••••" autocomplete="new-password">
+          <div class="pw-wrap"><input type="password" id="signupPass" placeholder="••••••••" autocomplete="new-password">${_PW_BOOK}</div>
         </div>
 
         <div id="signupError" class="auth-error" style="display:none"></div>
@@ -239,6 +264,7 @@ function closeAuthModal() {
   }
   _unlockScroll();
   showAuthPanel();
+  hidePasswords();
   _afterLogin = null;
 }
 
@@ -407,6 +433,7 @@ window.openAuthModal           = openAuthModal;
 window.closeAuthModal          = closeAuthModal;
 window.handleAuthOverlayClick  = handleAuthOverlayClick;
 window.switchAuthTab           = switchAuthTab;
+window.togglePasswordShown     = togglePasswordShown;
 window.emailLogin              = emailLogin;
 window.emailSignup             = emailSignup;
 window.signInWithGoogle        = signInWithGoogle;
