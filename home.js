@@ -1,9 +1,10 @@
 // =====================================================
 //  GLUK YEARBOOK 2026 — HOME  (index.html)
 //
-//  A short page: hello + countdown, one card that says what to do next
-//  (create your profile / finish it / share it), your class, who just
-//  joined, lecturers & staff, the latest messages people wrote, then shortcuts.
+//  The crest, hello + countdown, shortcuts, one card that says what to do
+//  next (create your profile as a student or staff / finish it / share it),
+//  your class, who just joined, lecturers & staff, the latest messages
+//  people wrote, About GLUK and the schools.
 //
 //  • Everything shown is public (profiles_public, staff_public, comments). A section
 //    whose data can't load stays hidden instead of showing an error.
@@ -28,10 +29,11 @@
   const show = (id, on) => { const el = $(id); if (el) el.hidden = !on; };
 
   // ── hello ──
-  function greet(name) {
-    const h = new Date().getHours();
-    $('hmGreet').textContent = (h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening') + (name ? ',' : '');
-    $('hmName').textContent = name || 'Welcome to GLUK Yearbook';
+  function greet(name, sub) {
+    const h = new Date().getHours(), hi = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    $('hmHello').textContent = name ? `${hi}, ${name}` : `${hi}, welcome!`;
+    $('hmSub').textContent = sub || '';
+    show('hmSub', !!sub);
   }
 
   // ── the "what next" card ──
@@ -53,11 +55,13 @@
     el.innerHTML = `<div class="hm-act-t"><b>${title}</b><span>${text}</span>${bar == null ? '' :
       `<div class="hm-bar" role="progressbar" aria-label="Profile complete" aria-valuenow="${bar}" aria-valuemin="0" aria-valuemax="100"><i style="width:${bar}%"></i></div>`}</div>${button}`;
   }
-  function paintAct(user, me) {
-    if (!user) return act('is-new', 'Create your yearbook profile', 'Your photo, memories and messages from classmates.',
-      '<a class="hm-btn" href="profiles.html?action=add">Create</a>');
-    if (!me) return act('is-new', "You don't have a profile yet", 'Add yours so classmates can find and sign it.',
-      '<a class="hm-btn" href="profiles.html?action=add">Create</a>');
+  const CREATE = '<button type="button" class="hm-btn" data-act="create">Create</button>';   // asks: student or staff?
+  function paintAct(user, me, staff) {
+    if (!user) return act('is-new', 'Create your yearbook profile', 'For students, alumni, lecturers and staff.', CREATE);
+    if (staff) return staff.status === 'approved'
+      ? act('', 'Your staff profile is live 🎓', 'Students can see it on the yearbook.', '<a class="hm-btn" href="staff.html">Open</a>')
+      : act('', 'Your staff profile is waiting for approval', 'The admin will check it soon.', '<a class="hm-btn" href="staff.html">Open</a>');
+    if (!me) return act('is-new', "You don't have a profile yet", 'Add yours so classmates can find and sign it.', CREATE);
     const steps = STEPS.filter(([, , needsPublic]) => !(needsPublic && me.isanonymous));
     const done = steps.filter(([, test]) => test(me)).length;
     const pct = Math.round(done / steps.length * 100);
@@ -68,6 +72,7 @@
       '<button type="button" class="hm-btn" id="hmShare">Share</button>');
     $('hmShare').onclick = () => share(me);
   }
+  $('hmAct').addEventListener('click', e => { if (e.target.closest('[data-act="create"]')) window.openProfileChooser(); });
   async function share(me) {
     const url = new URL(profileLink(me), location.href).href;
     try {
@@ -108,18 +113,18 @@
     show('hmClassSec', true);
   }
 
-  // ── lecturers and staff: approved ones in a random order, then a bubble inviting staff to add theirs ──
+  // ── lecturers and staff: approved ones in a random order (staff add theirs through "Create") ──
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const staffLabel = s => s.title ? `${s.title} ${String(s.name).trim().split(/\s+/).pop()}` : first(s.name);   // "Dr Achieng"
   async function loadStaff() {
     const { data, error } = await supabase.from('staff_public').select('id,name,title,photo_url').limit(60);
-    if (error) return;                                            // not switched on yet: the section stays hidden
-    $('hmStaff').innerHTML = shuffle(data || []).map(s => {
+    if (error || !data || !data.length) return;                   // none approved yet: the section stays hidden
+    $('hmStaff').innerHTML = shuffle(data).map(s => {
       const u = window.safeUrl(s.photo_url);
       return `<a class="hm-face is-staff" href="staff.html?id=${Number(s.id)}">
         <span class="hm-av">${u ? `<img src="${esc(u)}" alt="" loading="lazy" decoding="async">` : esc(initials(s.name))}</span>
         <span class="hm-face-n">${esc(staffLabel(s))}</span></a>`;
-    }).join('') + '<a class="hm-face hm-add" href="staff.html"><span class="hm-av" aria-hidden="true">+</span><span class="hm-face-n">Staff? Add yours</span></a>';
+    }).join('');
     show('hmStaffSec', true);
   }
 
@@ -150,17 +155,19 @@
   let run = 0;
   async function signedIn(user) {
     const mine = ++run;
-    let me = null;
+    let me = null, staff = null;
     if (user) {
       const { data, error } = await supabase.from('profiles_public').select(MINE).eq('uid', user.uid).limit(1);
       if (error) throw error;
       me = data && data[0] ? data[0] : null;
+      // No student profile: perhaps a lecturer or staff member (not yet switched on, or unreachable: treat as none)
+      if (!me) staff = await window.gApi('staff.mine', {}).then(r => r.staff, () => null);
     }
     if (mine !== run) return;                                     // a newer sign-in/out has taken over
-    greet(me ? first(me.name) : user ? first(user.displayName || String(user.email || '').split('@')[0]) : '');
-    $('hmSub').textContent = me ? [me.classyear ? 'Class of ' + me.classyear : '', me.course || me.dept || ''].filter(Boolean).join(' · ')
-      : 'Great Lakes University of Kisumu';
-    paintAct(user, me);
+    const name = me ? first(me.name) : staff ? [staff.title, String(staff.name || '').trim().split(/\s+/).pop()].filter(Boolean).join(' ')
+      : user ? first(user.displayName || String(user.email || '').split('@')[0]) : '';
+    greet(name, me ? [me.classyear ? 'Class of ' + me.classyear : '', me.course || me.dept || ''].filter(Boolean).join(' · ') : staff ? staff.position : '');
+    paintAct(user, me, staff);
     loadClass(me).catch(() => show('hmClassSec', false));
   }
 

@@ -1621,8 +1621,7 @@ window.goToMyProfile = function () {
       } else if (await window.gApi('staff.mine', {}).then(r => r.staff, () => null)) {
         window.location.href = 'staff.html';                    // lecturers and staff have a staff profile instead
       } else {
-        showToast('No profile yet - let\'s create yours 🎓');
-        openConsentModal();
+        window.openProfileChooser();
       }
     } catch (e) {
       console.warn('[goToMyProfile]', e);
@@ -1631,9 +1630,44 @@ window.goToMyProfile = function () {
   }, 'login');
 };
 
+// ── "Create your profile": student or staff? ──────────
+// Students go on to the usual consent + profile form; lecturers and staff to the staff form (the admin approves those).
+window.openProfileChooser = function () {
+  let ov = document.getElementById('chooserModal');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.className = 'modal-overlay hidden'; ov.id = 'chooserModal';
+    ov.innerHTML = `<div class="modal-sheet pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pcTitle">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="pcTitle">Create your profile</div>
+      <p class="pc-q">Which one are you?</p>
+      <button type="button" class="pc-opt" data-pick="student"><span class="pc-ic" aria-hidden="true">🎓</span>
+        <span class="pc-t"><b>Student or alumni</b><span>Your photo, class and memories. Classmates sign your yearbook.</span></span><span class="pc-go" aria-hidden="true">›</span></button>
+      <button type="button" class="pc-opt" data-pick="staff"><span class="pc-ic" aria-hidden="true">🏛️</span>
+        <span class="pc-t"><b>Lecturer or staff</b><span>Your role and a message to the graduating class. The admin approves it first.</span></span><span class="pc-go" aria-hidden="true">›</span></button>
+      <button type="button" class="btn-secondary" data-pick="">Cancel</button>
+    </div>`;
+    const close = () => { ov.classList.add('hidden'); document.body.style.overflow = ''; };
+    ov.addEventListener('click', e => {
+      const b = e.target.closest('[data-pick]');
+      if (!b && e.target !== ov) return;
+      close();
+      const pick = b ? b.dataset.pick : '';
+      if (pick === 'student') {
+        if (document.getElementById('consentModal')) openConsentModal();     // already on the students page
+        else window.location.href = 'profiles.html?action=add';
+      } else if (pick === 'staff') window.location.href = 'staff.html';
+    });
+    ov.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    document.body.appendChild(ov);
+  }
+  ov.classList.remove('hidden'); document.body.style.overflow = 'hidden';
+  ov.querySelector('.pc-opt').focus();
+};
+
 // ── Bottom tab bar: Home · Students · Clubs · Alerts · Me ─────────────
 // Added to every page in TAB_FOR_PAGE (not the admin panel). On wide screens style.css stands it down the left side.
-const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home', staff: 'home',
+const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home', staff: 'home', about: 'home',
   feed: 'students', profiles: 'students', profile: 'students', clubs: 'clubs', club: 'clubs' };
 const TAB_SVG = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 function renderTabBar() {

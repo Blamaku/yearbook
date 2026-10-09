@@ -29,20 +29,24 @@
   <div class="user-bar" id="userBar"></div>
 
   <main class="hm">
-    <!-- Hello + countdown -->
+    <!-- The crest, hello and countdown -->
     <section class="hm-hero">
-      <div class="hm-hello">
-        <img class="hm-crest" src="logo-128.png" alt="Great Lakes University of Kisumu crest" width="46" height="42" fetchpriority="high">
-        <div>
-          <p class="hm-greet" id="hmGreet">Welcome</p>
-          <h1 id="hmName">GLUK Yearbook</h1>
-          <p class="hm-sub" id="hmSub">Great Lakes University of Kisumu</p>
-        </div>
+      <div class="hm-crest-ring">
+        <img class="hm-crest" src="logo.png" alt="Great Lakes University of Kisumu crest" width="132" height="120" fetchpriority="high">
       </div>
+      <p class="hm-uni">Great Lakes University of Kisumu</p>
+      <h1>Yearbook <span id="hmYear">2026</span></h1>
+      <p class="hm-hello" id="hmHello">Welcome</p>
+      <p class="hm-sub" id="hmSub" hidden></p>
       <div class="hm-count" role="timer" aria-live="off">
-        <span class="hm-days" id="cd-days">--</span>
-        <span class="hm-count-t"><b id="cd-label">days to graduation</b><span id="hmGradDate"></span></span>
-        <span class="hm-clock" id="cd-clock" aria-hidden="true">--:--:--</span>
+        <div class="hm-count-l" id="cd-label">Countdown to graduation</div>
+        <div class="hm-count-g">
+          <span class="hm-unit is-days"><b id="cd-days">--</b><span>Days</span></span>
+          <span class="hm-unit"><b id="cd-hours">--</b><span>Hours</span></span>
+          <span class="hm-unit"><b id="cd-minutes">--</b><span>Mins</span></span>
+          <span class="hm-unit"><b id="cd-seconds">--</b><span>Secs</span></span>
+        </div>
+        <div class="hm-count-d" id="hmGradDate"></div>
       </div>
     </section>
 
@@ -55,44 +59,18 @@
       function set(id,v){ var el=document.getElementById(id); if(el && el.textContent!==v) el.textContent=v; }
       function tick(){
         var diff = target() - Date.now();
-        if(diff<=0){ set('cd-days','🎓'); set('cd-label','Graduation day!'); set('cd-clock','00:00:00'); return; }
-        var days = Math.floor(diff/86400000);
-        set('cd-days', String(days));
-        set('cd-label', days===1 ? 'day to graduation' : 'days to graduation');
-        set('cd-clock', pad(Math.floor((diff%86400000)/3600000))+':'+pad(Math.floor((diff%3600000)/60000))+':'+pad(Math.floor((diff%60000)/1000)));
+        if(diff<=0){ ['days','hours','minutes','seconds'].forEach(function(u){ set('cd-'+u,'00'); }); set('cd-label','🎓 Graduation day!'); return; }
+        set('cd-days',    pad(Math.floor(diff/86400000)));
+        set('cd-hours',   pad(Math.floor((diff%86400000)/3600000)));
+        set('cd-minutes', pad(Math.floor((diff%3600000)/60000)));
+        set('cd-seconds', pad(Math.floor((diff%60000)/1000)));
       }
       tick();
       setInterval(tick, 1000);
     })();
     </script>
 
-    <!-- What to do next: create / finish / share your profile (home.js) -->
-    <div class="hm-act is-loading" id="hmAct" aria-live="polite"></div>
-
-    <section class="hm-sec" id="hmClassSec" hidden>
-      <div class="hm-head"><h2>Your class</h2><a id="hmClassAll" href="profiles.html">See all</a></div>
-      <div class="hm-strip" id="hmClass"></div>
-    </section>
-
-    <section class="hm-sec" id="hmNewSec">
-      <div class="hm-head"><h2>Just joined</h2><a href="feed.html">Swipe through</a></div>
-      <div class="hm-strip" id="hmNew">
-        <span class="hm-tile hm-sk"></span><span class="hm-tile hm-sk"></span><span class="hm-tile hm-sk"></span><span class="hm-tile hm-sk"></span>
-      </div>
-    </section>
-
-    <!-- Shown once the staff table exists; approved staff only, then an "add yours" bubble for staff -->
-    <section class="hm-sec" id="hmStaffSec" hidden>
-      <div class="hm-head"><h2>Lecturers &amp; staff</h2></div>
-      <div class="hm-strip" id="hmStaff"></div>
-    </section>
-
-    <section class="hm-sec" id="hmMsgsSec">
-      <div class="hm-head"><h2>Latest messages</h2></div>
-      <div class="hm-msgs" id="hmMsgs"><span class="hm-msg hm-sk"></span><span class="hm-msg hm-sk"></span></div>
-    </section>
-
-    <section class="hm-sec">
+    <section class="hm-sec hm-explore">
       <div class="hm-head"><h2>Explore</h2></div>
       <div class="hm-grid3">
         <a class="hm-go" href="profiles.html">
@@ -112,6 +90,44 @@
         <a class="hm-link" href="https://gluk.abnselfserve.com/" target="_blank" rel="noopener">Student Portal<span aria-hidden="true">↗</span></a>
         <a class="hm-link" href="https://www.gluk.ac.ke/" target="_blank" rel="noopener">gluk.ac.ke<span aria-hidden="true">↗</span></a>
       </div>
+    </section>
+
+    <!-- What to do next: create (student or staff) / finish / share your profile (home.js) -->
+    <div class="hm-act is-loading" id="hmAct" aria-live="polite"></div>
+
+    <section class="hm-sec" id="hmClassSec" hidden>
+      <div class="hm-head"><h2>Your class</h2><a id="hmClassAll" href="profiles.html">See all</a></div>
+      <div class="hm-strip" id="hmClass"></div>
+    </section>
+
+    <section class="hm-sec" id="hmNewSec">
+      <div class="hm-head"><h2>Just joined</h2><a href="feed.html">Swipe through</a></div>
+      <div class="hm-strip" id="hmNew">
+        <span class="hm-tile hm-sk"></span><span class="hm-tile hm-sk"></span><span class="hm-tile hm-sk"></span><span class="hm-tile hm-sk"></span>
+      </div>
+    </section>
+
+    <!-- Approved lecturers and staff; hidden until there is at least one -->
+    <section class="hm-sec" id="hmStaffSec" hidden>
+      <div class="hm-head"><h2>Lecturers &amp; staff</h2></div>
+      <div class="hm-strip" id="hmStaff"></div>
+    </section>
+
+    <section class="hm-sec" id="hmMsgsSec">
+      <div class="hm-head"><h2>Latest messages</h2></div>
+      <div class="hm-msgs" id="hmMsgs"><span class="hm-msg hm-sk"></span><span class="hm-msg hm-sk"></span></div>
+    </section>
+
+    <section class="hm-sec">
+      <div class="hm-head"><h2>About GLUK</h2></div>
+      <a class="hm-about" href="about.html">
+        <img src="logo-128.png" alt="" width="52" height="47">
+        <span class="hm-about-t">
+          <b>Great Lakes University of Kisumu</b>
+          <span>A chartered university in Kisumu City, on the shores of Lake Victoria.</span>
+          <span class="hm-about-more">Read about our university ›</span>
+        </span>
+      </a>
     </section>
 
     <section class="hm-sec">
@@ -152,7 +168,8 @@
   <script src="home.js"></script>
   <script>
     const GY = window.GRAD_YEAR || new Date().getFullYear();
-    document.getElementById('hmGradDate').textContent = new Date(window.GRAD_DATE).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    document.getElementById('hmYear').textContent = GY;
+    document.getElementById('hmGradDate').textContent = new Date(window.GRAD_DATE).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' · Graduation ceremony';
     document.getElementById('hmAlumniSub').textContent = `Class of ${GY - 1} & earlier`;
     document.getElementById('footerTitle').textContent  = `GLUK Yearbook ${GY}`;
     document.getElementById('footerYear').textContent   = GY;

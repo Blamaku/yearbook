@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <meta name="description" content="About the Great Lakes University of Kisumu (GLUK).">
+  <title>About GLUK — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="About GLUK — Great Lakes University of Kisumu">
+  <meta property="og:description" content="A chartered university in Kisumu City, on the shores of Lake Victoria.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="about">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- About the university. More sections (history, leadership, handbook, constitution, anthem) will be added here. -->
+  <main class="ab">
+    <header class="ab-hero">
+      <a class="ab-back" href="index.html">‹ Home</a>
+      <div class="hm-crest-ring ab-ring"><img class="hm-crest" src="logo.png" alt="Great Lakes University of Kisumu crest" width="132" height="120"></div>
+      <p class="hm-uni">About</p>
+      <h1>Great Lakes University of Kisumu</h1>
+      <p class="ab-place">Kisumu City, on the shores of Lake Victoria</p>
+    </header>
+
+    <section class="ab-sec">
+      <h2>Our university</h2>
+      <p>Great Lakes University of Kisumu (GLUK) is a premier private chartered university located in Kisumu City, on the shores of Lake Victoria — heart of the Great Lakes region of East Africa.</p>
+      <p>Founded with a vision to produce graduates of integrity, competence and compassion, GLUK is committed to academic excellence and community transformation.</p>
+    </section>
+
+    <section class="ab-sec">
+      <h2>Schools &amp; faculties</h2>
+      <div class="hm-grid2 ab-grid">
+        <a class="hm-school" href="department.html?dept=School+of+Medicine"><i style="background:#e0f2fe" aria-hidden="true">🩺</i><span>School of Medicine</span></a>
+        <a class="hm-school" href="department.html?dept=School+of+Nursing+and+Midwifery"><i style="background:#fce7f3" aria-hidden="true">💉</i><span>School of Nursing &amp; Midwifery</span></a>
+        <a class="hm-school" href="department.html?dept=School+of+Public+Health"><i style="background:#d1fae5" aria-hidden="true">🌍</i><span>School of Public Health</span></a>
+        <a class="hm-school" href="department.html?dept=Faculty+of+Education"><i style="background:#dbeafe" aria-hidden="true">🎓</i><span>Faculty of Education</span></a>
+        <a class="hm-school" href="department.html?dept=Faculty+of+Humanities+and+Social+Sciences"><i style="background:#fef3c7" aria-hidden="true">🧠</i><span>Faculty of Humanities &amp; Social Sciences</span></a>
+        <a class="hm-school" href="department.html?dept=Faculty+of+Agribusiness+and+Technology"><i style="background:#dcfce7" aria-hidden="true">🌾</i><span>Faculty of Agribusiness &amp; Technology</span></a>
+        <a class="hm-school" href="department.html?dept=School+of+Business+Administration"><i style="background:#ede9fe" aria-hidden="true">💼</i><span>School of Business Administration</span></a>
+      </div>
+    </section>
+
+    <section class="ab-sec">
+      <h2>Find us</h2>
+      <div class="ab-facts">
+        <div><span>Address</span><b>P.O. Box 2224 – 40100, Kisumu, Kenya</b></div>
+        <div><span>Official website</span><b><a href="https://www.gluk.ac.ke/" target="_blank" rel="noopener">gluk.ac.ke ↗</a></b></div>
+        <div><span>Students</span><b><a href="https://gluk.abnselfserve.com/" target="_blank" rel="noopener">Student Portal ↗</a></b></div>
+      </div>
+    </section>
+
+    <section class="ab-sec ab-soon">
+      <h2>Coming soon</h2>
+      <p>More about GLUK is on its way here: our history, the university's leadership, the student handbook, the constitution and the GLUK anthem.</p>
+    </section>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
