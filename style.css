@@ -1932,6 +1932,75 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 [data-theme="dark"] .ab-facts a { color: var(--blue-vivid); }
 [data-theme="dark"] .ab-soon { background: #2a2208; border-color: #5c4a12; }
 [data-theme="dark"] .ab-soon h2, [data-theme="dark"] .ab-soon p { color: #fcd34d; }
+
+/* About: the GLUK anthem and the card that opens the GLUKSA constitution */
+.ab-anthem { padding: 14px 16px; border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--gray-100); }
+.ab-anthem p:last-child { margin-bottom: 0; }
+.ab-anthem b, .ab-chorus b { color: var(--gray-800); }
+.ab-chorus { padding-left: 12px; border-left: 3px solid var(--gold-bright); font-style: italic; }
+.ab-doc {
+  display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--radius-md);
+  background: var(--surface); border: 1px solid var(--gray-100); color: var(--gray-800);
+}
+.ab-doc:active { transform: scale(.98); }
+.ab-doc-ic { flex-shrink: 0; width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: var(--gold-pale); }
+.ab-doc-t { flex: 1; min-width: 0; }
+.ab-doc-t b, .ab-doc-t span { display: block; }
+.ab-doc-t b { font-size: .92rem; font-weight: 800; }
+.ab-doc-t span { margin-top: 3px; font-size: .76rem; line-height: 1.45; color: var(--gray-600); }
+.ab-doc-go { flex-shrink: 0; font-size: 1.4rem; color: var(--blue); }
+[data-theme="dark"] .ab-doc-ic { background: #2a2208; }
+
+/* ══════════════════════════════════════════════════════════════
+   GLUKSA CONSTITUTION (constitution.html): search, contents chips,
+   one folding card per chapter, articles inside
+   ══════════════════════════════════════════════════════════════ */
+.cn-search {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 10px 14px; border-radius: var(--radius-full);
+  background: var(--surface); border: 2px solid var(--gray-100); transition: border-color var(--transition), box-shadow var(--transition);
+}
+.cn-search:focus-within { border-color: var(--blue-light); box-shadow: 0 0 0 3px var(--blue-glow); }
+.cn-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: .9rem; color: var(--gray-800); }
+.ab-sec p.cn-found { margin: 8px 0 0; font-size: .78rem; font-weight: 700; color: var(--blue); }
+.ab-sec p.cn-found:empty { display: none; }
+.cn-toc { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.cn-toc[hidden] { display: none; }
+.cn-toc a { padding: 6px 11px; border-radius: var(--radius-full); background: var(--surface); border: 1px solid var(--gray-100); font-size: .74rem; font-weight: 700; color: var(--blue); }
+.cn-doc { display: flex; flex-direction: column; gap: 10px; margin: 18px 16px 0; }
+.cn-ch { border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--gray-100); overflow: hidden; scroll-margin-top: 62px; }
+.cn-ch[hidden], .cn-art[hidden] { display: none; }
+.cn-ch > summary {
+  position: relative; padding: 13px 44px 13px 16px; cursor: pointer; list-style: none;
+  font-size: .92rem; font-weight: 800; line-height: 1.35; color: var(--gray-800);
+}
+.cn-ch > summary::-webkit-details-marker { display: none; }
+.cn-ch > summary::after {
+  content: '›'; position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+  font-size: 1.4rem; color: var(--blue); transition: transform var(--transition);
+}
+.cn-ch[open] > summary::after { transform: translateY(-50%) rotate(90deg); }
+.cn-k { display: block; margin-bottom: 2px; font-size: .64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--blue); }
+.cn-art { padding: 12px 16px 14px; border-top: 1px solid var(--gray-100); scroll-margin-top: 62px; }   /* clear of the sticky top bar */
+.cn-art h3 { margin: 2px 0 8px; font-size: .95rem; font-weight: 900; color: var(--gray-800); }
+.cn-art h4 { margin: 12px 0 6px; font-size: .84rem; font-weight: 800; color: var(--gray-800); }
+.cn-art p, .cn-verse { margin: 0 0 6px; font-size: .86rem; line-height: 1.65; color: var(--gray-600); }
+.cn-art b { color: var(--gray-800); }
+.cn-l { padding-left: 14px; }
+.cn-l2 { padding-left: 30px; }
+.cn-art p.cn-note { padding: 8px 12px; border-radius: var(--radius-sm); background: var(--gold-pale); color: #6b5200; }
+.cn-art p.cn-sign { font-size: .8rem; }
+.cn-sign span { color: var(--gray-400); }
+.cn-verse { margin-bottom: 12px; }
+.cn-chorus { padding-left: 12px; border-left: 3px solid var(--gold-bright); font-style: italic; }
+.cn-table-wrap { overflow-x: auto; margin: 6px 0 10px; }
+.cn-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.cn-table th, .cn-table td { padding: 7px 8px; border-bottom: 1px solid var(--gray-100); text-align: left; vertical-align: top; }
+.cn-table th { font-weight: 800; color: var(--gray-800); }
+.cn-table td { color: var(--gray-600); }
+[data-theme="dark"] .cn-art p.cn-note { background: #2a2208; color: #fcd34d; }
+@media (min-width: 900px) {
+  .cn .cn-intro, .cn-doc { max-width: 860px; margin-left: auto; margin-right: auto; }
+}
 @media (min-width: 760px) { .ab-hero { border-radius: 0 0 var(--radius-lg) var(--radius-lg); } }
 /* Wide screens: as wide as Home; paragraphs keep a readable line length */
 @media (min-width: 1100px) {
