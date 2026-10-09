@@ -605,6 +605,7 @@ async function createProfileRecord(rec) {
     if (error) throw error;
     return { profile: data && data[0] };
   });
+  if (window.gMe) window.gMe.refresh();              // a new photo shows on the Me button straight away
   return res.profile ? [res.profile] : [];
 }
 async function updateProfileRecord(id, patch) {
@@ -613,6 +614,7 @@ async function updateProfileRecord(id, patch) {
     if (error) throw error;
     return {};
   });
+  if (window.gMe) window.gMe.refresh();
 }
 // ══ end Secure API client ═══════════════════════════════════════
 
@@ -1681,8 +1683,9 @@ function renderTabBar() {
     <a class="tb-item" href="feed.html"${cur('students')}><span class="tb-ic">${TAB_SVG('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/>')}</span>Students</a>
     <a class="tb-item" href="clubs.html"${cur('clubs')}><span class="tb-ic">${TAB_SVG('<path d="M3 21h18"/><path d="M12 3 4 7v3h16V7z"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/>')}</span>Clubs</a>
     <button type="button" class="tb-item" onclick="openNotifications()"><span class="tb-ic">${TAB_SVG('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a1.9 1.9 0 0 0 3.4 0"/>')}<span class="tb-badge" id="tabNotifBadge" hidden></span></span>Alerts</button>
-    <button type="button" class="tb-item" onclick="goToMyProfile()"><span class="tb-ic">${TAB_SVG('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.3-6 8-6s6.8 2 8 6"/>')}</span>Me</button>`;
+    <button type="button" class="tb-item" onclick="goToMyProfile()"><span class="tb-ic" data-me-face>${TAB_SVG('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.3-6 8-6s6.8 2 8 6"/>')}</span>Me</button>`;
   document.body.appendChild(nav);
+  if (window.gMe) window.gMe.paint();                // your photo instead of the person icon
   document.body.classList.add('has-tabbar');
   if (window.gNotif) window.gNotif.paintBadge();
 }

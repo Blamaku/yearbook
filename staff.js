@@ -145,6 +145,7 @@
       if (photo && photo.blob) url = await uploadPhoto(photo.blob, me.uid, 'staff');
       const was = mine;
       mine = (await window.gApi('staff.save', { staff: { ...d, photo_url: url } })).staff;
+      if (window.gMe) window.gMe.refresh();
       draft = null; photo = null;
       paintForm();
       showToast(!was ? 'Sent! The admin will approve it soon 🎓'

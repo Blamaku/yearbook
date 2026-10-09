@@ -181,9 +181,57 @@ updateUserBar(null);
 auth.onAuthStateChanged(user => {
   currentUser = user;
   updateUserBar(user);
+  loadMe(user);                                       // your own photo (or initials) on the Me button
   if (window.gNotif) window.gNotif.start(user);       // notification bell (no-op when signed out)
   if (window.gPush) window.gPush.sync(user);          // phone notifications: keep this device registered
 });
+
+// ── "Me": wherever the site means "you" (the Me tab, the round badge in the top bar, the
+//    profile button on inner pages) it shows your own yearbook photo, or your initials when
+//    you have none, instead of a generic person icon. Signed out, the icon stays. ──────
+const _ME_KEY = 'gluk-me', _ME_MS = 10 * 60000;      // looked up once, then kept for 10 minutes
+let _me = null;                                      // { uid, photo, initials, at } for the signed-in person
+const _initials = n => (String(n || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('') || '?').toUpperCase();
+const _meUrl = u => (/^https:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
+
+function paintMe() {
+  const on = !!(_me && currentUser && _me.uid === currentUser.uid);
+  const face = !on ? '' : _me.photo
+    ? `<img class="me-face" src="${_ubEsc(_me.photo)}" alt="" decoding="async">`
+    : `<span class="me-face me-ini">${_ubEsc(_me.initials)}</span>`;
+  document.querySelectorAll('[data-me-face]').forEach(slot => {
+    if (slot.dataset.icon === undefined) slot.dataset.icon = slot.innerHTML;   // the generic icon, for signing out
+    slot.innerHTML = on ? face : slot.dataset.icon;
+    slot.classList.toggle('has-me', on);
+  });
+}
+
+async function loadMe(user, fresh) {
+  _me = null;
+  if (!user) { try { sessionStorage.removeItem(_ME_KEY); } catch (e) {} paintMe(); return; }
+  try {
+    const c = JSON.parse(sessionStorage.getItem(_ME_KEY) || 'null');
+    if (!fresh && c && c.uid === user.uid && Date.now() - c.at < _ME_MS) { _me = c; paintMe(); return; }
+  } catch (e) { /* nothing kept */ }
+  _me = { uid: user.uid, photo: '', initials: _initials(user.displayName || String(user.email || '').split('@')[0]), at: Date.now() };
+  paintMe();                                         // initials straight away; the photo follows
+  // supabase.js and app.js load after this file: wait for them when sign-in resolves first
+  if (typeof supabase === 'undefined' || !window.gApi) {
+    await new Promise(r => document.readyState === 'complete' ? r() : window.addEventListener('load', r, { once: true }));
+  }
+  try {
+    const { data, error } = await supabase.from('profiles_public').select('name,photo_url').eq('uid', user.uid).limit(1);
+    if (error) throw error;
+    let row = data && data[0];
+    if (!row && window.gApi) row = (await window.gApi('staff.mine', {})).staff;   // lecturers and staff
+    if (row) { _me.photo = _meUrl(row.photo_url); if (row.name) _me.initials = _initials(row.name); }
+    if (currentUser && currentUser.uid === user.uid) {
+      try { sessionStorage.setItem(_ME_KEY, JSON.stringify(_me)); } catch (e) {}
+    }
+  } catch (e) { console.warn('[me]', e); }           // keep the initials; try again on the next page
+  if (currentUser && currentUser.uid === user.uid) paintMe();
+}
+window.gMe = { paint: paintMe, refresh: () => loadMe(currentUser, true) };
 
 // ── Update user bar on every page ─────────────────
 function updateUserBar(user) {
@@ -202,7 +250,7 @@ function updateUserBar(user) {
     bar.innerHTML = `
       <div class="ub-left">
         <img class="ub-logo ub-logo-auth" src="logo-64.png" alt="GLUK" width="29" height="26">
-        <div class="ub-avatar">${initial}</div>
+        <div class="ub-avatar" data-me-face>${initial}</div>
         <span class="ub-name">${safeName}</span>
         ${isAdmin ? '<span class="ub-admin-badge">Admin</span>' : ''}
       </div>
@@ -212,6 +260,7 @@ function updateUserBar(user) {
         ${isAdmin ? '<a href="admin.html" class="ub-btn ub-admin-btn">🛠 Admin</a>' : ''}
         <button class="ub-btn ub-logout" onclick="logOut()">Sign Out</button>
       </div>`;
+    paintMe();
   } else {
     bar.innerHTML = `
       <div class="ub-left">
