@@ -24,11 +24,38 @@
     /* ── Club page ─────────────────────────────── */
     body[data-page="club"] .top-bar { position:static; }        /* only the tab strip stays pinned */
 
+    /* The header in the club's own colour: bright round the club's icon, deeper at the edges */
     .club-hero {
-      position:relative; color:#fff; text-align:center; padding:18px 18px 22px;
+      position:relative; overflow:hidden; color:#fff; text-align:center; padding:16px 18px 24px;
       background:linear-gradient(160deg,var(--navy),var(--navy-mid,#0a2a5e));
-      background:linear-gradient(160deg,color-mix(in srgb,var(--cc,#0f4c81) 42%,#061020) 0%,var(--cc,#0f4c81) 115%);
+      background:radial-gradient(120% 85% at 50% 22%, color-mix(in srgb,var(--cc,#0f4c81) 72%,#fff) 0%, var(--cc,#0f4c81) 40%, color-mix(in srgb,var(--cc,#0f4c81) 50%,#061020) 100%);
     }
+    .club-hero::after {
+      content:''; position:absolute; inset:0; pointer-events:none;
+      background-image:radial-gradient(circle, rgba(255,255,255,.09) 1px, transparent 1px); background-size:26px 26px;
+    }
+    .club-hero > * { position:relative; z-index:1; }
+    /* The club's icon in the same turning ring as the GLUK crest, in the club's colours */
+    .hm-crest-ring.club-ring { width:104px; height:104px; margin:4px auto 14px; box-shadow:0 0 0 12px rgba(255,255,255,.1), 0 0 44px color-mix(in srgb,var(--cc,#0f4c81) 70%,#fff); }
+    .club-ring::before { inset:-7px; background:conic-gradient(var(--cc,#0f4c81), color-mix(in srgb,var(--cc,#0f4c81) 30%,#fff), #f5c518, var(--cc,#0f4c81)); }
+    .club-ring .hm-aura { inset:-26px; background:conic-gradient(var(--cc,#0f4c81), color-mix(in srgb,var(--cc,#0f4c81) 25%,#fff), var(--cc,#0f4c81)); opacity:.7; }
+    .club-emoji { position:relative; z-index:1; font-size:2.7rem; line-height:1; }
+    .club-faces { display:flex; justify-content:center; align-items:center; margin:2px 0 14px; min-height:30px; }
+    .club-faces i { width:30px; height:30px; margin-left:-9px; border-radius:50%; border:2px solid rgba(255,255,255,.95); background:rgba(255,255,255,.25) center/cover no-repeat; }
+    .club-faces i:first-child { margin-left:0; }
+    .club-faces span { margin-left:10px; font-size:.74rem; font-weight:700; color:rgba(255,255,255,.92); }
+    /* The newest post, at the top of About */
+    .latest { border-left:4px solid var(--cc,var(--blue)); }
+    .latest-top { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+    .latest-top h2 { margin:0; flex:1; }
+    .latest-body { display:flex; gap:12px; }
+    .latest-body img { flex-shrink:0; width:76px; height:76px; border-radius:12px; object-fit:cover; background:var(--gray-100); }
+    .latest-t { flex:1; min-width:0; }
+    .latest-t b { display:block; font-size:.95rem; color:var(--navy); line-height:1.3; }
+    .latest-t p { margin:4px 0 0; font-size:.82rem; line-height:1.5; color:var(--gray-600); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .latest-more { display:inline-block; margin-top:10px; border:0; background:none; padding:0; font:inherit; font-size:.8rem; font-weight:800; color:var(--blue); cursor:pointer; }
+    .meet-row { display:flex; gap:10px; align-items:flex-start; }
+    .meet-row + .meet-row { margin-top:6px; }
     .club-hero .breadcrumb { display:flex; gap:6px; justify-content:center; font-size:.68rem; color:rgba(255,255,255,.7); margin-bottom:12px; flex-wrap:wrap; }
     .club-hero .breadcrumb a { color:rgba(255,255,255,.8); text-decoration:none; }
     .hero-icon {
@@ -38,8 +65,8 @@
     .club-hero h1 { font-size:1.25rem; font-weight:800; margin:0 0 4px; color:#fff; }
     .hero-desc { font-size:.8rem; opacity:.9; margin:0 0 8px; }
     .hero-cat { display:inline-block; font-size:.62rem; font-weight:800; letter-spacing:.5px; text-transform:uppercase; padding:3px 10px; border-radius:20px; background:rgba(255,255,255,.18); }
-    .hero-stats { display:flex; justify-content:center; gap:28px; margin:16px 0 14px; }
-    .hero-stats div { display:flex; flex-direction:column; align-items:center; }
+    .hero-stats { display:flex; justify-content:center; gap:8px; margin:14px 0 12px; }
+    .hero-stats div { display:flex; flex-direction:column; align-items:center; min-width:82px; padding:8px 12px; border-radius:14px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18); }
     .hero-stats b { font-size:1.15rem; font-weight:800; }
     .hero-stats span { font-size:.62rem; opacity:.85; text-transform:uppercase; letter-spacing:.4px; }
     .join-btn {
@@ -69,7 +96,9 @@
     .c-text div + div { margin-top:4px; }
     .lead-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:12px; }
     .lead { text-align:center; }
-    .lead-av { width:46px; height:46px; margin:0 auto 6px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.85rem; color:#fff; background:var(--cc,var(--blue)); }
+    .lead { text-decoration:none; color:inherit; }
+    .lead-av { width:56px; height:56px; margin:0 auto 6px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.9rem; color:#fff; background:var(--cc,var(--blue)); box-shadow:0 0 0 2px var(--white), 0 0 0 4px var(--cc,var(--blue)); }
+    .lead-av img { width:100%; height:100%; object-fit:cover; }
     .lead-nm { font-size:.75rem; font-weight:700; color:var(--navy); line-height:1.25; }
     .lead-role { font-size:.66rem; color:var(--gray-400); margin-top:1px; }
     .contact-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
@@ -213,7 +242,7 @@
     <div class="breadcrumb">
       <a href="index.html">Home</a><span>›</span><a href="clubs.html">Clubs</a><span>›</span><span id="bcClub">Club</span>
     </div>
-    <div class="hero-icon" id="heroIcon">🏛️</div>
+    <div class="hm-crest-ring club-ring"><span class="hm-aura" aria-hidden="true"></span><span class="club-emoji" id="heroIcon" aria-hidden="true">🏛️</span></div>
     <h1 id="heroName">Club</h1>
     <p class="hero-desc" id="heroDesc"></p>
     <span class="hero-cat" id="heroCat"></span>
@@ -222,6 +251,7 @@
       <div><b id="stActs">–</b><span>Activities</span></div>
       <div><b id="stPhotos">–</b><span>Photos</span></div>
     </div>
+    <div class="club-faces" id="heroFaces"></div>
     <button class="join-btn" id="joinBtn" type="button">＋ Join this club</button>
   </header>
 
@@ -236,6 +266,7 @@
 
     <section class="club-panel active" id="panel-about">
       <div id="officerBanner"></div>
+      <div id="latestPost"></div>
       <div class="c-card"><h2>About</h2><p class="c-text" id="aboutText"></p></div>
       <div class="c-card"><h2>Meets</h2><div class="c-text" id="meetBody"></div></div>
       <div class="c-card"><h2>Leadership</h2><div id="leadBody"></div></div>
@@ -417,13 +448,50 @@
     }
 
     /* ── About tab ─────────────────────────────────── */
+    // An official's yearbook profile: the one club member whose name contains every word of theirs
+    const words = s => String(s || '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean);
+    function memberFor(name) {
+      const w = words(name); if (!w.length) return null;
+      const hits = _members.filter(m => { const mw = words(m.name); return w.every(x => mw.includes(x)); });
+      return hits.length === 1 ? hits[0] : null;
+    }
     function leadHTML() {
       if (!_officers.length) return '<p class="muted">No officials have been added yet.</p>';
       const sorted = [..._officers].sort((a, b) => rank(a.role) - rank(b.role));
       return `<div class="lead-grid">${sorted.map(o => {
-        const nm = o.officer_name || 'Club official';
-        return `<div class="lead"><div class="lead-av">${E(ini(nm))}</div><div class="lead-nm">${E(nm)}</div><div class="lead-role">${E(o.role || 'Officer')}</div></div>`;
+        const nm = o.officer_name || 'Club official', m = memberFor(o.officer_name);
+        const photo = m ? window.safeUrl(m.photo_url) : '';
+        const av = `<div class="lead-av">${photo ? `<img src="${E(photo)}" alt="" loading="lazy">` : E(ini(nm))}</div>`;
+        const inner = `${av}<div class="lead-nm">${E(nm)}</div><div class="lead-role">${E(o.role || 'Officer')}</div>`;
+        return m ? `<a class="lead" href="profile.html?id=${Number(m.id)}">${inner}</a>` : `<div class="lead">${inner}</div>`;
       }).join('')}</div>`;
+    }
+
+    // A few members' faces under the numbers
+    function paintFaces() {
+      const withPhoto = _members.filter(m => window.safeUrl(m.photo_url)).slice(0, 5);
+      const n = _members.length;
+      $('heroFaces').innerHTML = n ? withPhoto.map(m => `<i style="background-image:url('${E(window.safeUrl(m.photo_url)).replace(/'/g, '%27')}')"></i>`).join('')
+        + `<span>${n === 1 ? '1 member' : n + ' members'}${_me && window.parseClubField(_me.clubs).some(c => c.toLowerCase() === CLUB.toLowerCase()) ? ', including you' : ''}</span>` : '';
+    }
+
+    // The newest post (a pinned one first) at the top of About
+    async function loadLatest() {
+      try {
+        const rows = await fetchPosts('all', 0);
+        const p = rows[0];
+        if (!p) { $('latestPost').innerHTML = ''; return; }
+        const img = (Array.isArray(p.file_urls) ? p.file_urls : []).map(window.safeUrl).filter(u => u && isImg(u))[0];
+        const type = TYPE_LABEL[p.type] ? p.type : 'notice';
+        $('latestPost').innerHTML = `<div class="c-card latest">
+          <div class="latest-top"><h2>${p.pinned ? '📌 Pinned' : 'Latest from the club'}</h2><span class="badge t-${type}">${E(TYPE_LABEL[type])}</span></div>
+          <div class="latest-body">${img ? `<img src="${E(img)}" alt="" loading="lazy">` : ''}
+            <div class="latest-t"><b>${E(p.title || TYPE_LABEL[type].replace(/^\S+\s/, ''))}</b>${p.body ? `<p>${E(p.body)}</p>` : ''}
+              <small class="muted">${E(fmtDate(p.post_date || p.created_at))}</small></div></div>
+          <button type="button" class="latest-more" id="latestMore">See all posts ›</button>
+        </div>`;
+        $('latestMore').onclick = () => setTab('feed');
+      } catch (e) { $('latestPost').innerHTML = ''; }
     }
 
     function paintOfficerBanner() {
@@ -449,7 +517,7 @@
 
       const days = _info && _info.meeting_days, place = _info && _info.meeting_place;
       $('meetBody').innerHTML = (days || place)
-        ? `${days ? `<div>🗓 ${E(days)}</div>` : ''}${place ? `<div>📍 ${E(place)}</div>` : ''}`
+        ? `${days ? `<div class="meet-row"><span>🗓</span><span>${E(days)}</span></div>` : ''}${place ? `<div class="meet-row"><span>📍</span><span>${E(place)}</span></div>` : ''}`
         : '<span class="muted">Meeting times have not been shared yet.</span>';
 
       $('leadBody').innerHTML = leadHTML();
@@ -508,7 +576,8 @@
       }
       _members = rows.filter(r => !r.isanonymous);
       $('stMembers').textContent = _members.length;
-      paintMembers();
+      paintMembers(); paintFaces();
+      $('leadBody').innerHTML = leadHTML(); paintLead2();          // officials' photos come from the member list
     }
 
     function paintMembers() {
@@ -701,7 +770,7 @@
         $('stActs').textContent = error ? '0' : (count || 0);
       } catch (e) { $('stActs').textContent = '0'; }
     }
-    function refreshAll() { loadFeed(true); loadGallery(); loadActs(); try { sessionStorage.removeItem('gluk-club-stats'); } catch (e) {} }
+    function refreshAll() { loadFeed(true); loadGallery(); loadActs(); loadLatest(); try { sessionStorage.removeItem('gluk-club-stats'); } catch (e) {} }
 
     /* ── Lightbox ──────────────────────────────────── */
     let _lbList = [], _lbI = 0;
@@ -936,7 +1005,7 @@
     auth.onAuthStateChanged(async user => {
       _user = user; syncHeader();
       await Promise.all([loadMe(), loadMyOfficer()]);
-      paintJoin(); paintAbout(); paintFab();
+      paintJoin(); paintAbout(); paintFab(); paintFaces(); loadLatest();
       if (_feedOnce) loadFeed(true);                 // sign-in changes who can see minutes
     });
 

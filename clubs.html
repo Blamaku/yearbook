@@ -11,8 +11,8 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="GLUK Yearbook 2026">
-  <meta property="og:title" content="GLUK Yearbook 2026 — Great Lakes University of Kisumu">
-  <meta property="og:description" content="Browse student profiles, photos and memories from the Great Lakes University of Kisumu.">
+  <meta property="og:title" content="Clubs &amp; Societies — GLUK Yearbook 2026">
+  <meta property="og:description" content="Every club and society at the Great Lakes University of Kisumu: members, notices, activities and photos.">
   <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
   <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
@@ -20,58 +20,108 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="style.css">
   <style>
-    /* ── Clubs list ─────────────────────────────── */
-    .club-tools { padding:14px 16px 4px; }
-    .club-search {
-      width:100%; padding:12px 16px; border-radius:var(--radius-md); border:1.5px solid var(--gray-200);
-      font-size:.85rem; background:var(--white); color:var(--navy); box-sizing:border-box; outline:none; font-family:inherit;
+    /* ── Clubs list: your clubs, the most active ones, then every club as a compact row ── */
+    .cl-hero {
+      position:relative; overflow:hidden; color:#fff; padding:14px 16px 22px;
+      background:linear-gradient(165deg, #04152a 0%, #062f5c 55%, #0b5c9e 100%);
     }
-    .club-search:focus { border-color:var(--blue-light,#4a90e2); }
-    .cat-row { display:flex; gap:8px; overflow-x:auto; padding:12px 0 4px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
-    .cat-row::-webkit-scrollbar { display:none; }
+    .cl-hero::after {
+      content:''; position:absolute; inset:0; pointer-events:none;
+      background-image:radial-gradient(circle, rgba(197,216,0,.07) 1px, transparent 1px); background-size:28px 28px;
+    }
+    .cl-hero > * { position:relative; z-index:1; }
+    .cl-hero .breadcrumb { margin-bottom:10px; }
+    .cl-hero h1 { font-size:1.6rem; font-weight:900; line-height:1.15; }
+    .cl-hero p { margin-top:4px; font-size:.82rem; color:rgba(255,255,255,.75); }
+    .cl-search {
+      display:flex; align-items:center; gap:8px; margin-top:14px; padding:11px 14px; border-radius:var(--radius-full);
+      background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2);
+    }
+    .cl-search:focus-within { background:rgba(255,255,255,.18); border-color:rgba(255,255,255,.45); }
+    .cl-search input { flex:1; min-width:0; border:0; outline:0; background:transparent; color:#fff; font:inherit; font-size:.9rem; }
+    .cl-search input::placeholder { color:rgba(255,255,255,.6); }
+    .cl-cats { display:flex; gap:8px; overflow-x:auto; padding:12px 16px 4px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .cl-cats::-webkit-scrollbar { display:none; }
     .cat-chip {
-      flex-shrink:0; padding:7px 14px; border-radius:50px; font-size:.72rem; font-weight:700; font-family:inherit;
-      border:1.5px solid var(--gray-200); background:var(--white); color:var(--gray-600); cursor:pointer; white-space:nowrap;
+      flex-shrink:0; padding:7px 14px; border-radius:50px; font-size:.74rem; font-weight:700; font-family:inherit;
+      border:1.5px solid var(--gray-100); background:var(--surface); color:var(--gray-600); cursor:pointer; white-space:nowrap;
     }
-    .cat-chip.active { background:var(--navy); border-color:var(--navy); color:var(--white); }
-    .club-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:10px 16px 40px; }
-    @media (min-width:640px) { .club-grid { grid-template-columns:repeat(3,1fr); } }
-    .club-card {
-      position:relative; overflow:hidden; display:flex; flex-direction:column; gap:2px; text-decoration:none;
-      background:var(--white); border:1px solid var(--gray-100); border-radius:var(--radius-lg);
-      padding:16px 14px 14px; box-shadow:var(--shadow-sm); transition:transform .15s, box-shadow .15s;
+    .cat-chip.active { background:var(--navy); border-color:var(--navy); color:#fff; }
+    [data-theme="dark"] .cat-chip.active { background:var(--blue-vivid); border-color:var(--blue-vivid); color:#04152a; }
+    .cl-main { padding:4px 0 40px; }
+    .cl-sec { margin-top:18px; }
+    .cl-sec[hidden] { display:none; }
+    .cl-sec > h2 { padding:0 16px; margin-bottom:10px; font-size:1.05rem; font-weight:900; color:var(--gray-800); }
+    .cl-tile {
+      flex-shrink:0; width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.45rem;
+      background:rgba(15,76,129,.12); background:color-mix(in srgb, var(--cc,#0f4c81) 16%, transparent);
     }
-    .club-card::before { content:''; position:absolute; left:0; right:0; top:0; height:4px; background:var(--cc,#0f4c81); }
-    .club-card:active { transform:scale(.97); }
-    .club-tile {
-      width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center;
-      font-size:1.4rem; margin-bottom:8px; background:rgba(15,76,129,.1);
-      background:color-mix(in srgb, var(--cc,#0f4c81) 16%, transparent);
-    }
-    .club-name  { font-weight:800; font-size:.84rem; color:var(--navy); line-height:1.25; }
-    .club-count { font-size:.72rem; color:var(--gray-600); margin-top:2px; }
-    .club-status { display:flex; align-items:center; gap:6px; font-size:.66rem; color:var(--gray-400); margin-top:6px; min-height:14px; }
-    .club-status .dot { width:7px; height:7px; border-radius:50%; background:var(--gray-200); flex-shrink:0; }
-    .club-status.fresh { color:#15803d; }
-    .club-status.fresh .dot { background:#22c55e; }
-    .club-empty { text-align:center; padding:40px 24px; color:var(--gray-400); font-size:.85rem; }
-    [data-theme="dark"] .club-tile { background:rgba(255,255,255,.08); background:color-mix(in srgb, var(--cc,#0f4c81) 30%, transparent); }
-    [data-theme="dark"] .club-status.fresh { color:#4ade80; }
+    [data-theme="dark"] .cl-tile { background:color-mix(in srgb, var(--cc,#0f4c81) 32%, transparent); }
 
-    /* Desktop only (860px+): cap and centre the search/filter row and the
-       club grid, and use more columns instead of stretching 3 huge ones. */
-    @media (min-width: 860px) {
-      .club-tools {
-        max-width: var(--content-max, 920px);
-        margin: 0 auto;
-        padding-left: 0; padding-right: 0;
-      }
-      .club-grid {
-        max-width: var(--content-max, 920px);
-        margin: 0 auto;
-        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-      }
+    /* Your clubs: a row you can swipe */
+    .cl-mine { display:flex; gap:10px; overflow-x:auto; padding:2px 16px 6px; scrollbar-width:none; }
+    .cl-mine::-webkit-scrollbar { display:none; }
+    .cl-chip {
+      flex:0 0 auto; display:flex; align-items:center; gap:10px; max-width:240px; padding:8px 14px 8px 8px; border-radius:var(--radius-full);
+      background:var(--surface); border:1.5px solid color-mix(in srgb, var(--cc,#0f4c81) 40%, transparent); color:var(--gray-800);
     }
+    .cl-chip .cl-tile { width:36px; height:36px; border-radius:50%; font-size:1.1rem; }
+    .cl-chip b { display:block; font-size:.8rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cl-chip small { font-size:.68rem; color:var(--gray-600); }
+
+    /* Most active: bigger cards in the club's colour */
+    .cl-top { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; padding:0 16px; }
+    .cl-big {
+      position:relative; overflow:hidden; display:flex; flex-direction:column; min-height:150px; padding:14px; border-radius:var(--radius-lg); color:#fff;
+      background:linear-gradient(150deg, color-mix(in srgb, var(--cc,#0f4c81) 80%, #fff) 0%, var(--cc,#0f4c81) 45%, color-mix(in srgb, var(--cc,#0f4c81) 60%, #061020) 100%);
+      box-shadow:0 8px 22px color-mix(in srgb, var(--cc,#0f4c81) 30%, transparent);
+    }
+    .cl-big::after { content:''; position:absolute; right:-24px; top:-24px; width:96px; height:96px; border-radius:50%; background:rgba(255,255,255,.12); }
+    .cl-big .cl-tile { background:rgba(255,255,255,.92); }
+    .cl-big b { margin-top:10px; font-size:.92rem; font-weight:900; line-height:1.2; }
+    .cl-big .cl-st { margin-top:auto; padding-top:8px; font-size:.7rem; color:rgba(255,255,255,.9); }
+    .cl-big .cl-faces { margin-top:6px; }
+    .cl-big .cl-faces i { border-color:rgba(255,255,255,.9); }
+    .cl-big:active { transform:scale(.98); }
+
+    /* Every club: compact rows */
+    .cl-list { display:grid; gap:8px; padding:0 16px; }
+    .cl-row {
+      display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:var(--radius-md);
+      background:var(--surface); border:1px solid var(--gray-100); border-left:4px solid var(--cc,#0f4c81); color:var(--gray-800);
+    }
+    .cl-row:active { transform:scale(.99); }
+    .cl-row-t { flex:1; min-width:0; }
+    .cl-row-t b { display:block; font-size:.88rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cl-row-t small { display:block; margin-top:1px; font-size:.72rem; color:var(--gray-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cl-st { display:flex; align-items:center; gap:6px; margin-top:3px; font-size:.68rem; color:var(--gray-400); }
+    .cl-st .dot { width:7px; height:7px; border-radius:50%; background:var(--gray-200); flex-shrink:0; }
+    .cl-st.fresh { color:#15803d; }
+    .cl-st.fresh .dot { background:#22c55e; }
+    [data-theme="dark"] .cl-st.fresh { color:#4ade80; }
+    .cl-big .cl-st.fresh, .cl-big .cl-st { color:rgba(255,255,255,.92); }
+    .cl-big .cl-st .dot { background:rgba(255,255,255,.6); }
+    .cl-big .cl-st.fresh .dot { background:#bef264; }
+    .cl-faces { display:flex; align-items:center; flex-shrink:0; }
+    .cl-faces i { width:26px; height:26px; margin-left:-8px; border-radius:50%; border:2px solid var(--surface); background:var(--gray-100) center/cover no-repeat; }
+    .cl-faces i:first-child { margin-left:0; }
+    .cl-go { flex-shrink:0; font-size:1.3rem; color:var(--gray-400); }
+    .club-empty { padding:30px 24px; text-align:center; color:var(--gray-400); font-size:.85rem; }
+    .club-empty[hidden] { display:none; }
+
+    @media (min-width: 600px) {
+      .cl-top { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+      .cl-list { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    }
+    /* Desktop: the same content width as the rest of the site */
+    @media (min-width: 860px) {
+      .cl-hero { padding-left:max(28px, calc((100% - var(--content-max, 920px)) / 2)); padding-right:max(28px, calc((100% - var(--content-max, 920px)) / 2)); padding-top:22px; padding-bottom:28px; }
+      .cl-search { max-width:560px; }
+      .cl-cats, .cl-main { max-width:var(--content-max, 920px); margin:0 auto; }
+      .cl-cats { padding-left:0; padding-right:0; }
+      .cl-sec > h2, .cl-mine, .cl-top, .cl-list { padding-left:0; padding-right:0; }
+    }
+    @media (min-width: 1100px) { .cl-list { grid-template-columns:repeat(3, minmax(0, 1fr)); } }
   </style>
 </head>
 <body data-page="clubs">
@@ -86,23 +136,34 @@
     <button class="profile-icon-btn" data-me-face id="myProfileBtn" onclick="goToMyProfile()" title="My profile" aria-label="My profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></button>
   </nav>
 
-  <div class="page-hero">
+  <header class="cl-hero">
     <div class="breadcrumb">
-      <a href="index.html" style="color:rgba(255,255,255,.55)">Home</a>
+      <a href="index.html" style="color:rgba(255,255,255,.6)">Home</a>
       <span>›</span>
       <span>Clubs &amp; Societies</span>
     </div>
     <h1>Clubs &amp; Societies</h1>
     <p id="clubsSubtitle">Find your people across GLUK</p>
-  </div>
+    <label class="cl-search"><span aria-hidden="true">🔍</span><input type="search" id="clubSearch" placeholder="Search clubs" autocomplete="off" aria-label="Search clubs"></label>
+  </header>
 
-  <div class="club-tools">
-    <input type="search" id="clubSearch" class="club-search" placeholder="🔍  Search clubs…" autocomplete="off">
-    <div class="cat-row" id="catRow"></div>
-  </div>
+  <div class="cl-cats" id="catRow"></div>
 
-  <div class="club-grid" id="clubGrid"></div>
-  <div class="club-empty" id="clubEmpty" style="display:none">No clubs match your search.</div>
+  <main class="cl-main">
+    <section class="cl-sec" id="secMine" hidden>
+      <h2>Your clubs</h2>
+      <div class="cl-mine" id="mineRow"></div>
+    </section>
+    <section class="cl-sec" id="secTop" hidden>
+      <h2 id="topTitle">Most active</h2>
+      <div class="cl-top" id="topGrid"></div>
+    </section>
+    <section class="cl-sec">
+      <h2 id="allTitle">All clubs</h2>
+      <div class="cl-list" id="clubGrid"></div>
+      <div class="club-empty" id="clubEmpty" hidden>No clubs match your search.</div>
+    </section>
+  </main>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -118,53 +179,91 @@
     const E   = s => window.escHtml(s);
     const ALL = window.CLUB_CATALOG || [];
     const CATS = window.CLUB_CATEGORIES || [];
-    let cat = 'All', q = '', stats = null;
+    const MONTH = 30 * 864e5;
+    let cat = 'All', q = '', stats = null, mine = [];
+    const $ = id => document.getElementById(id);
 
-    function statusOf(name) {
-      if (!stats) return { text: '', fresh: false };
-      return window.clubActivityLabel(stats.last[name]);
+    const href = c => 'club.html?club=' + encodeURIComponent(c.name);
+    const count = c => stats ? (stats.members[c.name] || 0) : null;
+    const lastAt = c => stats && stats.last[c.name] ? Date.parse(stats.last[c.name]) || 0 : 0;
+    const members = n => n === null ? '' : n + ' member' + (n === 1 ? '' : 's');
+    const status = c => stats ? window.clubActivityLabel(stats.last[c.name]) : { text: '', fresh: false };
+    const faces = (c, n) => ((stats && stats.faces && stats.faces[c.name]) || []).slice(0, n)
+      .map(u => `<i style="background-image:url('${E(u).replace(/'/g, '%27')}')"></i>`).join('');
+    // Newest post first, then the biggest clubs, then by name
+    const byActivity = (a, b) => (lastAt(b) - lastAt(a)) || ((count(b) || 0) - (count(a) || 0)) || a.name.localeCompare(b.name);
+
+    function stHTML(c) {
+      const st = status(c);                          // the line keeps its space while the numbers load
+      return `<span class="cl-st${st.fresh ? ' fresh' : ''}">${st.text ? '<i class="dot"></i>' : ''}<span>${E(st.text) || '&nbsp;'}</span></span>`;
+    }
+    function rowHTML(c) {
+      return `<a class="cl-row" href="${href(c)}" style="--cc:${E(c.color)}">
+        <span class="cl-tile">${c.icon}</span>
+        <span class="cl-row-t"><b>${E(c.name)}</b><small>${E(c.cat)}${count(c) === null ? '' : ' · ' + members(count(c))}</small>${stHTML(c)}</span>
+        <span class="cl-faces">${faces(c, 3)}</span><span class="cl-go" aria-hidden="true">›</span>
+      </a>`;
     }
 
     function render() {
-      const lq = q.toLowerCase();
+      const lq = q.toLowerCase(), filtering = cat !== 'All' || !!lq;
       const list = ALL.filter(c =>
         (cat === 'All' || c.cat === cat) &&
         (!lq || c.name.toLowerCase().includes(lq) || c.desc.toLowerCase().includes(lq) || c.cat.toLowerCase().includes(lq)));
-      document.getElementById('clubsSubtitle').textContent =
-        `${list.length} club${list.length === 1 ? '' : 's'} — tap one to see members, activities and photos`;
-      document.getElementById('clubEmpty').style.display = list.length ? 'none' : 'block';
-      document.getElementById('clubGrid').innerHTML = list.map((c, i) => {
-        const n  = stats ? (stats.members[c.name] || 0) : null;
-        const st = statusOf(c.name);
-        return `
-          <a class="club-card slide-in" href="club.html?club=${encodeURIComponent(c.name)}"
-             style="--cc:${E(c.color)};animation-delay:${Math.min(i, 10) * .04}s">
-            <div class="club-tile">${c.icon}</div>
-            <div class="club-name">${E(c.name)}</div>
-            <div class="club-count">${n === null ? '&nbsp;' : n + ' member' + (n === 1 ? '' : 's')}</div>
-            <div class="club-status${st.fresh ? ' fresh' : ''}"><i class="dot"></i><span>${E(st.text) || '&nbsp;'}</span></div>
-          </a>`;
-      }).join('');
+      const total = stats ? Object.values(stats.members).reduce((n, v) => n + v, 0) : 0;
+      $('clubsSubtitle').textContent = `${ALL.length} clubs${total ? ` · ${total} memberships` : ''} — find your people across GLUK`;
+
+      // Your clubs
+      const myClubs = ALL.filter(c => mine.some(m => m.toLowerCase() === c.name.toLowerCase()));
+      $('secMine').hidden = filtering || !myClubs.length;
+      $('mineRow').innerHTML = myClubs.map(c => `<a class="cl-chip" href="${href(c)}" style="--cc:${E(c.color)}">
+        <span class="cl-tile">${c.icon}</span><span><b>${E(c.name)}</b><small>${E(members(count(c)) || c.cat)}</small></span></a>`).join('');
+
+      // Most active (newest posts in the last month), else the biggest clubs
+      const recent = ALL.filter(c => lastAt(c) && Date.now() - lastAt(c) < MONTH).sort(byActivity);
+      const top = (recent.length >= 2 ? recent : ALL.slice().sort(byActivity)).slice(0, 4);
+      $('secTop').hidden = filtering || !stats;
+      $('topTitle').textContent = recent.length >= 2 ? 'Most active' : 'Biggest clubs';
+      $('topGrid').innerHTML = top.map(c => `<a class="cl-big" href="${href(c)}" style="--cc:${E(c.color)}">
+        <span class="cl-tile">${c.icon}</span><b>${E(c.name)}</b>
+        <span class="cl-faces">${faces(c, 4)}</span>${stHTML(c)}<span class="cl-st"><span>${E(members(count(c)))}</span></span></a>`).join('');
+
+      // Every club (or the ones matching the search / category)
+      const sorted = list.slice().sort(stats ? byActivity : (a, b) => a.name.localeCompare(b.name));
+      $('allTitle').textContent = filtering ? `${list.length} club${list.length === 1 ? '' : 's'}` : 'All clubs';
+      $('clubEmpty').hidden = !!list.length;
+      $('clubGrid').innerHTML = sorted.map(rowHTML).join('');
     }
 
     function renderChips() {
-      const row = document.getElementById('catRow');
-      row.innerHTML = ['All', ...CATS].map(k =>
-        `<button class="cat-chip${k === cat ? ' active' : ''}" data-cat="${E(k)}">${E(k)}</button>`).join('');
+      $('catRow').innerHTML = ['All', ...CATS].map(k =>
+        `<button type="button" class="cat-chip${k === cat ? ' active' : ''}" data-cat="${E(k)}">${E(k)}</button>`).join('');
     }
 
-    document.getElementById('catRow').addEventListener('click', e => {
+    $('catRow').addEventListener('click', e => {
       const b = e.target.closest('.cat-chip'); if (!b) return;
       cat = b.dataset.cat; renderChips(); render();
     });
-    document.getElementById('clubSearch').addEventListener('input', function () { q = this.value.trim(); render(); });
+    $('clubSearch').addEventListener('input', function () { q = this.value.trim(); render(); });
 
     renderChips(); render();
 
-    // Member counts + activity load after the cards are already on screen
+    // Member counts, faces and activity load after the list is already on screen
     window.getClubStats()
       .then(s => { stats = s; render(); })
       .catch(e => console.warn('[club stats]', e));
+
+    // Your own clubs (from your yearbook profile)
+    auth.onAuthStateChanged(async user => {
+      mine = [];
+      if (user) {
+        try {
+          const { data } = await supabase.from('profiles_public').select('clubs').eq('uid', user.uid).limit(1);
+          mine = data && data[0] ? window.parseClubField(data[0].clubs) : [];
+        } catch (e) { mine = []; }
+      }
+      render();
+    });
   })();
   </script>
 </body>

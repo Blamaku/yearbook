@@ -208,24 +208,28 @@ window.clubActivityLabel = function (iso) {
   return { text: `Last post ${mo} month${mo === 1 ? '' : 's'} ago`, fresh: false };
 };
 
-// Member counts + last post date per club (cached for 5 minutes so browsing back and forth stays fast)
+// Member counts, a few members' photos and the last post date per club (cached for 5 minutes so browsing back and forth stays fast)
 window.getClubStats = async function (force) {
   const KEY = 'gluk-club-stats';
   if (!force) {
     try {
       const c = JSON.parse(sessionStorage.getItem(KEY) || 'null');
-      if (c && Date.now() - c.t < 300000) return c.d;
+      if (c && c.v === 2 && Date.now() - c.t < 300000) return c.d;
     } catch (e) {}
   }
-  const members = {}, last = {}, PAGE = 1000;
+  const members = {}, last = {}, faces = {}, PAGE = 1000;
   for (let from = 0; from < 50000; from += PAGE) {
     const { data, error } = await supabase
-      .from('profiles_public').select('clubs,isanonymous')
+      .from('profiles_public').select('clubs,isanonymous,photo_url')
       .order('id', { ascending: true }).range(from, from + PAGE - 1);
     if (error) throw error;
     (data || []).forEach(r => {
       if (r.isanonymous) return;                        // anonymous profiles aren't listed on club pages
-      window.parseClubField(r.clubs).forEach(c => { members[c] = (members[c] || 0) + 1; });
+      const photo = window.safeUrl(r.photo_url);
+      window.parseClubField(r.clubs).forEach(c => {
+        members[c] = (members[c] || 0) + 1;
+        if (photo && (faces[c] = faces[c] || []).length < 4) faces[c].push(photo);   // a few faces for the club cards
+      });
     });
     if (!data || data.length < PAGE) break;
   }
@@ -234,8 +238,8 @@ window.getClubStats = async function (force) {
       .order('created_at', { ascending: false }).limit(1000);
     (data || []).forEach(r => { if (!last[r.club_name]) last[r.club_name] = r.created_at; });
   } catch (e) {}
-  const out = { members, last };
-  try { sessionStorage.setItem(KEY, JSON.stringify({ t: Date.now(), d: out })); } catch (e) {}
+  const out = { members, last, faces };
+  try { sessionStorage.setItem(KEY, JSON.stringify({ t: Date.now(), v: 2, d: out })); } catch (e) {}
   return out;
 };
 
