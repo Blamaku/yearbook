@@ -148,7 +148,11 @@
 
   async function loadCount() {
     const { count, error } = await supabase.from('profiles_public').select('id', { count: 'exact', head: true });
-    if (!error && count) $('hmStudentsN').textContent = `${count} profiles`;
+    if (error || !count) return;
+    $('hmStudentsN').textContent = `${count} profiles`;
+    // Under the countdown: how full the yearbook is (a goal and a bar can come once the class size is known)
+    $('hmTally').innerHTML = `<b>${count.toLocaleString('en-GB')}</b> students are in the yearbook — and counting`;
+    $('hmTally').hidden = false;
   }
 
   // ── signed-in part: runs again whenever someone signs in or out ──

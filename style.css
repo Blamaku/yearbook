@@ -1720,6 +1720,9 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 .hm-unit.is-days b { color: var(--lime-bright); text-shadow: 0 2px 12px rgba(197,216,0,.25); }
 .hm-unit > span { display: block; margin-top: 5px; font-size: .58rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.62); }
 .hm-count-d { margin-top: 10px; font-size: .7rem; color: rgba(255,255,255,.62); }
+.hm-tally { margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.1); font-size: .72rem; color: rgba(255,255,255,.75); }
+.hm-tally[hidden] { display: none; }
+.hm-tally b { color: var(--lime-bright); font-weight: 900; }
 
 /* The "what next" card */
 .hm-act {
