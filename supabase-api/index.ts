@@ -49,6 +49,9 @@ const CONFIG = {
   notifyWindowMs: 10 * 60 * 1000,                   // a comment or reply can only trigger a push within 10 minutes of being written
   notifyPerPerson: 20,                              // at most this many pushes triggered by one person per 10 minutes
   commentsPerPerson: 20,                            // at most this many comments + replies by one person per 10 minutes
+  lettersOpenAt: '2026-11-14T21:00:00Z',            // letters open on Sunday 15 November 2026, 00:00 in Kisumu (also in letters.js and the SQL)
+  lettersClass: '2026',                             // the graduating class letters are written to
+  lettersPerPerson: 30,                             // at most this many new letters by one person per 24 hours
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -270,7 +273,7 @@ async function pushToUids(ctx, uids, payload) {
 }
 
 // A line in the developer diary (ops_events). Never lets a diary problem break the real work.
-const PUSH_WHAT = { c: 'comment', r: 'reply', p: 'club post', l: 'like', s: 'staff approved', test: 'test' };
+const PUSH_WHAT = { c: 'comment', r: 'reply', p: 'club post', l: 'like', s: 'staff approved', t: 'letter', test: 'test' };
 async function logEvent(ctx, kind, ok, details) {
   try { await ctx.db.from('ops_events').insert({ kind, ok, details, created_at: new Date(ctx.now()).toISOString() }); }
   catch (e) { /* the dashboard just misses one line */ }
@@ -344,6 +347,45 @@ async function myStaff(ctx) {
   const r = await ctx.db.from('staff_profiles').select('*').eq('uid', ctx.user.uid).limit(1);
   if (r.error) throw staffDbError(r.error);
   return (r.data && r.data[0]) || null;
+}
+
+// ── Letters to the Class of 2026 (since 2026-10-12) ─────────────────────
+// To one graduate (private: only they and the writer ever read it), to the whole class (the wall),
+// or to the writer's own first-year self (kept, or shared on the wall). All sealed until lettersOpenAt.
+const LETTER_KINDS = ['graduate', 'class', 'self'];
+const LETTER_MINE = 'id,to_kind,to_profile,to_name,body,on_wall,hidden,created_at,updated_at';
+const letterDbError = e => missingTable(e)
+  ? new ApiError(503, 'letters_coming', 'Letters are being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+const lettersOpen = ctx => ctx.now() >= Date.parse(ctx.config.lettersOpenAt);
+async function letterRow(ctx, id) {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n <= 0) throw bad('Missing or invalid letter.');
+  const r = await ctx.db.from('letters').select('*').eq('id', n).limit(1);
+  if (r.error) throw letterDbError(r.error);
+  if (!r.data || !r.data[0]) throw notFound('That letter could not be found.');
+  return r.data[0];
+}
+// A letter is signed with the writer's yearbook name, else their staff name, else their account's name. Never anonymous.
+async function signedName(ctx) {
+  const p = await ctx.db.from('profiles').select('name').eq('uid', ctx.user.uid).limit(1);
+  if (!p.error && p.data && p.data[0] && String(p.data[0].name || '').trim()) return snip(p.data[0].name, 80);
+  const s = await ctx.db.from('staff_profiles').select('name,title').eq('uid', ctx.user.uid).limit(1);
+  if (!s.error && s.data && s.data[0] && String(s.data[0].name || '').trim()) return snip([s.data[0].title, s.data[0].name].filter(Boolean).join(' '), 80);
+  return authorName(ctx, {});
+}
+// What the writer gets back about their own letter (never the logins)
+const ownLetter = r => ({ id: r.id, to_kind: r.to_kind, to_profile: r.to_profile, to_name: r.to_name, body: r.body,
+  on_wall: r.on_wall, hidden: r.hidden, created_at: r.created_at, updated_at: r.updated_at });
+// The graduate's phone hears that a letter is waiting, but not who wrote it or what it says
+async function notifyLetter(ctx, letter) {
+  if (!letter || letter.to_kind !== 'graduate' || !letter.to_uid || !letter.id) return { sent: 0 };
+  if (await claimEvent(ctx, 't:' + letter.id) !== 'ok') return { sent: 0 };
+  const open = lettersOpen(ctx);
+  return pushToUids(ctx, [letter.to_uid], {
+    title: open ? `💌 ${letter.author_name} wrote you a letter` : '💌 Someone wrote you a letter',
+    body: open ? 'Open the yearbook to read it.' : 'It stays sealed until Sunday 15 November.',
+    url: '/letters.html#for-you', tag: 't-' + letter.id });
 }
 
 // A comment or reply only triggers a push if it really exists, was written by the caller, and is new.
@@ -638,6 +680,97 @@ const ACTIONS = {
     return {};
   },
 
+  // ── Letters to the Class of 2026 ──
+  // Everything the letters page needs. Letters written to you are only a count until the letters open.
+  // countOnly: just how many are waiting for you (the Home page).
+  async 'letters.mine'(ctx, body) {
+    const uid = ctx.user.uid, open = lettersOpen(ctx), countOnly = !!body.countOnly;
+    const [mine, forMe, wall] = await Promise.all([
+      countOnly ? { data: [] } : ctx.db.from('letters').select(LETTER_MINE).eq('author_uid', uid).order('created_at', { ascending: false }).limit(200),
+      ctx.db.from('letters').select(open ? 'id,to_kind,author_name,body,created_at' : 'id').eq('to_uid', uid)
+        .eq('removed', false).eq('hidden', false).order('created_at', { ascending: false }).limit(500),
+      countOnly ? { count: 0 } : ctx.db.from('letters').select('id', { count: 'exact', head: true }).eq('on_wall', true).eq('hidden', false),
+    ]);
+    const err = mine.error || forMe.error || wall.error;
+    if (err) throw letterDbError(err);
+    const got = forMe.data || [];
+    return { openAt: ctx.config.lettersOpenAt, open, written: (mine.data || []).map(ownLetter),
+      forMe: { count: got.length, letters: open ? got : [] }, wallCount: wall.count || 0 };
+  },
+
+  // Write a new letter ({ to, profileId?, body, share? }) or change one of yours before they open ({ id, body, share? })
+  async 'letters.save'(ctx, body) {
+    const cfg = ctx.config, uid = ctx.user.uid, now = new Date(ctx.now()).toISOString();
+    const text = txt(body.body, 2000, 'Your letter', { required: true });
+    if (body.id != null) {
+      const row = await letterRow(ctx, body.id);
+      if (row.author_uid !== uid) throw forbidden('You can only change your own letters.');
+      if (lettersOpen(ctx)) throw conflict('Letters have opened, so this one has been delivered and can no longer be changed.', 'delivered');
+      const patch = { body: text, updated_at: now };
+      if (row.to_kind === 'self') patch.on_wall = !!body.share;
+      const up = await ctx.db.from('letters').update(patch).eq('id', row.id);
+      if (up.error) throw letterDbError(up.error);
+      return { letter: ownLetter({ ...row, ...patch }) };
+    }
+    const kind = String(body.to || '');
+    if (!LETTER_KINDS.includes(kind)) throw bad('Choose who the letter is for.');
+    const since = new Date(ctx.now() - 24 * 3600e3).toISOString();
+    const recent = await ctx.db.from('letters').select('id', { count: 'exact', head: true }).eq('author_uid', uid).gte('created_at', since);
+    if (recent.error) throw letterDbError(recent.error);
+    if ((recent.count || 0) >= cfg.lettersPerPerson) throw new ApiError(429, 'slow_down', 'You have written a lot of letters today. Please try again tomorrow.');
+    const rec = { author_uid: uid, author_name: await signedName(ctx), to_kind: kind, to_profile: null, to_uid: null, to_name: null,
+      body: text, on_wall: kind === 'class', hidden: false, removed: false, reported: false, created_at: now, updated_at: now };
+    if (kind === 'graduate') {
+      const pid = Number(body.profileId);
+      if (!Number.isInteger(pid) || pid <= 0) throw bad('Choose the graduate you are writing to.');
+      const p = await ctx.db.from('profiles').select('id,uid,name,classyear,isanonymous').eq('id', pid).limit(1);
+      if (p.error) throw letterDbError(p.error);
+      const g = p.data && p.data[0];
+      if (!g) throw notFound('That graduate could not be found.');
+      if (String(g.classyear || '') !== cfg.lettersClass) throw bad(`Letters go to the Class of ${cfg.lettersClass}.`);
+      if (g.isanonymous) throw bad('This graduate keeps their profile anonymous, so letters cannot be addressed to them.');
+      if (g.uid === uid) throw bad('To write to yourself, choose "My first-year self".');
+      Object.assign(rec, { to_profile: g.id, to_uid: g.uid, to_name: snip(g.name, 80) });
+    } else if (kind === 'self') {
+      Object.assign(rec, { to_uid: uid, on_wall: !!body.share });
+    }
+    const ins = await ctx.db.from('letters').insert(rec).select('id');
+    if (ins.error) throw letterDbError(ins.error);
+    const saved = { ...rec, id: (Array.isArray(ins.data) ? ins.data[0] : ins.data).id };
+    ctx.background(notifyLetter(ctx, saved));
+    return { letter: ownLetter(saved) };
+  },
+
+  // The writer can take a letter back at any time
+  async 'letters.delete'(ctx, body) {
+    const row = await letterRow(ctx, body.id);
+    if (row.author_uid !== ctx.user.uid) throw forbidden('You can only delete your own letters.');
+    const del = await ctx.db.from('letters').delete().eq('id', row.id);
+    if (del.error) throw letterDbError(del.error);
+    return {};
+  },
+
+  // The graduate a letter was written to can remove it from their letters
+  async 'letters.remove'(ctx, body) {
+    const row = await letterRow(ctx, body.id);
+    if (row.to_uid !== ctx.user.uid || row.to_kind !== 'graduate') throw forbidden();
+    const up = await ctx.db.from('letters').update({ removed: true }).eq('id', row.id);
+    if (up.error) throw letterDbError(up.error);
+    return {};
+  },
+
+  // Ask the admin to look at a letter: one written to you, or one on the wall once it is public
+  async 'letters.report'(ctx, body) {
+    const row = await letterRow(ctx, body.id);
+    const toMe = row.to_uid === ctx.user.uid && row.to_kind === 'graduate';
+    const onWall = row.on_wall && !row.hidden && lettersOpen(ctx);
+    if (!toMe && !onWall) throw forbidden();
+    const up = await ctx.db.from('letters').update({ reported: true }).eq('id', row.id);
+    if (up.error) throw letterDbError(up.error);
+    await logEvent(ctx, 'letter_report', true, { id: row.id, kind: row.to_kind });
+    return {};
+  },
+
   // ── admin only ──
   async 'admin.staff.list'(ctx) {
     requireAdmin(ctx);
@@ -664,6 +797,30 @@ const ACTIONS = {
     const row = await getRow(ctx, 'staff_profiles', body.id);
     const del = await ctx.db.from('staff_profiles').delete().eq('id', row.id);
     if (del.error) throw staffDbError(del.error);
+    return {};
+  },
+
+  // Letters the admin may see: the wall ones (to check before and after they open) and any someone reported.
+  // A private letter nobody reported never leaves its writer and reader.
+  async 'admin.letters.list'(ctx) {
+    requireAdmin(ctx);
+    const cols = 'id,author_name,to_kind,to_name,body,on_wall,hidden,reported,removed,created_at';
+    const [wall, flagged] = await Promise.all([
+      ctx.db.from('letters').select(cols).eq('on_wall', true).order('created_at', { ascending: false }).limit(1000),
+      ctx.db.from('letters').select(cols).eq('reported', true).order('created_at', { ascending: false }).limit(500),
+    ]);
+    if (wall.error || flagged.error) throw letterDbError(wall.error || flagged.error);
+    const seen = new Set(), rows = [];
+    for (const r of [...(flagged.data || []), ...(wall.data || [])]) if (!seen.has(r.id)) { seen.add(r.id); rows.push(r); }
+    return { rows, openAt: ctx.config.lettersOpenAt };
+  },
+
+  // Hide or show a letter; either way its report is dealt with
+  async 'admin.letters.review'(ctx, body) {
+    requireAdmin(ctx);
+    const row = await letterRow(ctx, body.id);
+    const up = await ctx.db.from('letters').update({ hidden: !!body.hidden, reported: false }).eq('id', row.id);
+    if (up.error) throw letterDbError(up.error);
     return {};
   },
 
