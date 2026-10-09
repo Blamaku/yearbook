@@ -236,13 +236,14 @@
 
     <!-- ── Moderation ── -->
     <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button></div>
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button></div>
       <div id="mod-comments"><div id="cList"></div></div>
       <div id="mod-posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
         <div id="pList"></div><div id="pMore"></div>
       </div>
       <div id="mod-staff" style="display:none"><div id="stList"></div></div>
+      <div id="mod-letters" style="display:none"><div id="ltList"></div></div>
     </section>
 
     <!-- ── Clubs ── -->
@@ -873,11 +874,54 @@
       $('mod-comments').style.display = M.tab === 'comments' ? 'block' : 'none';
       $('mod-posts').style.display    = M.tab === 'posts' ? 'block' : 'none';
       $('mod-staff').style.display    = M.tab === 'staff' ? 'block' : 'none';
+      $('mod-letters').style.display  = M.tab === 'letters' ? 'block' : 'none';
       $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
-      $('seg-ms').classList.toggle('on', M.tab === 'staff');
+      $('seg-ms').classList.toggle('on', M.tab === 'staff'); $('seg-ml').classList.toggle('on', M.tab === 'letters');
       if (M.tab === 'comments' && !M.loadedC) loadComments();
       if (M.tab === 'posts' && !M.loadedP) loadPosts(true);
       if (M.tab === 'staff') loadStaff();
+      if (M.tab === 'letters') loadLetters();
+    }
+
+    /* ══ Letters: the class wall and anything someone reported. Private letters nobody reported never come here. ══ */
+    const LT = { rows: [], err: '' };
+    async function loadLetters() {
+      $('ltList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try { LT.rows = (await window.gApi('admin.letters.list', {})).rows || []; LT.err = ''; }
+      catch (e) {
+        console.error('[letters]', e);
+        LT.err = e.code === 'letters_coming' || e.code === 'unknown_action'
+          ? 'Letters are not switched on yet: run the letters SQL, then deploy the api.' : (e.message || 'Could not load letters');
+      }
+      renderLetters();
+    }
+    function letterHTML(l) {
+      const to = l.to_kind === 'graduate' ? 'to ' + (l.to_name || 'a graduate') + ' (private)' : l.to_kind === 'class' ? 'to the Class of 2026' : 'to their first-year self (shared)';
+      return `<div class="a-item">
+        <div class="a-item-top"><div class="grow">
+          <div><span class="a-name" style="display:inline">${E(l.author_name)}</span> <span class="a-sub" style="display:inline">${E(to)}</span>
+            ${l.reported ? '<span class="a-badge warn">Reported</span>' : ''}${l.hidden ? '<span class="a-badge">Hidden</span>' : ''}</div>
+          <div class="a-text" style="white-space:pre-wrap">${E(l.body)}</div>
+          <div class="a-sub">Written ${E(ago(l.created_at))}</div></div></div>
+        <div class="a-item-acts">
+          ${l.hidden ? `<button type="button" class="a-mini" data-act="lt-review" data-id="${Number(l.id)}" data-v="0">Show again</button>`
+            : `<button type="button" class="a-mini danger" data-act="lt-review" data-id="${Number(l.id)}" data-v="1">Hide</button>`}
+          ${l.reported && !l.hidden ? `<button type="button" class="a-mini" data-act="lt-review" data-id="${Number(l.id)}" data-v="0">It's fine</button>` : ''}
+        </div>
+      </div>`;
+    }
+    function renderLetters() {
+      const rows = LT.rows.slice().sort((a, b) => (b.reported - a.reported) || String(b.created_at).localeCompare(String(a.created_at)));
+      $('ltList').innerHTML = LT.err ? `<div class="a-empty">${E(LT.err)}</div>`
+        : rows.length ? '<div class="a-sub" style="margin:0 2px 10px;white-space:normal">Letters on the class wall (public from Sunday 15 November) and any letter someone reported. Private letters only appear here if the person they were written to reports one.</div>' + rows.map(letterHTML).join('')
+        : '<div class="a-empty">No class-wall or reported letters yet.</div>';
+    }
+    async function reviewLetter(id, hidden) {
+      try {
+        await window.gApi('admin.letters.review', { id, hidden });
+        const l = LT.rows.find(x => Number(x.id) === id); if (l) { l.hidden = hidden; l.reported = false; }
+        renderLetters(); toast(hidden ? 'Hidden from the site' : 'Done ✅');
+      } catch (e) { console.error('[letters review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
     }
 
     /* ══ Staff profiles: nothing shows on the site until it is approved here ══ */
@@ -1311,6 +1355,7 @@ let _ocSearchT = null;
         case 'r-del':    deleteReply(b.dataset.cid, b.dataset.rid); break;
         case 'st-review': reviewStaff(id, b.dataset.v); break;
         case 'st-del':   deleteStaff(id); break;
+        case 'lt-review': reviewLetter(id, b.dataset.v === '1'); break;
         case 'p-more':   loadPosts(false); break;
         case 'p-pin':    togglePin(id, b.dataset.pinned === '1'); break;
         case 'p-del':    deletePost(id); break;

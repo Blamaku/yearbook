@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <meta name="description" content="Write a sealed letter to a graduate of the GLUK Class of 2026. Every letter opens on Sunday 15 November.">
+  <title>Letters to the Class of 2026 — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="Letters to the Class of 2026 💌">
+  <meta property="og:description" content="Write a sealed letter to a graduate. Every letter opens on Sunday 15 November.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="letters">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- Letters to the Class of 2026: to one graduate (private), to the whole class (the wall) or to your
+       first-year self. Everything stays sealed until Sunday 15 November. letters.js fills it. -->
+  <main class="ab lt">
+    <header class="ab-hero">
+      <a class="ab-back" href="index.html">‹ Home</a>
+      <div class="hm-crest-ring ab-ring"><span class="hm-aura" aria-hidden="true"></span><span class="lt-env" aria-hidden="true">💌</span></div>
+      <p class="hm-uni">Graduation week · 15–21 November</p>
+      <h1>Letters to the Class of 2026</h1>
+      <p class="ab-place" id="ltOpens">Every letter stays sealed until Sunday 15 November.</p>
+    </header>
+
+    <section class="ab-sec" id="for-you">
+      <h2>For you</h2>
+      <div class="lt-card" id="ltForYou"><div class="lt-quiet">Loading…</div></div>
+    </section>
+
+    <section class="ab-sec" id="write">
+      <h2 id="ltWriteTitle">Write a letter</h2>
+      <div class="lt-card lt-write" id="ltWrite">
+        <div class="lt-kinds" id="ltKinds" role="group" aria-label="Who is it for?">
+          <button type="button" class="lt-kind" data-kind="graduate" aria-pressed="true"><i aria-hidden="true">🎓</i><b>A graduate</b><span>Only they read it</span></button>
+          <button type="button" class="lt-kind" data-kind="class" aria-pressed="false"><i aria-hidden="true">👥</i><b>The whole class</b><span>On the class wall</span></button>
+          <button type="button" class="lt-kind" data-kind="self" aria-pressed="false" id="ltSelfKind" hidden><i aria-hidden="true">🌱</i><b>My first-year self</b><span>Just for you</span></button>
+        </div>
+
+        <div class="lt-to" id="ltTo">
+          <label class="lt-label" for="ltFind">To</label>
+          <div class="lt-picked" id="ltPicked" hidden></div>
+          <input type="search" class="lt-find" id="ltFind" placeholder="Search for a graduate by name" autocomplete="off">
+          <div class="lt-results" id="ltResults" role="listbox" aria-label="Graduates"></div>
+        </div>
+
+        <label class="lt-label" for="ltBody" id="ltBodyLabel">Your letter</label>
+        <textarea class="lt-body" id="ltBody" rows="8" maxlength="2000" placeholder="Dear …"></textarea>
+        <div class="lt-meta"><span id="ltSign"></span><span id="ltChars">0 / 2000</span></div>
+        <label class="lt-share" id="ltShareRow" hidden><input type="checkbox" id="ltShare"> Also put it on the class wall when letters open</label>
+        <p class="lt-note" id="ltNote"></p>
+        <div class="lt-acts">
+          <button type="button" class="lt-send" id="ltSend">Seal the letter 💌</button>
+          <button type="button" class="lt-cancel" id="ltCancel" hidden>Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="ab-sec" id="yours" hidden>
+      <h2>Letters you've written</h2>
+      <div id="ltMine"></div>
+    </section>
+
+    <section class="ab-sec" id="wall">
+      <h2>The class wall</h2>
+      <div id="ltWall"><div class="lt-card lt-quiet">Loading…</div></div>
+    </section>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="letters.js"></script>
+</body>
+</html>

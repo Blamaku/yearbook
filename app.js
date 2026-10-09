@@ -1669,7 +1669,7 @@ window.openProfileChooser = function () {
 
 // ── Bottom tab bar: Home · Students · Clubs · Alerts · Me ─────────────
 // Added to every page in TAB_FOR_PAGE (not the admin panel). On wide screens style.css stands it down the left side.
-const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home', staff: 'home', about: 'home', constitution: 'home',
+const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home', staff: 'home', about: 'home', constitution: 'home', letters: 'home',
   feed: 'students', profiles: 'students', profile: 'students', clubs: 'clubs', club: 'clubs' };
 const TAB_SVG = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 function renderTabBar() {
@@ -1899,6 +1899,14 @@ function initProfilePage(){
       }
       _refreshEditBtn(currentUser); // check immediately (auth may already be resolved)
       auth.onAuthStateChanged(_refreshEditBtn); // also watch for sign-in/out
+      // Class of 2026: "Letter" opens the letters page with this graduate chosen (not on your own profile)
+      function _refreshLetterBtn(user){
+        const b=document.getElementById('letterBtn'); if(!b) return;
+        const grad=String(data.classyear||'')===String(window.GRAD_YEAR)&&!data.isanonymous&&!(user&&user.uid===data.uid);
+        b.hidden=!grad; if(grad) b.href='letters.html?to='+encodeURIComponent(data.id)+'#write';
+      }
+      _refreshLetterBtn(currentUser);
+      auth.onAuthStateChanged(_refreshLetterBtn);
       // A notification (e.g. "add your birthday") can link straight to the edit form — opens once only
       if (location.hash === '#edit') {
         let _editOpened = false;
