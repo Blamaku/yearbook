@@ -1673,7 +1673,7 @@ window.openProfileChooser = function () {
 
 // ── Bottom tab bar: Home · Students · Clubs · Alerts · Me ─────────────
 // Added to every page in TAB_FOR_PAGE (not the admin panel). On wide screens style.css stands it down the left side.
-const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home', staff: 'home', about: 'home', constitution: 'home', letters: 'home',
+const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home', staff: 'home', about: 'home', constitution: 'home', letters: 'home', university: 'home',
   feed: 'students', profiles: 'students', profile: 'students', clubs: 'clubs', club: 'clubs' };
 const TAB_SVG = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 function renderTabBar() {

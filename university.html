@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <meta name="description" content="Who runs Great Lakes University of Kisumu? Meet the Chancellor, the Vice Chancellor, the Council and the Management Board, then play Who's who.">
+  <title>Know your university — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="Know your university — who runs GLUK?">
+  <meta property="og:description" content="Meet the people who lead Great Lakes University of Kisumu, then see how many you can name in Who's who.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="university">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- Know your university: who runs GLUK (a chart you can tap) and the "Who's who?" quiz. university.js fills it;
+       the names, titles and photos come from gluk.ac.ke › About › Governance. -->
+  <main class="ab ku">
+    <header class="ab-hero">
+      <a class="ab-back" href="index.html">‹ Home</a>
+      <div class="hm-crest-ring ab-ring"><span class="hm-aura" aria-hidden="true"></span><img class="hm-crest" src="logo.png" alt="Great Lakes University of Kisumu crest" width="132" height="120"></div>
+      <p class="hm-uni">Know your university</p>
+      <h1>Who runs GLUK?</h1>
+      <p class="ab-place">Meet the people who lead your university, then see how many you can name.</p>
+      <div class="ku-hero-btns">
+        <button type="button" class="ku-play" data-play>▶ Play Who's who?</button>
+        <button type="button" class="ku-meet" id="kuMeet">Meet the leaders</button>
+      </div>
+    </header>
+
+    <section class="ab-sec" id="chart">
+      <h2>Who runs GLUK</h2>
+      <p>From the Chancellor to the Management Board. Tap anyone to see what their office does.</p>
+      <div class="ku-chart" id="kuChart"></div>
+    </section>
+
+    <section class="ab-sec">
+      <div class="ku-cta">
+        <span class="ku-cta-ic" aria-hidden="true">🎓</span>
+        <span class="ku-cta-t"><b>Who's who?</b><span id="kuBest">10 quick questions. Can you name the Vice Chancellor?</span></span>
+        <button type="button" class="ku-play sm" data-play>Play</button>
+      </div>
+    </section>
+
+    <p class="ku-src">Names, titles and photos: <a href="https://www.gluk.ac.ke/" target="_blank" rel="noopener">gluk.ac.ke</a> › About › Governance, as listed in October 2026. Photos © Great Lakes University of Kisumu.</p>
+  </main>
+
+  <!-- One person -->
+  <div class="ku-ov" id="kuOv" hidden>
+    <div class="ku-sheet" id="kuSheet" role="dialog" aria-modal="true" aria-labelledby="kuShName">
+      <button type="button" class="ku-x" id="kuX" aria-label="Close">✕</button>
+      <div id="kuSheetBody"></div>
+    </div>
+  </div>
+
+  <!-- Who's who? -->
+  <div class="kq" id="kuQuiz" role="dialog" aria-modal="true" aria-labelledby="kqTitle" hidden>
+    <div class="kq-in">
+      <div class="kq-top">
+        <button type="button" class="kq-x" id="kqX" aria-label="Close the quiz">✕</button>
+        <b id="kqTitle">Who's who?</b>
+        <span class="kq-meta"><span id="kqCount"></span> · <span id="kqScore"></span></span>
+      </div>
+      <div class="kq-track"><span id="kqBar"></span></div>
+      <div class="kq-body" id="kqBody"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="university.js"></script>
+</body>
+</html>
