@@ -2357,3 +2357,33 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 .kq-big span { font-size: 1.8rem; color: rgba(255,255,255,.7); }
 .kq-msg { margin-top: 12px; font-size: 1.15rem; font-weight: 800; }
 .kq-bestline { margin: 6px 0 10px; font-size: .82rem; color: rgba(255,255,255,.75); }
+
+/* Who's who? leaderboard */
+.ku-me { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: var(--radius-md);
+  background: var(--surface); border: 1px dashed var(--gray-200); font-size: .8rem; line-height: 1.4; color: var(--gray-600); }
+.ku-me:empty { display: none; }
+.ku-me span { flex: 1; min-width: 0; }
+.ku-me b { color: var(--gray-800); }
+.ku-lb-btn { flex-shrink: 0; padding: 7px 14px; border: 0; border-radius: 50px; cursor: pointer; font: inherit; font-size: .74rem; font-weight: 800; background: var(--navy); color: #fff; }
+.ku-lb-btn.ghost { background: none; border: 1.5px solid var(--gray-200); color: var(--gray-600); }
+[data-theme="dark"] .ku-lb-btn { background: var(--blue-vivid); color: #04152a; }
+[data-theme="dark"] .ku-lb-btn.ghost { background: none; color: var(--gray-600); }
+.ku-lb { margin: 0; padding: 0; list-style: none; border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--gray-100); overflow: hidden; }
+.ku-lb-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--gray-100); }
+.ku-lb-row:first-child { border-top: 0; }
+.ku-lb-row.top { background: linear-gradient(90deg, rgba(245,197,24,.14), transparent 70%); }
+.ku-lb-n { flex-shrink: 0; width: 26px; text-align: center; font-size: .82rem; font-weight: 900; color: var(--gray-400); }
+.ku-lb-row.top .ku-lb-n { font-size: 1.15rem; }
+.ku-face.lb { --kc: var(--gold-bright); width: 34px; height: 34px; font-size: .64rem; box-shadow: 0 0 0 2px var(--surface); }
+.ku-lb-row.top .ku-face.lb { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--gold-bright); }
+.ku-lb-name { flex: 1; min-width: 0; font-size: .86rem; font-weight: 800; color: var(--gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ku-lb-score { flex-shrink: 0; text-align: right; line-height: 1.15; }
+.ku-lb-score b { display: block; font-size: .9rem; font-weight: 900; color: var(--gray-800); }
+.ku-lb-score small { font-size: .66rem; color: var(--gray-400); }
+.ku-lb-more { width: 100%; margin-top: 8px; padding: 10px; border-radius: var(--radius-md); border: 1.5px solid var(--gray-200); background: var(--surface); color: var(--gray-800); font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer; }
+.ab-sec .ku-lb-empty { margin: 0; padding: 18px 14px; border-radius: var(--radius-md); background: var(--surface); border: 1px dashed var(--gray-200); text-align: center; font-size: .82rem; color: var(--gray-600); }
+a.ku-meet { display: inline-flex; align-items: center; }
+.kq-board { min-height: 1.4em; margin: 2px 0 8px; font-size: .88rem; line-height: 1.5; color: rgba(255,255,255,.92); }
+.kq-board b { color: var(--gold-bright); }
+.kq-board span { display: block; font-size: .76rem; color: rgba(255,255,255,.7); }
+.kq-link { margin-left: 6px; padding: 5px 12px; border: 0; border-radius: 50px; cursor: pointer; font: inherit; font-size: .76rem; font-weight: 900; background: var(--gold-bright); color: #1a1300; }

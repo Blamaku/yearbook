@@ -141,7 +141,15 @@
   const others = (p, pool, n) => shuffle(pool.filter(x => x !== p)).slice(0, n);
   const withPhoto = PEOPLE.filter(p => p.photo);
   const named = withPhoto.filter(p => p.uniq);                 // offices only one person holds
-  let quiz = null;
+  let quiz = null, user = null, roundSeq = 0;
+  const fmtTime = s => s < 60 ? `${s} s` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  // Signed in, the api times the round from here, and its best goes on the leaderboard
+  function startRound() {
+    const r = newRound();
+    r.n = ++roundSeq;
+    if (user) r.runP = window.gApi('kyu.start').then(x => x.run).catch(e => { r.startErr = e; return null; });
+    return r;
+  }
 
   function question(kind, p) {
     if (kind === 'face') return { kind, p, ask: p.ask || `Who is the ${p.short}?`, opts: shuffle([p, ...others(p, withPhoto, 3)]) };
@@ -205,10 +213,67 @@
       <div class="kq-big">${n}<span>/${total}</span></div>
       <p class="kq-msg">${E(msg)}</p>
       <p class="kq-bestline">${n > was && was ? 'A new best score!' : `Your best: ${Math.max(n, was)}/${total}`}</p>
+      <p class="kq-board" id="kqBoard" data-round="${quiz.n}"></p>
       <button type="button" class="kq-next" id="kqAgain">Play again</button>
       <button type="button" class="kq-ghost" id="kqShare">Challenge a friend</button>
       <button type="button" class="kq-ghost" id="kqMeet">Meet the leaders</button></div>`;
     paintBest();
+    saveRound(quiz);
+  }
+
+  /* ── The leaderboard ───────────────────────────── */
+  const boardSay = e => e && e.code === 'kyu_coming' ? 'The leaderboard is being switched on. Your next rounds will count.'
+    : e && e.data ? e.message : 'Could not save your score. Check your connection.';
+  async function saveRound(round) {
+    const say = html => { const el = $('kqBoard'); if (el && el.dataset.round === String(round.n)) el.innerHTML = html; };
+    if (!round.runP) { say('Sign in to put your score on the leaderboard. <button type="button" class="kq-link" id="kqSignIn">Sign in</button>'); return; }
+    say('Saving your score…');
+    const id = await round.runP;
+    if (!id) { say(E(boardSay(round.startErr))); return; }
+    try {
+      const r = await window.gApi('kyu.finish', { run: id, score: round.score });
+      say(r.hidden ? `Saved. You are hidden from the leaderboard. <span>Time: ${fmtTime(r.seconds)}</span>`
+        : `🏆 You are <b>#${r.rank}</b> of ${r.total} on the leaderboard${r.newBest || r.first ? ' · a new best!' : ''} <span>Time: ${fmtTime(r.seconds)}${r.newBest || r.first ? '' : ` · your best: ${r.best.score}/${ROUND} in ${fmtTime(r.best.seconds)}`}</span>`);
+      loadBoard();
+    } catch (e) { say(E(boardSay(e))); }
+  }
+
+  let board = [], boardAll = false;
+  const lbFace = r => {
+    const u = window.safeUrl(r.photo_url);
+    return u ? `<span class="ku-face lb" style="background-image:url('${E(u).replace(/'/g, '%27')}')" aria-hidden="true"></span>`
+      : `<span class="ku-face lb ini" aria-hidden="true">${E(ini(r.name) || '?')}</span>`;
+  };
+  function paintBoard() {
+    const rows = boardAll ? board : board.slice(0, 10);
+    $('kuBoard').innerHTML = board.length ? `<ol class="ku-lb">${rows.map((r, i) => `<li class="ku-lb-row${i < 3 ? ' top' : ''}">
+        <span class="ku-lb-n">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>${lbFace(r)}<span class="ku-lb-name">${E(r.name)}</span>
+        <span class="ku-lb-score"><b>${Number(r.score)}/${ROUND}</b><small>${fmtTime(Number(r.seconds))}</small></span></li>`).join('')}</ol>
+      ${board.length > 10 ? `<button type="button" class="ku-lb-more" id="kuLbMore">${boardAll ? 'Show the top 10' : `Show the top ${board.length}`}</button>` : ''}`
+      : '<p class="ku-lb-empty">No scores yet. Sign in, play a round and be the first on the board!</p>';
+  }
+  async function loadBoard() {
+    try {
+      const { data, error } = await supabase.from('kyu_leaderboard').select('name,photo_url,score,seconds').limit(50);
+      if (error) throw error;
+      board = data || [];
+      paintBoard();
+    } catch (e) {
+      const coming = /PGRST205|schema cache|does not exist|42P01/i.test(String(e && (e.message || '') + ' ' + (e.code || '')));
+      $('kuBoard').innerHTML = `<p class="ku-lb-empty">${coming ? 'The leaderboard opens very soon.' : 'Could not load the leaderboard. Check your connection.'}</p>`;
+    }
+    loadMe();
+  }
+  // Your own place, and the choice to leave the board
+  async function loadMe() {
+    const el = $('kuMe');
+    if (!user) { el.innerHTML = '<span>Sign in, then play, to get on the leaderboard.</span><button type="button" class="ku-lb-btn" id="kuSignIn">Sign in</button>'; return; }
+    try {
+      const { me } = await window.gApi('kyu.me');
+      el.innerHTML = !me ? '<span>Play a round to get on the board.</span>'
+        : me.hidden ? `<span>You are hidden from the leaderboard (your best: ${me.score}/${ROUND}).</span><button type="button" class="ku-lb-btn" data-hide="0">Show me</button>`
+        : `<span>You: <b>#${me.rank}</b> of ${me.total} · ${me.score}/${ROUND} in ${fmtTime(me.seconds)}</span><button type="button" class="ku-lb-btn ghost" data-hide="1">Hide me</button>`;
+    } catch (e) { el.innerHTML = ''; }
   }
   async function share() {
     const n = quiz ? quiz.score : best();
@@ -237,7 +302,7 @@
     const h = location.hash.slice(1), m = /^who-([a-z]+)$/.exec(h), p = m && byId[m[1]];
     const playing = h === 'play';
     $('kuQuiz').hidden = !playing;
-    if (playing && !quiz) { quiz = newRound(); paintQ(); }
+    if (playing && !quiz) { quiz = startRound(); paintQ(); }
     if (!playing) quiz = null;
     $('kuOv').hidden = !p;
     if (p) { $('kuSheetBody').innerHTML = personHTML(p); $('kuSheet').scrollTop = 0; }
@@ -265,13 +330,24 @@
   $('kqBody').addEventListener('click', e => {
     const o = e.target.closest('[data-i]'); if (o) { answer(+o.dataset.i); return; }
     if (e.target.closest('#kqNext')) next();
-    else if (e.target.closest('#kqAgain')) { quiz = newRound(); paintQ(); }
+    else if (e.target.closest('#kqAgain')) { quiz = startRound(); paintQ(); }
+    else if (e.target.closest('#kqSignIn')) window.openAuthModal(null, 'login');
     else if (e.target.closest('#kqShare')) share();
     else if (e.target.closest('#kqMeet')) { close(); setTimeout(() => $('chart').scrollIntoView({ block: 'start' }), 200); }
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && (!$('kuOv').hidden || !$('kuQuiz').hidden)) close(); });
+  $('kuBoard').addEventListener('click', e => { if (e.target.closest('#kuLbMore')) { boardAll = !boardAll; paintBoard(); } });
+  $('kuMe').addEventListener('click', async e => {
+    if (e.target.closest('#kuSignIn')) { window.openAuthModal(null, 'login'); return; }
+    const b = e.target.closest('[data-hide]'); if (!b) return;
+    b.disabled = true;
+    try { await window.gApi('kyu.hide', { hidden: b.dataset.hide === '1' }); } catch (er) { window.showToast(er.message || 'Could not change that.'); }
+    loadBoard();
+  });
   window.addEventListener('hashchange', route);
   route();
+  loadBoard();
+  auth.onAuthStateChanged(u => { user = u; loadMe(); });
 
   window.__kyu = { PEOPLE, GROUPS, newRound };     // for the tests
 })();

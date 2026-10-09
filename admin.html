@@ -81,6 +81,28 @@
     .d-meter i.warn { background:#d97706; }
     .d-meter i.bad { background:var(--danger); }
     a.a-row { text-decoration:none; }
+    /* Developer › Traffic */
+    .tr-box { padding:12px 14px 14px; border-bottom:1px solid var(--gray-100); }
+    .tr-box:last-child { border-bottom:none; }
+    .tr-h { display:flex; align-items:baseline; gap:8px; margin-bottom:10px; font-size:.78rem; font-weight:800; color:var(--navy); }
+    .tr-h small { margin-left:auto; font-size:.66rem; font-weight:600; color:var(--gray-400); }
+    .tr-cols { display:flex; align-items:flex-end; gap:2px; height:92px; }
+    .tr-cols i { flex:1; min-width:0; border-radius:3px 3px 0 0; background:var(--blue); opacity:.85; }
+    .tr-cols i.zero { background:var(--gray-100); height:3px !important; opacity:1; }
+    .tr-cols i.today { background:var(--gold-bright, #f5c518); opacity:1; }
+    .tr-axis { display:flex; justify-content:space-between; margin-top:4px; font-size:.6rem; color:var(--gray-400); }
+    .tr-line { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:2px 10px; align-items:center; margin-top:8px; font-size:.78rem; color:var(--navy); }
+    .tr-line:first-of-type { margin-top:0; }
+    .tr-line b { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .tr-line b a { color:inherit; }
+    .tr-line span { font-size:.68rem; color:var(--gray-600); white-space:nowrap; }
+    .tr-line .d-meter { grid-column:1 / -1; margin-top:0; height:6px; }
+    .tr-two { display:grid; grid-template-columns:1fr; gap:14px; }
+    @media (min-width:640px) { .tr-two { grid-template-columns:1fr 1fr; } }
+    .tr-share { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; text-align:center; }
+    .tr-share b { display:block; font-size:1.15rem; font-weight:900; color:var(--navy); }
+    .tr-share span { font-size:.66rem; color:var(--gray-600); }
+    .tr-live { display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.25); vertical-align:middle; }
 
     .a-nav { position:fixed; left:0; right:0; bottom:0; z-index:200; display:grid; grid-template-columns:repeat(5,1fr); background:var(--white); border-top:1px solid var(--gray-100); padding-bottom:env(safe-area-inset-bottom,0px); box-shadow:0 -4px 16px rgba(0,0,0,.06); }
     .a-nav button { display:flex; flex-direction:column; align-items:center; gap:2px; padding:9px 0 8px; border:none; background:none; font-family:inherit; font-size:.66rem; font-weight:700; color:var(--gray-400); cursor:pointer; }
@@ -259,6 +281,9 @@
       <div class="a-meta"><span id="devAt">Loading…</span><span style="flex:1"></span><button type="button" class="a-mini" data-act="dev-refresh">↻ Refresh</button></div>
       <div class="a-sec">Health</div>
       <div class="a-card" id="devHealth"></div>
+      <div class="a-sec">Traffic</div>
+      <div class="a-stats" id="devTrafficTiles"></div>
+      <div class="a-card" id="devTraffic" style="margin-top:10px"></div>
       <div class="a-sec">Backups</div>
       <div class="a-card" id="devBackup"></div>
       <div class="a-sec">Free plan usage</div>
@@ -269,6 +294,8 @@
       <div class="a-card" id="devPush"></div>
       <div class="a-sec">To tidy</div>
       <div class="a-card" id="devTidy"></div>
+      <div class="a-sec">Who's who? leaderboard</div>
+      <div class="a-card" id="devKyu"></div>
       <div class="a-sec">Recent activity</div>
       <div class="a-card" id="devRecent"></div>
       <div class="a-sec">Links</div>
@@ -1232,6 +1259,7 @@ let _ocSearchT = null;
       if (!force && Date.now() - _devT < 20000) return;
       _devT = Date.now();
       $('devAt').textContent = 'Loading…';
+      loadTraffic(); loadKyu();
       let d;
       try { d = await window.gApi('admin.dev.stats'); }
       catch (e) {
@@ -1305,6 +1333,105 @@ let _ocSearchT = null;
       renderDevLinks();
     }
 
+    /* Traffic: who visits, where they go, when (admin.dev.traffic) */
+    const PAGE_NAME = { home: 'Home', feed: 'Students feed', profiles: 'Students list', profile: 'Profiles', clubs: 'Clubs list', club: 'Club pages',
+      department: 'Schools', course: 'Programmes', class: 'Classes', staff: 'Staff profiles', about: 'About GLUK', constitution: 'GLUKSA constitution',
+      letters: 'Letters', university: 'Know your university' };
+    const pct = (n, of) => of ? Math.round(n / of * 100) + '%' : '–';
+    async function loadTraffic() {
+      const tiles = $('devTrafficTiles'), card = $('devTraffic');
+      let d;
+      try { d = await window.gApi('admin.dev.traffic'); }
+      catch (e) {
+        tiles.innerHTML = '';
+        card.innerHTML = drow(e.code === 'traffic_missing' ? '⏳' : '❌', e.code === 'traffic_missing' ? 'Traffic counting is not switched on yet' : 'Could not load the traffic',
+          E(e.code === 'traffic_missing' ? 'Run the quiz_and_traffic SQL in Supabase. Visits are counted from then on.'
+            : e.code === 'unknown_action' ? 'Deploy the latest “api” function in Supabase, then refresh.' : (e.message || '')));
+        return;
+      }
+      const t = d.traffic || {}, wk = t.week || {}, td = t.today || {};
+      const stat = (n, label, live) => `<div class="a-stat" style="cursor:default"><b>${live ? '<span class="tr-live"></span>' : ''}${E(nfmt(n))}</b><span>${E(label)}</span></div>`;
+      tiles.innerHTML = stat(t.now || 0, 'On the site now', true) + stat(td.visitors || 0, 'Visitors today') +
+                        stat(wk.visitors || 0, 'Visitors, last 7 days') + stat(wk.views || 0, 'Pages opened, 7 days');
+      if (!(t.month && t.month.views)) {
+        card.innerHTML = '<div class="a-empty" style="padding:26px 16px">No visits counted yet. They show up here as people open the yearbook (your own visits are not counted).</div>';
+        return;
+      }
+      // the last 30 days, a column per day (days without visits too)
+      const byDay = Object.fromEntries((t.days || []).map(x => [x.day, x]));
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Africa/Nairobi' }));
+      const days = [];
+      for (let i = 29; i >= 0; i--) {
+        const x = new Date(today); x.setDate(x.getDate() - i);
+        const key = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+        days.push({ key, date: x, v: byDay[key] ? Number(byDay[key].visitors) : 0, views: byDay[key] ? Number(byDay[key].views) : 0 });
+      }
+      const maxV = Math.max(1, ...days.map(x => x.v));
+      const dlabel = x => x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      const cols = days.map((x, i) => `<i class="${x.v ? '' : 'zero'}${i === days.length - 1 ? ' today' : ''}" style="height:${Math.max(4, x.v / maxV * 100)}%" title="${E(x.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ': ' + nfmt(x.v) + ' ' + plural(x.v, 'visitor', 'visitors') + ', ' + nfmt(x.views) + ' pages')}"></i>`).join('');
+      // where people go
+      const pages = t.pages || [], maxP = Math.max(1, ...pages.map(p => Number(p.views)));
+      const bar = (n, of) => `<span class="d-meter"><i style="width:${Math.max(2, n / of * 100).toFixed(1)}%"></i></span>`;   // a plain bar: the most viewed is not a warning
+      const line = (label, n, of, right) => `<div class="tr-line"><b>${label}</b><span>${right}</span>${bar(n, of)}</div>`;
+      const pageLines = pages.slice(0, 10).map(p => line(E(PAGE_NAME[p.page] || p.page), Number(p.views), maxP,
+        E(nfmt(p.views) + ' ' + plural(Number(p.views), 'view', 'views') + ' · ' + nfmt(p.visitors) + ' ' + plural(Number(p.visitors), 'person', 'people')))).join('');
+      // when: views per hour of the day, Kisumu time
+      const byHour = Object.fromEntries((t.hours || []).map(h => [h.hour, Number(h.views)]));
+      const maxH = Math.max(1, ...Object.values(byHour));
+      const peak = Object.entries(byHour).sort((a, b) => b[1] - a[1])[0];
+      const hours = Array.from({ length: 24 }, (_, h) => `<i class="${byHour[h] ? '' : 'zero'}" style="height:${Math.max(4, (byHour[h] || 0) / maxH * 100)}%" title="${E(String(h).padStart(2, '0') + ':00 – ' + nfmt(byHour[h] || 0) + ' views')}"></i>`).join('');
+      // the most viewed clubs, profiles, schools and staff
+      const items = t.items || [], names = d.names || {};
+      const top = (page, label, link) => {
+        const rows = items.filter(i => i.page === page);
+        if (!rows.length) return '';
+        const max = Math.max(1, ...rows.map(r => Number(r.views)));
+        return `<div><div class="tr-h">${label}</div>${rows.map(r => {
+          const nm = page === 'profile' || page === 'staff' ? (names[page + ':' + r.item] || 'Profile ' + r.item) : r.item;
+          return line(link ? `<a href="${E(link(r.item))}" target="_blank" rel="noopener">${E(nm)}</a>` : E(nm), Number(r.views), max, E(nfmt(r.views) + ' ' + plural(Number(r.views), 'view', 'views') + ' · ' + nfmt(r.visitors) + ' ' + plural(Number(r.visitors), 'person', 'people')));
+        }).join('')}</div>`;
+      };
+      const tops = [top('club', 'Most viewed clubs', v => 'club.html?club=' + encodeURIComponent(v)), top('profile', 'Most viewed profiles', v => 'profile.html?id=' + encodeURIComponent(v)),
+                    top('department', 'Most viewed schools'), top('staff', 'Most viewed staff', v => 'staff.html?id=' + encodeURIComponent(v))].filter(Boolean);
+      const q = t.quiz || {};
+      card.innerHTML = `
+        <div class="tr-box"><div class="tr-h">Visitors per day <small>last 30 days · ${E(nfmt(t.month.visitors))} visitors, ${E(nfmt(t.month.views))} pages</small></div>
+          <div class="tr-cols">${cols}</div><div class="tr-axis"><span>${E(dlabel(days[0].date))}</span><span>${E(dlabel(days[15].date))}</span><span>Today</span></div></div>
+        <div class="tr-box"><div class="tr-h">Where people go <small>last 7 days</small></div>${pageLines || '<span class="a-sub">Nothing yet.</span>'}</div>
+        <div class="tr-box"><div class="tr-h">When people visit <small>Kisumu time, last 7 days${peak ? ' · busiest ' + E(String(peak[0]).padStart(2, '0')) + ':00' : ''}</small></div>
+          <div class="tr-cols" style="height:64px">${hours}</div><div class="tr-axis"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span></div></div>
+        ${tops.length ? `<div class="tr-box"><div class="tr-two">${tops.join('')}</div></div>` : ''}
+        <div class="tr-box"><div class="tr-h">Who visits <small>last 7 days</small></div><div class="tr-share">
+          <div><b>${E(pct(wk.signed_in, wk.visitors))}</b><span>signed in</span></div>
+          <div><b>${E(pct(wk.phone, wk.visitors))}</b><span>on a phone</span></div>
+          <div><b>${E(pct(wk.app, wk.visitors))}</b><span>in the installed app</span></div></div></div>
+        <div class="tr-box"><div class="tr-h">Who's who? <small>the university quiz</small></div><span class="a-sub" style="white-space:normal">${E(nfmt(q.rounds_7d || 0) + ' ' + plural(q.rounds_7d, 'round', 'rounds') + ' played by signed-in students in the last 7 days · ' + nfmt(q.players || 0) + ' ' + plural(q.players, 'player', 'players') + ' so far')}</span></div>`;
+    }
+
+    /* The Who's who? board, with the logins, so a cheater can be taken off (admin.kyu.list / admin.kyu.review) */
+    async function loadKyu() {
+      const card = $('devKyu');
+      let d;
+      try { d = await window.gApi('admin.kyu.list'); }
+      catch (e) {
+        card.innerHTML = drow('⏳', e.code === 'kyu_coming' ? 'The leaderboard is not switched on yet' : 'Could not load the leaderboard',
+          E(e.code === 'kyu_coming' ? 'Run the quiz_and_traffic SQL in Supabase.' : (e.message || '')));
+        return;
+      }
+      const rows = d.rows || [];
+      const t = s => s < 60 ? s + ' s' : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      card.innerHTML = rows.length ? rows.slice(0, 30).map((r, i) => drow(r.removed ? '🚫' : r.hidden ? '🙈' : (['🥇', '🥈', '🥉'][i] || '🎓'), r.name,
+          E(r.score + '/10 in ' + t(r.seconds) + ' · ' + nfmt(r.plays) + ' ' + plural(r.plays, 'round', 'rounds') + (r.hidden && !r.removed ? ' · hid themselves' : '') + (r.removed ? ' · taken off the board' : '')),
+          `<button type="button" class="a-mini${r.removed ? '' : ' danger'}" data-act="kyu-review" data-uid="${E(r.uid)}" data-v="${r.removed ? 0 : 1}">${r.removed ? 'Put back' : 'Take off'}</button>`)).join('')
+        : '<div class="a-empty" style="padding:22px 16px">No one has played signed in yet.</div>';
+    }
+    async function reviewKyu(uid, removed) {
+      if (removed && !confirm('Take this player off the leaderboard? They can still play, but will not be shown.')) return;
+      try { await window.gApi('admin.kyu.review', { uid, removed }); toast(removed ? 'Taken off the leaderboard' : 'Back on the leaderboard'); }
+      catch (e) { toast(e.message || 'Could not change that.'); }
+      loadKyu();
+    }
+
     function renderDevLinks() {
       $('devLinks').innerHTML = [
         ['📓', 'Developer logbook', 'What’s live, to-dos, decisions, how-to', LOGBOOK_URL],
@@ -1365,6 +1492,7 @@ let _ocSearchT = null;
         case 'add-official': addOfficer(); break;
       case 'sec-check': loadSecurity(); break;
         case 'dev-refresh': loadDev(true); break;
+        case 'kyu-review':  reviewKyu(b.dataset.uid, b.dataset.v === '1'); break;
         case 'off-del':  removeOfficer(id); break;
       }
     });

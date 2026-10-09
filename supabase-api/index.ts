@@ -52,6 +52,12 @@ const CONFIG = {
   lettersOpenAt: '2026-11-14T21:00:00Z',            // letters open on Sunday 15 November 2026, 00:00 in Kisumu (also in letters.js and the SQL)
   lettersClass: '2026',                             // the graduating class letters are written to
   lettersPerPerson: 30,                             // at most this many new letters by one person per 24 hours
+  kyuRound: 10,                                     // questions in a round of Who's who? (university.js)
+  kyuMinSeconds: 15,                                // a round finished faster than this does not count
+  kyuPerHour: 40,                                   // at most this many rounds started by one person per hour
+  // Pages whose visits are counted for the Developer tab (each page's <body data-page>)
+  trackPages: ['home', 'feed', 'profiles', 'profile', 'clubs', 'club', 'department', 'course', 'class', 'staff',
+    'about', 'constitution', 'letters', 'university'],
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -390,6 +396,36 @@ async function notifyLetter(ctx, letter) {
     body: open ? 'Open the yearbook to read it.' : 'It stays sealed until Sunday 15 November.',
     url: '/letters.html#for-you', tag: 't-' + letter.id });
 }
+
+// ── Who's who? leaderboard (since 2026-10-13) ──────────────────────────
+const kyuDbError = e => missingTable(e)
+  ? new ApiError(503, 'kyu_coming', 'The leaderboard is being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+// How a player shows on the board: their yearbook name and photo, else their approved staff profile, else
+// their account's name. Never the email. An anonymous yearbook profile stays anonymous here too.
+async function playerCard(ctx) {
+  const p = await ctx.db.from('profiles').select('name,photo_url,isanonymous').eq('uid', ctx.user.uid).limit(1);
+  const row = !p.error && p.data && p.data[0];
+  if (row && row.isanonymous) return { name: 'Anonymous player', photo_url: null };
+  if (row && String(row.name || '').trim()) return { name: snip(row.name, 60), photo_url: row.photo_url || null };
+  const s = await ctx.db.from('staff_profiles').select('name,title,photo_url').eq('uid', ctx.user.uid).eq('status', 'approved').limit(1);
+  const st = !s.error && s.data && s.data[0];
+  if (st && String(st.name || '').trim()) return { name: snip([st.title, st.name].filter(Boolean).join(' '), 60), photo_url: st.photo_url || null };
+  return { name: snip(ctx.user.name, 60) || 'GLUK player', photo_url: null };
+}
+// Place on the board: 1 + everyone shown with a better score, the same score faster, or both the same but earlier
+async function kyuRank(ctx, me) {
+  const r = await ctx.db.from('kyu_board').select('uid,score,seconds,achieved_at').eq('hidden', false).eq('removed', false).limit(20000);
+  if (r.error) throw kyuDbError(r.error);
+  const rows = r.data || [];
+  const ahead = x => x.uid !== me.uid && (x.score > me.score || (x.score === me.score
+    && (x.seconds < me.seconds || (x.seconds === me.seconds && x.achieved_at < me.achieved_at))));
+  const shown = !me.hidden && !me.removed;
+  return { rank: shown ? 1 + rows.filter(ahead).length : null, total: rows.length + (shown && !rows.some(x => x.uid === me.uid) ? 1 : 0) };
+}
+
+// ── App traffic (since 2026-10-13): one anonymous line per page opened ──
+const visitorId = v => { const s = String(v || ''); return /^[a-z0-9]{12,40}$/.test(s) ? s : ''; };
 
 // A comment or reply only triggers a push if it really exists, was written by the caller, and is new.
 function checkFreshByCaller(ctx, doc) {
@@ -780,7 +816,122 @@ const ACTIONS = {
     return {};
   },
 
+  // ── Who's who? ──
+  // A signed-in round starts here, so the api can time it
+  async 'kyu.start'(ctx) {
+    const since = new Date(ctx.now() - 3600e3).toISOString();
+    const recent = await ctx.db.from('kyu_runs').select('id', { count: 'exact', head: true }).eq('uid', ctx.user.uid).gte('started_at', since);
+    if (recent.error) throw kyuDbError(recent.error);
+    if ((recent.count || 0) >= ctx.config.kyuPerHour) throw new ApiError(429, 'slow_down', 'You have played a lot this hour. Take a break and try again later.');
+    const ins = await ctx.db.from('kyu_runs').insert({ uid: ctx.user.uid, started_at: new Date(ctx.now()).toISOString() }).select('id');
+    if (ins.error) throw kyuDbError(ins.error);
+    return { run: (Array.isArray(ins.data) ? ins.data[0] : ins.data).id };
+  },
+
+  // The round's score ({ run, score }). Its time is the api's own, from kyu.start; the best round goes on the board.
+  async 'kyu.finish'(ctx, body) {
+    const cfg = ctx.config, uid = ctx.user.uid, nowIso = new Date(ctx.now()).toISOString();
+    const id = Number(body.run), score = body.score;
+    if (!Number.isInteger(id) || id <= 0) throw bad('Missing or invalid round.');
+    if (!Number.isInteger(score) || score < 0 || score > cfg.kyuRound) throw bad(`The score must be from 0 to ${cfg.kyuRound}.`);
+    const r = await ctx.db.from('kyu_runs').select('*').eq('id', id).eq('uid', uid).limit(1);
+    if (r.error) throw kyuDbError(r.error);
+    const run = r.data && r.data[0];
+    if (!run) throw notFound('That round could not be found.');
+    if (run.finished_at) throw conflict('That round has already been counted.', 'counted');
+    const seconds = Math.round((ctx.now() - Date.parse(run.started_at)) / 1000);
+    if (seconds < cfg.kyuMinSeconds) throw bad('That was too fast to be a real round.');
+    if (seconds > 3600) throw conflict('That round was started too long ago to count.', 'stale');
+    const up = await ctx.db.from('kyu_runs').update({ finished_at: nowIso, score, seconds }).eq('id', id);
+    if (up.error) throw kyuDbError(up.error);
+    const b = await ctx.db.from('kyu_board').select('*').eq('uid', uid).limit(1);
+    if (b.error) throw kyuDbError(b.error);
+    const old = b.data && b.data[0];
+    const better = !old || score > old.score || (score === old.score && seconds < old.seconds);
+    const row = { uid, ...(await playerCard(ctx)), plays: (old ? old.plays : 0) + 1, updated_at: nowIso,
+      hidden: old ? old.hidden : false, removed: old ? old.removed : false,
+      ...(better ? { score, seconds, achieved_at: nowIso } : { score: old.score, seconds: old.seconds, achieved_at: old.achieved_at }) };
+    const w = await ctx.db.from('kyu_board').upsert(row, { onConflict: 'uid' });
+    if (w.error) throw kyuDbError(w.error);
+    return { score, seconds, best: { score: row.score, seconds: row.seconds }, newBest: better && !!old, first: !old,
+      hidden: row.hidden || row.removed, ...(await kyuRank(ctx, row)) };
+  },
+
+  // Your own line on the board (the leaderboard on the page shows it)
+  async 'kyu.me'(ctx) {
+    const b = await ctx.db.from('kyu_board').select('*').eq('uid', ctx.user.uid).limit(1);
+    if (b.error) throw kyuDbError(b.error);
+    const me = b.data && b.data[0];
+    if (!me) return { me: null };
+    return { me: { name: me.name, score: me.score, seconds: me.seconds, plays: me.plays, hidden: me.hidden || me.removed, ...(await kyuRank(ctx, me)) } };
+  },
+
+  // Leave the board, or come back to it (not after the admin removed you)
+  async 'kyu.hide'(ctx, body) {
+    if (typeof body.hidden !== 'boolean') throw bad('Say whether to hide or show.');
+    const up = await ctx.db.from('kyu_board').update({ hidden: body.hidden, updated_at: new Date(ctx.now()).toISOString() }).eq('uid', ctx.user.uid);
+    if (up.error) throw kyuDbError(up.error);
+    return { hidden: body.hidden };
+  },
+
+  // ── app traffic ── (the one action that needs no sign-in; it stores no name, account or IP)
+  async hit(ctx, body) {
+    const page = String(body.page || ''), visitor = visitorId(body.visitor);
+    if (!ctx.config.trackPages.includes(page) || !visitor) return { counted: false };
+    const since = new Date(ctx.now() - 60e3).toISOString();
+    const recent = await ctx.db.from('page_views').select('id', { count: 'exact', head: true }).eq('visitor', visitor).gte('at', since);
+    if (recent.error) { if (missingTable(recent.error)) return { counted: false }; throw new ApiError(500, 'db', 'Could not count that.'); }
+    if ((recent.count || 0) >= 30) return { counted: false };          // a page every 2 seconds for a minute: not a person reading
+    const item = typeof body.item === 'string' ? snip(body.item, 120) || null : null;
+    const ins = await ctx.db.from('page_views').insert({ at: new Date(ctx.now()).toISOString(), page, item, visitor,
+      signed_in: body.signedIn === true, app: body.app === true, phone: body.phone === true });
+    if (ins.error) { if (missingTable(ins.error)) return { counted: false }; throw new ApiError(500, 'db', 'Could not count that.'); }
+    return { counted: true };
+  },
+
   // ── admin only ──
+  // Who visits, where they go and when (the Developer tab). Profile and staff ids come back with their names.
+  async 'admin.dev.traffic'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.rpc('dev_traffic');
+    if (r.error) {
+      throw missingTable(r.error) || /dev_traffic/.test(r.error.message || '')
+        ? new ApiError(500, 'traffic_missing', 'Traffic counting is not set up yet (run the quiz_and_traffic migration).')
+        : new ApiError(500, 'db', 'Could not load the traffic numbers.');
+    }
+    const t = r.data || {}, names = {};
+    const ids = page => [...new Set((t.items || []).filter(i => i.page === page && /^\d{1,12}$/.test(String(i.item))).map(i => Number(i.item)))];
+    const pids = ids('profile'), sids = ids('staff');
+    if (pids.length) {
+      const p = await ctx.db.from('profiles').select('id,name,isanonymous').in('id', pids);
+      (p.data || []).forEach(x => { names['profile:' + x.id] = x.isanonymous ? 'An anonymous profile' : x.name; });
+    }
+    if (sids.length) {
+      const s = await ctx.db.from('staff_profiles').select('id,name,title').in('id', sids);
+      (s.data || []).forEach(x => { names['staff:' + x.id] = [x.title, x.name].filter(Boolean).join(' '); });
+    }
+    return { at: new Date(ctx.now()).toISOString(), traffic: t, names };
+  },
+
+  // The Who's who? board with the logins, so the admin can take off anyone who cheated
+  async 'admin.kyu.list'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.from('kyu_board').select('uid,name,score,seconds,plays,hidden,removed,achieved_at')
+      .order('score', { ascending: false }).order('seconds', { ascending: true }).limit(300);
+    if (r.error) throw kyuDbError(r.error);
+    return { rows: r.data || [] };
+  },
+
+  async 'admin.kyu.review'(ctx, body) {
+    requireAdmin(ctx);
+    const uid = String(body.uid || '');
+    if (!/^[A-Za-z0-9]{1,128}$/.test(uid)) throw bad('Missing or invalid player.');
+    if (typeof body.removed !== 'boolean') throw bad('Say whether to remove or restore.');
+    const up = await ctx.db.from('kyu_board').update({ removed: body.removed }).eq('uid', uid);
+    if (up.error) throw kyuDbError(up.error);
+    return {};
+  },
+
   async 'admin.staff.list'(ctx) {
     requireAdmin(ctx);
     const r = await ctx.db.from('staff_profiles').select('*').order('created_at', { ascending: false }).limit(1000);
@@ -980,6 +1131,9 @@ const ACTIONS = {
   },
 };
 
+// Actions anyone may call without signing in (they never read or change anyone's data)
+const PUBLIC_ACTIONS = ['hit'];
+
 // ── The request handler ────────────────────────────────────────────────
 export function createApi({ config, db, storage, getKeys, now = () => Date.now(), rand = () => Math.random().toString(36).slice(2, 8),
   push = null, firestore = null, firestoreStats = null, newId = () => randomId(20),
@@ -1010,6 +1164,10 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       if (action === 'ping') return ping();
       const fn = Object.prototype.hasOwnProperty.call(ACTIONS, action) ? ACTIONS[action] : null;
       if (!fn) throw new ApiError(404, 'unknown_action', 'Unknown action.');
+      if (PUBLIC_ACTIONS.includes(action)) {                // counted without a sign-in
+        const result = await fn({ user: null, isAdmin: false, db, storage: null, config, now, rand, push: null, background }, body);
+        return json({ ok: true, ...result }, 200, headers);
+      }
       const token = req.headers.get('x-firebase-token') || '';
       if (!token) throw new ApiError(401, 'auth', 'Please sign in first.');
       const user = await verifyFirebaseToken(token, { projectId: config.projectId, getKeys, nowSec: () => Math.floor(now() / 1000) });

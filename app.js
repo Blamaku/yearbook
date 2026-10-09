@@ -2512,3 +2512,35 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
   });
 });
+
+// ══ Traffic: one anonymous line per page opened on the live site (admin page › Developer › Traffic) ══
+// Sends the page (and which club, profile or school it is about), a random id this browser keeps, and whether
+// the person is signed in, in the installed app, and on a phone. No name, no account, no IP. Not on test copies,
+// and not the admin's own visits.
+(function () {
+  if (!/^yearbook-d3f4f\.(web\.app|firebaseapp\.com)$/.test(location.hostname)) return;
+  const page = document.body && document.body.dataset.page;
+  if (!page) return;
+  const rnd = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), b => (b % 36).toString(36)).join('');
+  let visitor;
+  try { visitor = localStorage.getItem('gluk-vid'); if (!/^[a-z0-9]{12,40}$/.test(visitor || '')) { visitor = rnd(); localStorage.setItem('gluk-vid', visitor); } }
+  catch (e) { visitor = rnd(); }
+  const q = new URLSearchParams(location.search);
+  const item = { club: q.get('club'), profile: q.get('id'), staff: q.get('id'), department: q.get('dept'), course: q.get('course') }[page] || null;
+  let sent = false;
+  function send(user) {
+    if (sent) return;
+    sent = true;
+    if (user && typeof ADMIN_EMAIL !== 'undefined' && user.email === ADMIN_EMAIL) return;
+    const body = JSON.stringify({ action: 'hit', page, item, visitor, signedIn: !!user,
+      app: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
+      phone: matchMedia('(max-width: 760px)').matches || /Mobi|Android/i.test(navigator.userAgent) });
+    try {
+      fetch(window.GLUK_API.url, { method: 'POST', keepalive: true, body,
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }).catch(() => {});
+    } catch (e) { /* counting must never get in the way */ }
+  }
+  let stop = null;
+  try { stop = auth.onAuthStateChanged(u => { send(u); if (stop) stop(); }); } catch (e) { send(null); }
+  setTimeout(() => send(null), 6000);                // sign-in never answered (offline): count it as signed out
+})();
