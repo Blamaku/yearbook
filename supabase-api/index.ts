@@ -438,16 +438,17 @@ async function playerCard(ctx) {
   if (st && String(st.name || '').trim()) return { name: snip([st.title, st.name].filter(Boolean).join(' '), 60), photo_url: st.photo_url || null };
   return { name: snip(ctx.user.name, 60) || 'GLUK player', photo_url: null };
 }
-// Place on the board: 1 + everyone shown with a better score, the same score faster, or both the same but earlier
-// Players who hid their name keep their place (the board shows their score, blurred); only removed ones have none
+// Place on the board: 1 + everyone with a better score, the same score faster, or both the same but earlier
+// Players who hid their name keep their place (the board shows their score, blurred); only removed ones have none.
+// The database counts both numbers: a list of rows would stop at Supabase's 1,000-row cap.
+// (Both callers save the player's row first, so `total` already includes them.)
 async function kyuRank(ctx, me) {
-  const r = await ctx.db.from('kyu_board').select('uid,score,seconds,achieved_at').eq('removed', false).limit(20000);
-  if (r.error) throw kyuDbError(r.error);
-  const rows = r.data || [];
-  const ahead = x => x.uid !== me.uid && (x.score > me.score || (x.score === me.score
-    && (x.seconds < me.seconds || (x.seconds === me.seconds && x.achieved_at < me.achieved_at))));
-  const shown = !me.removed;
-  return { rank: shown ? 1 + rows.filter(ahead).length : null, total: rows.length + (shown && !rows.some(x => x.uid === me.uid) ? 1 : 0) };
+  const board = () => ctx.db.from('kyu_board').select('uid', { count: 'exact', head: true }).eq('removed', false);
+  const s = Number(me.score), sec = Number(me.seconds), at = new Date(me.achieved_at).toISOString();
+  const [all, ahead] = await Promise.all([board(), me.removed ? { count: 0 } : board().neq('uid', me.uid)
+    .or(`score.gt.${s},and(score.eq.${s},seconds.lt.${sec}),and(score.eq.${s},seconds.eq.${sec},achieved_at.lt."${at}")`)]);
+  if (all.error || ahead.error) throw kyuDbError(all.error || ahead.error);
+  return { rank: me.removed ? null : 1 + (ahead.count || 0), total: all.count || 0 };
 }
 
 // ── App traffic (since 2026-10-13): one anonymous line per page opened ──
