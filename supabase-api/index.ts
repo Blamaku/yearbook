@@ -439,13 +439,14 @@ async function playerCard(ctx) {
   return { name: snip(ctx.user.name, 60) || 'GLUK player', photo_url: null };
 }
 // Place on the board: 1 + everyone shown with a better score, the same score faster, or both the same but earlier
+// Players who hid their name keep their place (the board shows their score, blurred); only removed ones have none
 async function kyuRank(ctx, me) {
-  const r = await ctx.db.from('kyu_board').select('uid,score,seconds,achieved_at').eq('hidden', false).eq('removed', false).limit(20000);
+  const r = await ctx.db.from('kyu_board').select('uid,score,seconds,achieved_at').eq('removed', false).limit(20000);
   if (r.error) throw kyuDbError(r.error);
   const rows = r.data || [];
   const ahead = x => x.uid !== me.uid && (x.score > me.score || (x.score === me.score
     && (x.seconds < me.seconds || (x.seconds === me.seconds && x.achieved_at < me.achieved_at))));
-  const shown = !me.hidden && !me.removed;
+  const shown = !me.removed;
   return { rank: shown ? 1 + rows.filter(ahead).length : null, total: rows.length + (shown && !rows.some(x => x.uid === me.uid) ? 1 : 0) };
 }
 
@@ -914,7 +915,7 @@ const ACTIONS = {
     const w = await ctx.db.from('kyu_board').upsert(row, { onConflict: 'uid' });
     if (w.error) throw kyuDbError(w.error);
     return { score, seconds, best: { score: row.score, seconds: row.seconds }, newBest: better && !!old, first: !old,
-      hidden: row.hidden || row.removed, ...(await kyuRank(ctx, row)) };
+      hidden: !!row.hidden, removed: !!row.removed, ...(await kyuRank(ctx, row)) };
   },
 
   // Your own line on the board (the leaderboard on the page shows it)
@@ -923,10 +924,10 @@ const ACTIONS = {
     if (b.error) throw kyuDbError(b.error);
     const me = b.data && b.data[0];
     if (!me) return { me: null };
-    return { me: { name: me.name, score: me.score, seconds: me.seconds, plays: me.plays, hidden: me.hidden || me.removed, ...(await kyuRank(ctx, me)) } };
+    return { me: { name: me.name, score: me.score, seconds: me.seconds, plays: me.plays, hidden: !!me.hidden, removed: !!me.removed, ...(await kyuRank(ctx, me)) } };
   },
 
-  // Leave the board, or come back to it (not after the admin removed you)
+  // Hide your name on the board (your score stays, blurred), or show it again; the admin's removal is separate
   async 'kyu.hide'(ctx, body) {
     if (typeof body.hidden !== 'boolean') throw bad('Say whether to hide or show.');
     const up = await ctx.db.from('kyu_board').update({ hidden: body.hidden, updated_at: new Date(ctx.now()).toISOString() }).eq('uid', ctx.user.uid);

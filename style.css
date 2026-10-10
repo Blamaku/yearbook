@@ -2385,6 +2385,11 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 .ku-lb-score { flex-shrink: 0; text-align: right; line-height: 1.15; }
 .ku-lb-score b { display: block; font-size: .9rem; font-weight: 900; color: var(--gray-800); }
 .ku-lb-score small { font-size: .66rem; color: var(--gray-400); }
+/* A player who hid their name: the score stays, the person is blurred (the real name never reaches the page) */
+.ku-face.lb.blur { background: linear-gradient(135deg, var(--gray-200), var(--gray-400)); filter: blur(2.5px); }
+.ku-lb-name.blur { filter: blur(4.5px); user-select: none; color: var(--gray-600); }
+.ku-lb-sum { margin: 0 0 8px; font-size: .8rem; color: var(--gray-600); }
+.ku-lb-sum b { color: var(--gray-800); }
 .ku-lb-more { width: 100%; margin-top: 8px; padding: 10px; border-radius: var(--radius-md); border: 1.5px solid var(--gray-200); background: var(--surface); color: var(--gray-800); font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer; }
 .ab-sec .ku-lb-empty { margin: 0; padding: 18px 14px; border-radius: var(--radius-md); background: var(--surface); border: 1px dashed var(--gray-200); text-align: center; font-size: .82rem; color: var(--gray-600); }
 a.ku-meet { display: inline-flex; align-items: center; }

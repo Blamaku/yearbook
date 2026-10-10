@@ -232,31 +232,40 @@
     if (!id) { say(E(boardSay(round.startErr))); return; }
     try {
       const r = await window.gApi('kyu.finish', { run: id, score: round.score });
-      say(r.hidden ? `Saved. You are hidden from the leaderboard. <span>Time: ${fmtTime(r.seconds)}</span>`
-        : `🏆 You are <b>#${r.rank}</b> of ${r.total} on the leaderboard${r.newBest || r.first ? ' · a new best!' : ''} <span>Time: ${fmtTime(r.seconds)}${r.newBest || r.first ? '' : ` · your best: ${r.best.score}/${ROUND} in ${fmtTime(r.best.seconds)}`}</span>`);
+      // A player who hid their name still has a place (their score shows, their name is blurred); no place = taken off
+      say(r.rank == null ? `Saved. ${r.removed ? 'You are not on the leaderboard.' : 'You are hidden from the leaderboard.'} <span>Time: ${fmtTime(r.seconds)}</span>`
+        : `🏆 You are <b>#${r.rank}</b> of ${r.total} on the leaderboard${r.newBest || r.first ? ' · a new best!' : ''}${r.hidden ? ' · your name is hidden' : ''} <span>Time: ${fmtTime(r.seconds)}${r.newBest || r.first ? '' : ` · your best: ${r.best.score}/${ROUND} in ${fmtTime(r.best.seconds)}`}</span>`);
       loadBoard();
     } catch (e) { say(E(boardSay(e))); }
   }
 
-  let board = [], boardAll = false;
+  let board = [], boardAll = false, boardTotal = 0;
+  // A player who hid their name comes from the database with no name or photo: a blurred stand-in takes their place
+  const hiddenRow = r => r.name == null;
   const lbFace = r => {
+    if (hiddenRow(r)) return '<span class="ku-face lb blur" aria-hidden="true"></span>';
     const u = window.safeUrl(r.photo_url);
     return u ? `<span class="ku-face lb" style="background-image:url('${E(u).replace(/'/g, '%27')}')" aria-hidden="true"></span>`
       : `<span class="ku-face lb ini" aria-hidden="true">${E(ini(r.name) || '?')}</span>`;
   };
   function paintBoard() {
     const rows = boardAll ? board : board.slice(0, 10);
-    $('kuBoard').innerHTML = board.length ? `<ol class="ku-lb">${rows.map((r, i) => `<li class="ku-lb-row${i < 3 ? ' top' : ''}">
-        <span class="ku-lb-n">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>${lbFace(r)}<span class="ku-lb-name">${E(r.name)}</span>
+    const total = Math.max(boardTotal, board.length);
+    $('kuBoard').innerHTML = board.length ? `<p class="ku-lb-sum">🎮 <b>${total}</b> ${total === 1 ? 'player has' : 'players have'} played Who's who?</p>
+      <ol class="ku-lb">${rows.map((r, i) => `<li class="ku-lb-row${i < 3 ? ' top' : ''}">
+        <span class="ku-lb-n">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>${lbFace(r)}${hiddenRow(r)
+          ? '<span class="ku-lb-name blur" title="This player hid their name">Hidden player</span>'
+          : `<span class="ku-lb-name">${E(r.name)}</span>`}
         <span class="ku-lb-score"><b>${Number(r.score)}/${ROUND}</b><small>${fmtTime(Number(r.seconds))}</small></span></li>`).join('')}</ol>
       ${board.length > 10 ? `<button type="button" class="ku-lb-more" id="kuLbMore">${boardAll ? 'Show the top 10' : `Show the top ${board.length}`}</button>` : ''}`
       : '<p class="ku-lb-empty">No scores yet. Sign in, play a round and be the first on the board!</p>';
   }
   async function loadBoard() {
     try {
-      const { data, error } = await supabase.from('kyu_leaderboard').select('name,photo_url,score,seconds').limit(50);
+      const { data, error, count } = await supabase.from('kyu_leaderboard').select('name,photo_url,score,seconds', { count: 'exact' }).limit(50);
       if (error) throw error;
       board = data || [];
+      boardTotal = Number(count) || board.length;
       paintBoard();
     } catch (e) {
       const coming = /PGRST205|schema cache|does not exist|42P01/i.test(String(e && (e.message || '') + ' ' + (e.code || '')));
@@ -270,9 +279,12 @@
     if (!user) { el.innerHTML = '<span>Sign in, then play, to get on the leaderboard.</span><button type="button" class="ku-lb-btn" id="kuSignIn">Sign in</button>'; return; }
     try {
       const { me } = await window.gApi('kyu.me');
+      // Hiding keeps your score on the board and blurs your name; only the admin can take someone off
       el.innerHTML = !me ? '<span>Play a round to get on the board.</span>'
-        : me.hidden ? `<span>You are hidden from the leaderboard (your best: ${me.score}/${ROUND}).</span><button type="button" class="ku-lb-btn" data-hide="0">Show me</button>`
-        : `<span>You: <b>#${me.rank}</b> of ${me.total} · ${me.score}/${ROUND} in ${fmtTime(me.seconds)}</span><button type="button" class="ku-lb-btn ghost" data-hide="1">Hide me</button>`;
+        : me.removed ? `<span>You are not on the leaderboard (your best: ${me.score}/${ROUND}).</span>`
+        : me.rank == null ? `<span>You are hidden from the leaderboard (your best: ${me.score}/${ROUND}).</span><button type="button" class="ku-lb-btn" data-hide="0">Show me</button>`
+        : `<span>You: <b>#${me.rank}</b> of ${me.total} · ${me.score}/${ROUND} in ${fmtTime(me.seconds)}${me.hidden ? ' · your name is hidden' : ''}</span>`
+          + (me.hidden ? '<button type="button" class="ku-lb-btn" data-hide="0">Show my name</button>' : '<button type="button" class="ku-lb-btn ghost" data-hide="1">Hide my name</button>');
     } catch (e) { el.innerHTML = ''; }
   }
   async function share() {
