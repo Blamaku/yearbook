@@ -636,6 +636,22 @@ window.gApi = async function (action, payload) {
   return body;
 };
 
+// The api's few public actions, which need no sign-in (e.g. sup.board, the class superlatives)
+window.gApiPublic = async function (action, payload) {
+  let res, body = null;
+  try {
+    res = await fetch(window.GLUK_API.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY },
+      body: JSON.stringify(Object.assign({ action }, payload || {})),
+    });
+  } catch (e) { const er = new Error('Could not reach the secure service.'); er.unreachable = true; throw er; }
+  try { body = await res.json(); } catch (e) { body = null; }
+  if (!body || typeof body.ok !== 'boolean') { const er = new Error('The secure service is not available.'); er.unreachable = true; throw er; }
+  if (!body.ok) { const er = new Error(body.error || 'The request failed.'); er.code = body.code; er.data = body; throw er; }
+  return body;
+};
+
 // Try the secure service first; only if it is unreachable (and not in strict mode) run the old direct write.
 window.apiWrite = async function (action, payload, direct) {
   try { return await window.gApi(action, payload); }
@@ -1767,7 +1783,7 @@ window.openProfileChooser = function () {
 
 // ── Bottom tab bar: Home · Students · Clubs · Alerts · Me ─────────────
 // Added to every page in TAB_FOR_PAGE (not the admin panel). On wide screens style.css stands it down the left side.
-const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home', staff: 'home', about: 'home', constitution: 'home', letters: 'home', university: 'home',
+const TAB_FOR_PAGE = { home: 'home', department: 'home', course: 'home', class: 'home', staff: 'home', about: 'home', constitution: 'home', letters: 'home', university: 'home', superlatives: 'home',
   feed: 'students', profiles: 'students', profile: 'students', clubs: 'clubs', club: 'clubs' };
 const TAB_SVG = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 function renderTabBar() {
@@ -2034,6 +2050,7 @@ function initProfilePage(){
         _contact=_privateFor ? 'shown' : ''; paintProfile(_currentProfile);
       });
       startComments(id);
+      paintSuperlativeBadges(data.id);                    // from 15 Nov: "🏆 Most likely to …" for the winners
       // Show edit button to profile owner — check immediately + on auth change
       function _refreshEditBtn(user){
         const btn=document.getElementById('editProfileBtn');
@@ -2162,6 +2179,25 @@ function paintProfile(s){
 
   initCarousel(photoList);
 
+}
+
+// Class superlatives: once the winners are out (15 Nov), a profile shows the categories its graduate won.
+// The board comes from the api's public sup.board, kept for 10 minutes in this tab.
+window.SUP_REVEAL_AT = '2026-11-14T21:00:00Z';
+async function paintSuperlativeBadges(profileId){
+  if(Date.now() < Date.parse(window.SUP_REVEAL_AT)) return;
+  let b=null;
+  try{ const c=JSON.parse(sessionStorage.getItem('gluk-sup')||'null'); if(c && Date.now()-c.t<600000) b=c.b; }catch(e){}
+  if(!b){
+    try{ b=await window.gApiPublic('sup.board'); try{ sessionStorage.setItem('gluk-sup', JSON.stringify({t:Date.now(), b})); }catch(e){} }
+    catch(e){ return; }
+  }
+  if(!b || b.open || !b.results) return;
+  const won=(b.categories||[]).filter(c=>{ const r=b.results[c.id]; return r && r[0] && Number(r[0].profile_id)===Number(profileId); });
+  const anchor=document.getElementById('profileDept');
+  if(!won.length || !anchor || document.getElementById('supBadges')) return;
+  anchor.insertAdjacentHTML('afterend', `<div id="supBadges" class="sup-badges">${won.map(c=>
+    `<a class="sup-badge" href="superlatives.html"><span aria-hidden="true">🏆</span> ${esc(c.title)}</a>`).join('')}</div>`);
 }
 
 // Both "chat on WhatsApp" buttons on a profile: hidden when there is no number. Until the details are open

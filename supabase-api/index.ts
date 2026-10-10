@@ -53,12 +53,14 @@ const CONFIG = {
   lettersClass: '2026',                             // the graduating class letters are written to
   lettersPerPerson: 30,                             // at most this many new letters by one person per 24 hours
   contactsPerDay: 20,                               // different classmates' contact details one person may open per 24 hours
+  supRevealAt: '2026-11-14T21:00:00Z',              // superlatives: voting closes and the top 3 are shown (Sunday 15 November, 00:00 in Kisumu)
+  supClass: '2026',                                 // the class whose graduates can be voted for
   kyuRound: 10,                                     // questions in a round of Who's who? (university.js)
   kyuMinSeconds: 15,                                // a round finished faster than this does not count
   kyuPerHour: 40,                                   // at most this many rounds started by one person per hour
   // Pages whose visits are counted for the Developer tab (each page's <body data-page>)
   trackPages: ['home', 'feed', 'profiles', 'profile', 'clubs', 'club', 'department', 'course', 'class', 'staff',
-    'about', 'constitution', 'letters', 'university'],
+    'about', 'constitution', 'letters', 'university', 'superlatives'],
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -449,6 +451,56 @@ async function kyuRank(ctx, me) {
     .or(`score.gt.${s},and(score.eq.${s},seconds.lt.${sec}),and(score.eq.${s},seconds.eq.${sec},achieved_at.lt."${at}")`)]);
   if (all.error || ahead.error) throw kyuDbError(all.error || ahead.error);
   return { rank: me.removed ? null : 1 + (ahead.count || 0), total: all.count || 0 };
+}
+
+// ── Class superlatives (since 2026-10-17) ──────────────────────────────
+// Anyone with a yearbook (or approved staff) profile votes once per category for a Class of 2026 graduate, and may
+// change the vote until supRevealAt. Votes stay secret until then; then the top 3 of each are shown, with no counts.
+const supDbError = e => missingTable(e)
+  ? new ApiError(503, 'sup_coming', 'The superlatives are being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+const supOpen = ctx => ctx.now() < Date.parse(ctx.config.supRevealAt);
+const supNominee = (ctx, p) => !!p && String(p.classyear || '') === ctx.config.supClass && !p.isanonymous;
+const supCache = new WeakMap();                         // the public board, kept a minute per database client
+async function supCategories(ctx, withHidden) {
+  const r = await ctx.db.from('sup_categories').select('id,title,emoji,sort,hidden').order('sort', { ascending: true }).limit(200);
+  if (r.error) throw supDbError(r.error);
+  return (r.data || []).filter(c => withHidden || !c.hidden)
+    .map(c => ({ id: c.id, title: c.title, emoji: c.emoji, sort: c.sort, ...(withHidden ? { hidden: c.hidden } : {}) }));
+}
+// Every vote, 1,000 at a time: the Supabase API never returns more than 1,000 rows to one request.
+async function supAllVotes(ctx) {
+  const all = [];
+  for (let from = 0; from < 500000; from += 1000) {
+    const v = await ctx.db.from('sup_votes').select('category_id,profile_id,voter_uid')
+      .order('category_id', { ascending: true }).order('voter_uid', { ascending: true }).range(from, from + 999);
+    if (v.error) throw supDbError(v.error);
+    all.push(...(v.data || []));
+    if ((v.data || []).length < 1000) break;
+  }
+  return all;
+}
+// Each category's leaders, most votes first (a tie goes to the lower profile id, so it never flickers).
+// Someone who has since become anonymous, left the class or been deleted is skipped.
+async function supTally(ctx, cats, top) {
+  const v = { data: await supAllVotes(ctx) };
+  const counts = {}, ranked = {}, ids = new Set(), people = {};
+  (v.data || []).forEach(x => { const c = counts[x.category_id] = counts[x.category_id] || {}; c[x.profile_id] = (c[x.profile_id] || 0) + 1; });
+  for (const cat of cats) {
+    ranked[cat.id] = Object.entries(counts[cat.id] || {}).map(([pid, n]) => ({ profile_id: Number(pid), votes: n }))
+      .sort((a, b) => b.votes - a.votes || a.profile_id - b.profile_id);
+    ranked[cat.id].slice(0, top + 5).forEach(x => ids.add(x.profile_id));
+  }
+  const list = [...ids];
+  for (let i = 0; i < list.length; i += 200) {
+    const p = await ctx.db.from('profiles').select('id,name,photo_url,course,classyear,isanonymous').in('id', list.slice(i, i + 200));
+    if (p.error) throw supDbError(p.error);
+    (p.data || []).forEach(x => { people[x.id] = x; });
+  }
+  const results = {};
+  for (const cat of cats) results[cat.id] = ranked[cat.id].filter(x => supNominee(ctx, people[x.profile_id])).slice(0, top)
+    .map(x => ({ profile_id: x.profile_id, name: people[x.profile_id].name, photo_url: people[x.profile_id].photo_url || null, course: people[x.profile_id].course || '', votes: x.votes }));
+  return { results, votes: (v.data || []).length, voters: new Set((v.data || []).map(x => x.voter_uid)).size };
 }
 
 // ── App traffic (since 2026-10-13): one anonymous line per page opened ──
@@ -936,6 +988,76 @@ const ACTIONS = {
     return { hidden: body.hidden };
   },
 
+  // ── Class superlatives ──
+  // The categories, for everyone; once voting has closed, the top 3 of each (no vote counts). No sign-in needed.
+  async 'sup.board'(ctx) {
+    const hit = supCache.get(ctx.db);
+    if (hit && ctx.now() - hit.at < 60e3) return hit.data;
+    const open = supOpen(ctx), categories = await supCategories(ctx, false);
+    let data;
+    if (open) {
+      const n = await ctx.db.from('sup_votes').select('category_id', { count: 'exact', head: true });
+      data = { open, revealAt: ctx.config.supRevealAt, categories, votes: n.error ? 0 : (n.count || 0) };
+    } else {
+      const t = await supTally(ctx, categories, 3);
+      const results = Object.fromEntries(Object.entries(t.results).map(([k, list]) => [k, list.map(({ votes, ...x }) => x)]));
+      data = { open, revealAt: ctx.config.supRevealAt, categories, votes: t.votes, results };
+    }
+    supCache.set(ctx.db, { at: ctx.now(), data });
+    return data;
+  },
+
+  // Your own votes, and whether you may vote
+  async 'sup.mine'(ctx) {
+    const canVote = await isMember(ctx);
+    const r = await ctx.db.from('sup_votes').select('category_id,profile_id').eq('voter_uid', ctx.user.uid).limit(500);
+    if (r.error) throw supDbError(r.error);
+    const ids = [...new Set((r.data || []).map(x => Number(x.profile_id)))], people = {};
+    if (ids.length) {
+      const p = await ctx.db.from('profiles').select('id,name,photo_url,course').in('id', ids);
+      (p.data || []).forEach(x => { people[x.id] = x; });
+    }
+    const votes = {};
+    (r.data || []).forEach(x => { const p = people[x.profile_id]; if (p) votes[x.category_id] = { profile_id: p.id, name: p.name, photo_url: p.photo_url || null, course: p.course || '' }; });
+    return { canVote, open: supOpen(ctx), revealAt: ctx.config.supRevealAt, votes };
+  },
+
+  // Vote, or change your vote, in one category: { category, profileId }
+  async 'sup.vote'(ctx, body) {
+    const uid = ctx.user.uid, nowIso = new Date(ctx.now()).toISOString();
+    if (!supOpen(ctx)) throw conflict('Voting has closed. The winners are out!', 'closed');
+    const cat = Number(body.category), pid = Number(body.profileId);
+    if (!Number.isInteger(cat) || cat <= 0) throw bad('Choose a category.');
+    if (!Number.isInteger(pid) || pid <= 0) throw bad('Choose a graduate.');
+    if (!(await isMember(ctx))) throw forbidden('Create your yearbook profile to vote.');
+    const c = await ctx.db.from('sup_categories').select('id,hidden').eq('id', cat).limit(1);
+    if (c.error) throw supDbError(c.error);
+    if (!c.data || !c.data[0] || c.data[0].hidden) throw notFound('That category is not taking votes.');
+    const p = await ctx.db.from('profiles').select('id,uid,name,photo_url,course,classyear,isanonymous').eq('id', pid).limit(1);
+    if (p.error) throw supDbError(p.error);
+    const g = p.data && p.data[0];
+    if (!g) throw notFound('That graduate could not be found.');
+    if (!supNominee(ctx, g)) throw bad(`You can vote for graduates of the Class of ${ctx.config.supClass} (not anonymous profiles).`);
+    if (g.uid === uid) throw bad('You cannot vote for yourself!');
+    const old = await ctx.db.from('sup_votes').select('category_id').eq('category_id', cat).eq('voter_uid', uid).limit(1);
+    if (old.error) throw supDbError(old.error);
+    const w = old.data && old.data.length
+      ? await ctx.db.from('sup_votes').update({ profile_id: g.id, updated_at: nowIso }).eq('category_id', cat).eq('voter_uid', uid)
+      : await ctx.db.from('sup_votes').insert({ category_id: cat, voter_uid: uid, profile_id: g.id, created_at: nowIso, updated_at: nowIso });
+    if (w.error) throw supDbError(w.error);
+    return { vote: { category_id: cat, profile_id: g.id, name: g.name, photo_url: g.photo_url || null, course: g.course || '' } };
+  },
+
+  // Take back your vote in one category: { category }
+  async 'sup.unvote'(ctx, body) {
+    if (!supOpen(ctx)) throw conflict('Voting has closed.', 'closed');
+    const cat = Number(body.category);
+    if (!Number.isInteger(cat) || cat <= 0) throw bad('Choose a category.');
+    const d = await ctx.db.from('sup_votes').delete().eq('category_id', cat).eq('voter_uid', ctx.user.uid);
+    if (d.error) throw supDbError(d.error);
+    return {};
+  },
+
   // ── app traffic ── (the one action that needs no sign-in; it stores no name, account or IP)
   async hit(ctx, body) {
     const page = String(body.page || ''), visitor = visitorId(body.visitor);
@@ -984,6 +1106,43 @@ const ACTIONS = {
     const r = await q;
     if (r.error) throw new ApiError(500, missingTable(r.error) ? 'club_tables_missing' : 'db', 'Could not load the posts.');
     return { rows: r.data || [] };
+  },
+
+  // Superlatives: every category (hidden ones too) with its leaders and their votes so far, and how many have voted
+  async 'admin.sup.list'(ctx) {
+    requireAdmin(ctx);
+    const categories = await supCategories(ctx, true);
+    const t = await supTally(ctx, categories, 5);
+    return { categories, results: t.results, votes: t.votes, voters: t.voters, open: supOpen(ctx), revealAt: ctx.config.supRevealAt };
+  },
+
+  // Add a category ({ title, emoji? }) or change one ({ id, title?, emoji?, hidden?, sort? })
+  async 'admin.sup.category'(ctx, body) {
+    requireAdmin(ctx);
+    const patch = {};
+    if (body.title !== undefined) {
+      patch.title = txt(body.title, 80, 'Category', { required: true });
+      if (patch.title.length < 3) throw bad('The category needs a few more letters.');
+    }
+    if (body.emoji !== undefined) patch.emoji = txt(body.emoji, 16, 'Emoji', { required: true });
+    if (body.hidden !== undefined) { if (typeof body.hidden !== 'boolean') throw bad('hidden must be true or false.'); patch.hidden = body.hidden; }
+    if (body.sort !== undefined) { if (!Number.isInteger(body.sort)) throw bad('sort must be a whole number.'); patch.sort = body.sort; }
+    if (body.id == null) {
+      if (!patch.title) throw bad('Give the category a title.');
+      const last = await ctx.db.from('sup_categories').select('sort').order('sort', { ascending: false }).limit(1);
+      if (last.error) throw supDbError(last.error);
+      const top = (last.data && last.data[0] && last.data[0].sort) || 0;
+      const ins = await ctx.db.from('sup_categories').insert({ emoji: '🏆', sort: top + 10, hidden: false, ...patch });
+      if (ins.error) throw supDbError(ins.error);
+    } else {
+      const id = Number(body.id);
+      if (!Number.isInteger(id) || id <= 0) throw bad('Missing or invalid category.');
+      if (!Object.keys(patch).length) throw bad('Nothing to change.');
+      const up = await ctx.db.from('sup_categories').update(patch).eq('id', id);
+      if (up.error) throw supDbError(up.error);
+    }
+    supCache.delete(ctx.db);                              // the public board shows the change straight away
+    return { categories: await supCategories(ctx, true) };
   },
 
   // The Who's who? board with the logins, so the admin can take off anyone who cheated
@@ -1204,8 +1363,8 @@ const ACTIONS = {
   },
 };
 
-// Actions anyone may call without signing in (they never read or change anyone's data)
-const PUBLIC_ACTIONS = ['hit'];
+// Actions anyone may call without signing in: they change nobody's data, and show only what anyone may see
+const PUBLIC_ACTIONS = ['hit', 'sup.board'];
 
 // ── The request handler ────────────────────────────────────────────────
 export function createApi({ config, db, storage, getKeys, now = () => Date.now(), rand = () => Math.random().toString(36).slice(2, 8),

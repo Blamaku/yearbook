@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <meta name="description" content="Class superlatives for the GLUK Class of 2026: vote for Most likely to become a CEO, Best smile and more. Winners revealed Sunday 15 November.">
+  <title>Class superlatives — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="Class superlatives — GLUK Class of 2026">
+  <meta property="og:description" content="Who is most likely to become a CEO? Vote for your classmates. Winners revealed Sunday 15 November.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="superlatives">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- Class superlatives: vote once per category for a Class of 2026 graduate; the top 3 of each are revealed
+       on Sunday 15 November. superlatives.js fills it; the api (sup.*) does the counting. -->
+  <main class="ab sp">
+    <header class="ab-hero">
+      <a class="ab-back" href="index.html">‹ Home</a>
+      <div class="hm-crest-ring ab-ring"><span class="hm-aura" aria-hidden="true"></span><span class="sp-trophy" aria-hidden="true">🏆</span></div>
+      <p class="hm-uni">Class of 2026</p>
+      <h1>Class superlatives</h1>
+      <p class="ab-place" id="spPlace">Vote for your classmates. Winners revealed Sunday 15 November.</p>
+      <p class="sp-votes" id="spVotes"></p>
+    </header>
+
+    <section class="ab-sec">
+      <div id="spStatus"><div class="sp-quiet">Loading…</div></div>
+      <p class="sp-hint" id="spHint" hidden>One vote per category. Pick any graduate of the Class of 2026 (not yourself).</p>
+      <div class="sp-grid" id="spGrid"></div>
+    </section>
+  </main>
+
+  <!-- Voting in one category -->
+  <div class="sp-ov" id="spOv" hidden>
+    <div class="sp-sheet" role="dialog" aria-modal="true" aria-labelledby="spShTitle">
+      <div class="sp-sh-head"><h2 id="spShTitle">Vote</h2><button type="button" class="sp-x" data-act="close" aria-label="Close">✕</button></div>
+      <div id="spShNow"></div>
+      <input type="search" class="form-input sp-find" id="spFind" placeholder="Search the Class of 2026 by name" autocomplete="off" aria-label="Search the Class of 2026">
+      <div class="sp-results" id="spResults" role="listbox"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="superlatives.js"></script>
+</body>
+</html>

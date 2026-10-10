@@ -258,7 +258,7 @@
 
     <!-- ── Moderation ── -->
     <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button></div>
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button></div>
       <div id="mod-comments"><div id="cList"></div></div>
       <div id="mod-posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
@@ -266,6 +266,17 @@
       </div>
       <div id="mod-staff" style="display:none"><div id="stList"></div></div>
       <div id="mod-letters" style="display:none"><div id="ltList"></div></div>
+      <div id="mod-sup" style="display:none">
+        <div class="a-item">
+          <div class="a-name">Add a category</div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input class="form-input" id="supEmoji" maxlength="8" placeholder="🏆" style="width:64px;text-align:center" aria-label="Emoji">
+            <input class="form-input" id="supTitle" maxlength="80" placeholder="e.g. Most likely to become a doctor" style="flex:1" aria-label="Category">
+            <button type="button" class="a-mini" data-act="sup-add">Add</button>
+          </div>
+        </div>
+        <div id="supList"></div>
+      </div>
     </section>
 
     <!-- ── Clubs ── -->
@@ -909,12 +920,15 @@
       $('mod-posts').style.display    = M.tab === 'posts' ? 'block' : 'none';
       $('mod-staff').style.display    = M.tab === 'staff' ? 'block' : 'none';
       $('mod-letters').style.display  = M.tab === 'letters' ? 'block' : 'none';
+      $('mod-sup').style.display      = M.tab === 'sup' ? 'block' : 'none';
+      $('seg-msp').classList.toggle('on', M.tab === 'sup');
       $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
       $('seg-ms').classList.toggle('on', M.tab === 'staff'); $('seg-ml').classList.toggle('on', M.tab === 'letters');
       if (M.tab === 'comments' && !M.loadedC) loadComments();
       if (M.tab === 'posts' && !M.loadedP) loadPosts(true);
       if (M.tab === 'staff') loadStaff();
       if (M.tab === 'letters') loadLetters();
+      if (M.tab === 'sup') loadSup();
     }
 
     /* ══ Letters: the class wall and anything someone reported. Private letters nobody reported never come here. ══ */
@@ -956,6 +970,53 @@
         const l = LT.rows.find(x => Number(x.id) === id); if (l) { l.hidden = hidden; l.reported = false; }
         renderLetters(); toast(hidden ? 'Hidden from the site' : 'Done ✅');
       } catch (e) { console.error('[letters review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
+    }
+
+    /* ══ Class superlatives: the leaders so far (only the admin sees counts) and the categories ══ */
+    const SP = { d: null, err: '' };
+    async function loadSup() {
+      $('supList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try { SP.d = await window.gApi('admin.sup.list', {}); SP.err = ''; }
+      catch (e) {
+        console.error('[superlatives]', e);
+        SP.err = e.code === 'sup_coming' || e.code === 'unknown_action' ? 'The superlatives are not switched on yet: run the superlatives SQL in Supabase.' : (e.message || 'Could not load the votes');
+      }
+      renderSup();
+    }
+    function renderSup() {
+      if (SP.err) { $('supList').innerHTML = `<div class="a-empty">${E(SP.err)}</div>`; return; }
+      const d = SP.d, when = new Date(d.revealAt).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+      $('supList').innerHTML = `<div class="a-sub" style="margin:0 2px 10px;white-space:normal">${E(nfmt(d.votes) + ' ' + plural(d.votes, 'vote', 'votes') + ' from ' + nfmt(d.voters) + ' ' + plural(d.voters, 'person', 'people') + '. ' + (d.open ? 'Voting closes and the top 3 are revealed on ' + when + '. Only you can see these counts.' : 'Voting has closed: the winners are on the site.'))}</div>`
+        + d.categories.map(c => {
+          const top = (d.results && d.results[c.id]) || [];
+          return `<div class="a-item">
+            <div class="a-item-top"><div class="grow">
+              <div><span class="a-name" style="display:inline">${E(c.emoji)} ${E(c.title)}</span>${c.hidden ? ' <span class="a-badge">Hidden</span>' : ''}</div>
+              <div class="a-sub" style="white-space:normal">${top.length ? top.map((t, i) => E((i + 1) + '. ' + t.name + ' (' + t.votes + ')')).join(' · ') : 'No votes yet'}</div>
+            </div></div>
+            <div class="a-item-acts">
+              <button type="button" class="a-mini" data-act="sup-rename" data-id="${Number(c.id)}">Rename</button>
+              ${c.hidden ? `<button type="button" class="a-mini" data-act="sup-hide" data-id="${Number(c.id)}" data-v="0">Show</button>`
+                : `<button type="button" class="a-mini danger" data-act="sup-hide" data-id="${Number(c.id)}" data-v="1">Hide</button>`}
+            </div>
+          </div>`;
+        }).join('');
+    }
+    async function supCategory(payload, done) {
+      try { await window.gApi('admin.sup.category', payload); toast(done); loadSup(); }
+      catch (e) { console.error('[superlatives category]', e); toast('❌ ' + (e.message || 'Could not save.')); }
+    }
+    function supAdd() {
+      const title = $('supTitle').value.trim(), emoji = $('supEmoji').value.trim();
+      if (title.length < 3) { toast('Write the category first.'); $('supTitle').focus(); return; }
+      supCategory(emoji ? { title, emoji } : { title }, 'Category added ✅');
+      $('supTitle').value = ''; $('supEmoji').value = '';
+    }
+    function supRename(id) {
+      const c = SP.d && SP.d.categories.find(x => Number(x.id) === id); if (!c) return;
+      const title = prompt('New name for this category:', c.title);
+      if (title === null || title.trim() === c.title) return;
+      supCategory({ id, title: title.trim() }, 'Renamed ✅');
     }
 
     /* ══ Staff profiles: nothing shows on the site until it is approved here ══ */
@@ -1490,6 +1551,9 @@ let _ocSearchT = null;
         case 'st-review': reviewStaff(id, b.dataset.v); break;
         case 'st-del':   deleteStaff(id); break;
         case 'lt-review': reviewLetter(id, b.dataset.v === '1'); break;
+        case 'sup-add':    supAdd(); break;
+        case 'sup-rename': supRename(id); break;
+        case 'sup-hide':   supCategory({ id, hidden: b.dataset.v === '1' }, b.dataset.v === '1' ? 'Hidden from the page' : 'Shown again ✅'); break;
         case 'p-more':   loadPosts(false); break;
         case 'p-pin':    togglePin(id, b.dataset.pinned === '1'); break;
         case 'p-del':    deletePost(id); break;

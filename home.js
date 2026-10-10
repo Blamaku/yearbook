@@ -191,6 +191,8 @@
   }
 
   greet('');
+  // Class superlatives: from the reveal, the card invites people to see the winners
+  if ($('hmSupSub') && Date.now() >= Date.parse(window.SUP_REVEAL_AT || '2026-11-14T21:00:00Z')) $('hmSupSub').textContent = 'The winners are out! See who the Class of 2026 voted for.';
   loadNew().catch(() => show('hmNewSec', false));
   loadStaff().catch(() => {});
   loadMessages().catch(() => show('hmMsgsSec', false));
