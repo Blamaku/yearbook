@@ -1576,7 +1576,8 @@ window.gNotif = (function () {
       <div class="modal-handle"></div>
       <div class="notif-head"><div class="notif-title">Notifications</div><button type="button" class="notif-x" id="notifClose" aria-label="Close">✕</button></div>
       <div id="notifPush" class="notif-push" hidden></div>
-      <div id="notifBody"></div></div>`;
+      <div id="notifBody"></div>
+      <div id="notifPushFoot" class="notif-push-foot" hidden></div></div>`;
     document.documentElement.appendChild(ov);
     ov.addEventListener('click', e => {
       if (e.target === ov || (e.target.closest && e.target.closest('#notifClose'))) close();
@@ -1587,11 +1588,10 @@ window.gNotif = (function () {
     return ov;
   }
   /* ── "get these on your phone" row ── */
+  // Once they are on, the row at the top goes away; a small line under the list keeps Test and Turn off
   const PUSH_ROW = {
     off: `<span class="notif-push-ico">📲</span><span class="notif-push-txt"><b>Get these on your phone</b>Comments, replies and club posts — even when the app is closed.</span>
       <button type="button" class="notif-push-btn" data-push="on">Turn on</button>`,
-    on: `<span class="notif-push-ico">📲</span><span class="notif-push-txt"><b>Phone notifications are on</b>for this device</span>
-      <button type="button" class="notif-push-link" data-push="test">Test</button><button type="button" class="notif-push-link" data-push="off">Turn off</button>`,
     denied: `<span class="notif-push-ico">🔕</span><span class="notif-push-txt"><b>Notifications are blocked</b>Allow notifications for this site in your browser settings, then come back here.</span>`,
     'ios-install': `<span class="notif-push-ico">📲</span><span class="notif-push-txt"><b>Want these on your iPhone?</b>Tap Share ↑ then “Add to Home Screen”, open the yearbook from there and turn notifications on.</span>`,
   };
@@ -1602,6 +1602,13 @@ window.gNotif = (function () {
     try { st = await window.gPush.status(); } catch (e) {}
     el.innerHTML = PUSH_ROW[st] || '';
     el.hidden = !el.innerHTML;
+    const foot = document.getElementById('notifPushFoot');
+    if (foot) {
+      foot.innerHTML = st === 'on' ? `🔔 Phone notifications are on for this device ·
+        <button type="button" class="notif-push-link" data-push="test">Test</button> ·
+        <button type="button" class="notif-push-link" data-push="off">Turn off</button>` : '';
+      foot.hidden = st !== 'on';
+    }
   }
   async function onPushButton(btn) {
     const what = btn.dataset.push;

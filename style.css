@@ -1312,7 +1312,8 @@ footer {
   border-radius:20px; background:#ef4444; color:#fff; font-size:.58rem; font-weight:800; line-height:1;
   align-items:center; justify-content:center; border:2px solid #061020;
 }
-.notif-ov { position:fixed; inset:0; z-index:9990; display:none; align-items:flex-end; background:rgba(4,13,30,.72); }
+.notif-ov { position:fixed; inset:0; z-index:9990; display:none; align-items:flex-end; background:rgba(4,13,30,.72);
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif; }   /* it hangs off <html>, not <body>, so it sets the site font itself */
 .notif-ov.notif-open { display:flex; }
 .notif-sheet {
   background:var(--white); width:100%; max-width:560px; margin:0 auto; max-height:82dvh; overflow-y:auto; box-sizing:border-box;
@@ -1348,6 +1349,9 @@ footer {
 .notif-push-btn { flex-shrink:0; border:none; border-radius:20px; padding:7px 14px; background:var(--gold,#d4a017); color:#0a1628; font-weight:800; font-size:.75rem; cursor:pointer; }
 .notif-push-link { flex-shrink:0; border:none; background:none; padding:6px 4px; color:var(--blue); font-weight:700; font-size:.75rem; cursor:pointer; }
 .notif-push-btn:disabled, .notif-push-link:disabled { opacity:.5; cursor:default; }
+.notif-push-foot { margin:12px 0 2px; text-align:center; font-size:.7rem; color:var(--gray-400); }
+.notif-push-foot[hidden] { display:none; }
+.notif-push-foot .notif-push-link { padding:4px 2px; font-size:.7rem; }
 
 
 /* ══════════════════════════════════════════════════════════════
