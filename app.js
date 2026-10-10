@@ -174,6 +174,27 @@ window.waLink = function (raw) {
   return (d.length >= 11 && d.length <= 15) ? 'https://wa.me/' + d : '';
 };
 
+// "I'm going to …, tag along!": a club event shared to friends with a link straight to it.
+// The phone's share sheet when there is one, else WhatsApp. ev = a club_posts row (id, club_name, title, post_date).
+window.eventShareText = function (ev) {
+  const [y, m, d] = String(ev.post_date || '').slice(0, 10).split('-').map(Number);
+  const day = new Date(y, (m || 1) - 1, d || 1), now = new Date();
+  const n = Math.round((day - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
+  const when = n === 0 ? 'today' : n === 1 ? 'tomorrow'
+    : 'on ' + day.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const url = `${location.origin}/club.html?club=${encodeURIComponent(ev.club_name)}&post=${Number(ev.id)}#feed`;
+  return { text: `I'm going to ${ev.title || 'an event'} (${ev.club_name}) ${when} 🎉 See you there? Tag along!`, url };
+};
+window.shareEvent = async function (ev) {
+  const { text, url } = window.eventShareText(ev);
+  if (navigator.share) {
+    try { await navigator.share({ title: ev.title || ev.club_name, text, url }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }      // closed the share sheet
+  }
+  const wa = 'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url);
+  if (!window.open(wa, '_blank', 'noopener')) location.href = wa;
+};
+
 // Kenyan numbers written 07…, 01…, 7…, 1… or 254…  ->  +254712345678.  Other formats are left exactly as typed.
 // The birthday field uses a native date picker for a good mobile experience, but only the
 // month and day are ever stored or sent to the server — the year is discarded on purpose.

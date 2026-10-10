@@ -162,6 +162,13 @@
     .won-seg i { font-style:normal; margin-left:4px; padding:1px 7px; border-radius:50px; font-size:.66rem; background:var(--navy); color:#fff; }
     .won-list { flex:1; overflow-y:auto; display:grid; gap:8px; align-content:start; padding:0 16px calc(24px + env(safe-area-inset-bottom, 0px)); overscroll-behavior:contain; }
     .won-item { display:flex; gap:12px; padding:10px; border-radius:var(--radius-md); background:var(--surface); border:1px solid var(--gray-100); color:var(--gray-800); }
+    .won-row { display:flex; gap:6px; align-items:stretch; }
+    .won-row .won-item { flex:1; min-width:0; }
+    .won-share { flex-shrink:0; width:58px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border:0; border-radius:var(--radius-md); cursor:pointer;
+      font:inherit; font-size:.66rem; font-weight:800; background:color-mix(in srgb, var(--cc,#0f4c81) 14%, var(--surface)); color:var(--cc,var(--navy)); }
+    .won-share span { font-size:1.2rem; }
+    .won-share:active { transform:scale(.96); }
+    [data-theme="dark"] .won-share { color:#fff; background:color-mix(in srgb, var(--cc,#0f4c81) 45%, transparent); }
     .won-th { flex-shrink:0; width:66px; height:66px; border-radius:12px; font-size:1.7rem; }
     .won-th .won-date b { font-size:1.45rem; }
     .won-it { flex:1; min-width:0; }
@@ -385,10 +392,12 @@
     function itemHTML(p) {
       const m = metaOf(p.club_name), up = isUp(p), img = up ? '' : imgOf(p);
       const when = up ? `<small class="up">${E(soon(daysTo(p.post_date)))} · ${E(longDay(p.post_date))}</small>` : `<small>${E(ago(p.created_at))}</small>`;
-      return `<a class="won-item" href="${postUrl(p)}" style="--cc:${E(m.color)}">
+      const item = `<a class="won-item" href="${postUrl(p)}" style="--cc:${E(m.color)}">
         <span class="won-th" style="${bgImg(img)}">${up ? dateBlock(p) : (img ? '' : m.icon)}</span>
         <span class="won-it"><small>${m.icon} ${E(p.club_name)} · ${E(KIND[p.type] || KIND.notice)}</small><b>${E(titleOf(p))}</b>${p.title && p.body ? `<p>${E(p.body)}</p>` : ''}${when}</span>
       </a>`;
+      // An event coming up: a Share button beside it ("I'm going … tag along!")
+      return up ? `<div class="won-row">${item}<button type="button" class="won-share" data-share="${Number(p.id)}" style="--cc:${E(m.color)}" aria-label="Share with friends: I'm going"><span aria-hidden="true">🙋</span>Share</button></div>` : item;
     }
 
     function paintRail() {
@@ -467,6 +476,11 @@
       onView = b.dataset.v; onCat = 'All'; paintSheet();
     });
     $('onCats').addEventListener('click', e => { const b = e.target.closest('.cat-chip'); if (b) { onCat = b.dataset.cat; paintSheet(); } });
+    $('onList').addEventListener('click', e => {
+      const b = e.target.closest('[data-share]'); if (!b) return;
+      const p = (upcoming || []).find(x => Number(x.id) === Number(b.dataset.share));
+      if (p) window.shareEvent(p);
+    });
     if (location.hash === '#whats-on') showSheet(true);
     loadOn();
 

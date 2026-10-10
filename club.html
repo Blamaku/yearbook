@@ -127,6 +127,9 @@
     .badge.t-event    { background:#fef9c3; color:#a16207; }
     .ev-when { display:inline-flex; align-items:center; gap:6px; margin:2px 0 6px; padding:5px 10px; border-radius:10px; font-size:.76rem; font-weight:700; background:var(--gray-100); color:var(--gray-600); }
     .ev-when.up { background:color-mix(in srgb, var(--cc,#0f4c81) 14%, transparent); color:var(--cc,var(--navy)); }
+    .ev-share { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin:4px 0 8px; padding:10px 14px; border:0; border-radius:50px; cursor:pointer;
+      font:inherit; font-size:.8rem; font-weight:800; background:var(--cc,#0f4c81); color:#fff; box-shadow:0 4px 12px color-mix(in srgb, var(--cc,#0f4c81) 30%, transparent); }
+    .ev-share:active { transform:scale(.98); }
     .post.flash { animation:postFlash 2.4s ease-out 1; }
     @keyframes postFlash { 0%, 40% { box-shadow:0 0 0 3px var(--cc,var(--blue)); } 100% { box-shadow:var(--shadow-sm); } }
     /* Coming up: the club's next events, at the top of About */
@@ -406,6 +409,7 @@
     let _gallery = [], _galShown = 0;
     let _ptype = 'notice', _pfiles = [];
     const _postImgs = {};
+    const _evById = {};                                  // upcoming events in the feed, for their Share button
 
     /* ── small helpers ─────────────────────────────── */
     const fmtDate  = d => { try { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } };
@@ -715,6 +719,8 @@
       const att = Array.isArray(p.attendees) ? p.attendees : [];
       const type = TYPE_LABEL[p.type] ? p.type : 'notice';
       const ev = type === 'event' && p.post_date;
+      const upEv = ev && daysTo(p.post_date) >= 0;            // today or later: friends can still tag along
+      if (upEv) _evById[id] = { id, club_name: CLUB, title: p.title, post_date: p.post_date };
       return `<article class="post" id="post-${id}">
         <div class="post-top">
           <span class="badge t-${type}">${E(TYPE_LABEL[type])}</span>
@@ -723,6 +729,7 @@
         </div>
         ${p.title ? `<h3 class="post-title">${E(p.title)}</h3>` : ''}
         ${ev ? `<div class="ev-when${daysTo(p.post_date) >= 0 ? ' up' : ''}">📅 ${E(whenText(p.post_date))}</div>` : ''}
+        ${upEv ? `<button type="button" class="ev-share" data-act="share" data-id="${id}">🙋 I'm going · Share with friends</button>` : ''}
         ${p.body ? (() => {
           const long = p.body.length > 260 || (p.body.match(/\n/g) || []).length > 3;
           return `<p class="post-body${long ? ' clamped' : ''}" id="pb-${id}">${E(p.body).replace(/\n/g, '<br>')}</p>${long ? `<button type="button" class="read-more-btn" data-act="more" data-id="${id}">Read more</button>` : ''}`;
@@ -1036,6 +1043,7 @@
       const b = e.target.closest('[data-act]'); if (!b) return;
       const id = +b.dataset.id;
       if (b.dataset.act === 'del') deletePost(id);
+      else if (b.dataset.act === 'share') { if (_evById[id]) window.shareEvent(_evById[id]); }
       else if (b.dataset.act === 'pin') togglePin(id, b.dataset.pinned === '1');
       else if (b.dataset.act === 'more') {
         const p = $('pb-' + id); if (!p) return;
