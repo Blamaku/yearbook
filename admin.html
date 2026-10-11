@@ -1072,7 +1072,7 @@
         <div class="a-item-top">
           <span class="a-av">${photo ? `<img src="${E(photo)}" alt="">` : E(initials(s.name))}</span>
           <div class="grow"><div><span class="a-name" style="display:inline">${E(name)}</span>${ST_BADGE[s.status] || ''}</div>
-            <div class="a-sub" style="white-space:normal">${E([s.position, s.dept, s.since_year ? 'since ' + s.since_year : ''].filter(Boolean).join(' · '))}</div>
+            <div class="a-sub" style="white-space:normal">${E([s.position, s.lead_role, s.unit, s.dept, s.since_year ? 'since ' + s.since_year : ''].filter(Boolean).join(' · '))}${s.qualifications ? `<br>${E(s.qualifications)}` : ''}${s.teaches ? `<br>Teaches: ${E(s.teaches)}` : ''}</div>
             ${s.message ? `<div class="a-text">${E(s.message)}</div>` : ''}
             <div class="a-sub">Added ${E(ago(s.created_at))}${s.reviewed_at ? ' · reviewed ' + E(ago(s.reviewed_at)) : ''}</div></div>
         </div>

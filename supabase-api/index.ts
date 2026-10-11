@@ -372,9 +372,21 @@ const STAFF_STATUS = ['pending', 'approved', 'hidden'];
 const staffDbError = e => missingTable(e)
   ? new ApiError(503, 'staff_coming', 'Staff profiles are being switched on. Please try again later.')
   : new ApiError(500, 'db', 'Could not save that. Please try again.');
+// The staff groups and the academic ranks the form offers (staff.js has the same lists). The ranks follow the
+// Kenyan university ladder (CUE's grading nomenclature), plus the other teaching posts a university has.
+const STAFF_GROUPS = ['teaching', 'leadership', 'admin', 'technical', 'library', 'welfare', 'ict', 'finance', 'facilities', 'other'];
+const STAFF_RANKS = ['Graduate Assistant', 'Research Assistant', 'Tutorial Fellow', 'Junior Research Fellow', 'Assistant Lecturer', 'Lecturer',
+  'Research Fellow', 'Senior Lecturer', 'Senior Research Fellow', 'Associate Professor', 'Professor', 'Professor Emeritus',
+  'Adjunct Lecturer', 'Visiting Lecturer', 'Part-time Lecturer', 'Clinical Instructor', 'Tutor'];
+const STAFF_DETAILS = ['category', 'rank', 'lead_role', 'unit', 'teaches', 'qualifications'];
+// What makes someone look senior: a change to any of these on a live profile goes back to the admin
+const STAFF_CHECKED = ['name', 'title', 'position', 'rank', 'lead_role'];
 function staffFields(ctx, p) {
   const since = txt(p.since_year, 4, 'Year you joined GLUK');
   if (since && (!/^\d{4}$/.test(since) || +since < 1950 || +since > new Date(ctx.now()).getFullYear())) throw bad('Year you joined GLUK must be a 4-digit year.');
+  const category = txt(p.category, 40, 'Staff group'), rank = txt(p.rank, 60, 'Academic rank');
+  if (category && !STAFF_GROUPS.includes(category)) throw bad('Choose your staff group from the list.');
+  if (rank && !STAFF_RANKS.includes(rank)) throw bad('Choose your academic rank from the list.');
   return {
     name: txt(p.name, 120, 'Name', { required: true }),
     title: txt(p.title, 20, 'Title') || null,
@@ -383,8 +395,17 @@ function staffFields(ctx, p) {
     since_year: since || null,
     message: txt(p.message, 600, 'Message') || null,
     photo_url: p.photo_url ? fileUrls(ctx.config, [p.photo_url], ctx.config.profileBucket, 1, 'Photo', ctx.user.uid)[0] : null,
+    category: category || null,
+    rank: rank || null,
+    lead_role: txt(p.lead_role, 80, 'Leadership role') || null,
+    unit: txt(p.unit, 120, 'Department or unit') || null,
+    teaches: txt(p.teaches, 300, 'Units you teach') || null,
+    qualifications: txt(p.qualifications, 160, 'Qualifications') || null,
   };
 }
+// Before the staff_details migration the new columns are missing: save without them rather than fail
+const missingColumn = e => !!e && (e.code === '42703' || e.code === 'PGRST204' || /column/i.test(e.message || ''));
+const withoutDetails = rec => Object.fromEntries(Object.entries(rec).filter(([k]) => !STAFF_DETAILS.includes(k)));
 async function myStaff(ctx) {
   const r = await ctx.db.from('staff_profiles').select('*').eq('uid', ctx.user.uid).limit(1);
   if (r.error) throw staffDbError(r.error);
@@ -869,15 +890,17 @@ const ACTIONS = {
     return { staff: await myStaff(ctx) };
   },
 
-  // Create or edit your own. A new one waits for the admin; edits keep their status,
-  // except a new name on an approved profile, which the admin checks again.
+  // Create or edit your own. A new one waits for the admin; edits keep their status, except a new name, title,
+  // position, rank or leadership role on an approved profile, which the admin checks again.
   async 'staff.save'(ctx, body) {
     if (!isObj(body.staff)) throw bad('Missing staff profile.');
     const rec = staffFields(ctx, body.staff), old = await myStaff(ctx);
-    const w = old
-      ? await ctx.db.from('staff_profiles').update({ ...rec, updated_at: new Date(ctx.now()).toISOString(),
-          ...(old.status === 'approved' && rec.name !== old.name ? { status: 'pending' } : {}) }).eq('id', old.id)
-      : await ctx.db.from('staff_profiles').insert({ ...rec, uid: ctx.user.uid, status: 'pending' });
+    const recheck = old && old.status === 'approved' && STAFF_CHECKED.some(k => k in old && (rec[k] || null) !== (old[k] || null));
+    const write = r => old
+      ? ctx.db.from('staff_profiles').update({ ...r, updated_at: new Date(ctx.now()).toISOString(), ...(recheck ? { status: 'pending' } : {}) }).eq('id', old.id)
+      : ctx.db.from('staff_profiles').insert({ ...r, uid: ctx.user.uid, status: 'pending' });
+    let w = await write(rec);
+    if (w.error && missingColumn(w.error)) w = await write(withoutDetails(rec));
     if (w.error) throw w.error.code === '23505' ? conflict('You already have a staff profile.', 'exists') : staffDbError(w.error);
     return { staff: await myStaff(ctx) };
   },

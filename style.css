@@ -2557,3 +2557,15 @@ a.ku-meet { display: inline-flex; align-items: center; }
 @media (min-width: 860px) { .ld-sheet { height: auto; max-height: min(720px, 90dvh); } }
 /* Who's who?: a student leader question picks a name and a face together (few students know past leaders' faces) */
 .kq-faces.named .kq-fname { visibility: visible; }
+
+/* Staff profile: the role section (staff.js) and the extra lines on a staff page */
+.sf-form .sf-h2 { margin: 22px 0 10px; padding-top: 16px; border-top: 1px solid var(--gray-100); font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-600); }
+.sf-form .form-group[hidden] { display: none; }
+.sf-opt { font-weight: 400; color: var(--gray-400); }
+.sf-hint { margin-top: 4px; font-size: .7rem; color: var(--gray-400); }
+.sf-quals { margin-top: 2px; font-size: .76rem; color: var(--gray-600); }
+.sf-lead-role { display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: var(--radius-full); background: var(--gold-glow); color: #7a5600; font-size: .72rem; font-weight: 800; }
+.sf-teaches { margin: 14px 0 0; padding: 10px 14px; border-radius: var(--radius-md); background: var(--off-white); text-align: left; }
+.sf-teaches b { font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-600); }
+.sf-teaches p { margin-top: 3px; font-size: .84rem; line-height: 1.5; color: var(--gray-800); }
+[data-theme="dark"] .sf-lead-role { color: #fcd34d; }
