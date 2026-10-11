@@ -178,8 +178,13 @@ function hidePasswords() {
 updateUserBar(null);
 
 // ── Auth State Listener — updates bar when auth resolves ──────────
+// Firebase restores a saved sign-in a moment after the page loads: until its first answer, nobody
+// can say whether the person is signed in (see requireAuth)
+let _authReady = false;
+const _authWaiters = [];
 auth.onAuthStateChanged(user => {
   currentUser = user;
+  if (!_authReady) { _authReady = true; _authWaiters.splice(0).forEach(fn => fn()); }
   updateUserBar(user);
   loadMe(user);                                       // your own photo (or initials) on the Me button
   if (window.gNotif) window.gNotif.start(user);       // notification bell (no-op when signed out)
@@ -429,9 +434,15 @@ async function forgotPassword() {
 }
 
 // ── requireAuth guard ──────────────────────────────
+// Waits for Firebase's first answer (at most 4 s), so someone already signed in is never asked to sign in again
+// just because the page opened a moment ago (e.g. "Create my profile" → profiles.html?action=add).
 function requireAuth(callback, tab = 'login') {
-  if (currentUser) { callback(); }
-  else { openAuthModal(callback, tab); }
+  const decide = () => { if (currentUser) callback(); else openAuthModal(callback, tab); };
+  if (_authReady || currentUser) { decide(); return; }
+  let done = false;
+  const once = () => { if (!done) { done = true; decide(); } };
+  _authWaiters.push(once);
+  setTimeout(once, 4000);
 }
 
 // ── Helpers ────────────────────────────────────────
