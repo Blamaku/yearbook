@@ -2569,3 +2569,27 @@ a.ku-meet { display: inline-flex; align-items: center; }
 .sf-teaches b { font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-600); }
 .sf-teaches p { margin-top: 3px; font-size: .84rem; line-height: 1.5; color: var(--gray-800); }
 [data-theme="dark"] .sf-lead-role { color: #fcd34d; }
+
+/* Know your university › Schools and offices (university.js), and the staff form's "Where you fit" questions */
+.st-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.st-grid .ku-grp { min-height: 118px; justify-content: center; }
+.st-panel { margin-top: 12px; }
+.st-heads { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 6px; }
+.st-heads .ku-mid, .st-chair .ku-mid { width: min(240px, 100%); }
+.st-dept { margin-top: 14px; }
+.st-dept:first-child { margin-top: 0; }
+.ab-sec p.st-dept-h { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: .74rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-600); }
+.ab-sec p.st-dept-h::after { content: ''; flex: 1; height: 1px; background: var(--gray-100); }
+.st-dept-h span { padding: 1px 7px; border-radius: var(--radius-full); background: var(--gray-100); font-size: .64rem; letter-spacing: 0; color: var(--gray-600); }
+.st-chair { display: flex; justify-content: center; margin-bottom: 8px; }
+.ab-sec p.st-none { margin: 0; font-size: .8rem; text-align: center; color: var(--gray-600); }
+.ab-sec p.st-count { margin: 14px 0 0; font-size: .76rem; text-align: center; }
+.ab-sec p.st-count a { color: var(--blue); font-weight: 800; }
+@media (min-width: 640px) { .st-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.sf-why { margin: -2px 0 14px; font-size: .78rem; line-height: 1.5; color: var(--gray-600); }
+.sf-why a { color: var(--blue); font-weight: 700; }
+.sf-photo-why { flex-basis: 100%; margin-top: 2px; }
+.sf-lead { border: 0; padding: 0; margin: 0 0 14px; }
+.sf-lead legend { margin-bottom: 6px; }
+.sf-radio { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 0; font-size: .84rem; color: var(--gray-800); cursor: pointer; }
+.sf-radio input { width: 18px; height: 18px; accent-color: var(--blue); flex-shrink: 0; }

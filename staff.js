@@ -16,6 +16,7 @@
   const id = Number(new URLSearchParams(location.search).get('id')) || 0;
   const TITLES = ['Prof', 'Dr', 'Mr', 'Mrs', 'Ms', 'Miss', 'Rev', 'Fr', 'Sr', 'Pastor', 'Bishop', 'Canon', 'Eng', 'CPA'];
   const MAX_MSG = 600;
+  const ORG = window.GLUK_ORG;                         // schools, offices, campuses (staff-org.js)
 
   // The staff groups a university has, with the posts usually found in each (GLUK's own Management Board uses
   // the same offices). The api checks the group and the rank against the same lists.
@@ -72,7 +73,7 @@
     }
     document.title = `${fullName(s)} — GLUK Yearbook`;
     const photo = window.safeUrl(s.photo_url);
-    const meta = [s.unit, s.dept, s.since_year ? 'At GLUK since ' + s.since_year : ''].filter(Boolean);
+    const meta = [s.unit, s.dept, s.campus, s.since_year ? 'At GLUK since ' + s.since_year : ''].filter(Boolean);
     const g = groupOf(s.category);
     box.innerHTML = `${back}<article class="sf-card sf-view">
       <div class="sf-av">${photo ? `<img src="${esc(photo)}" alt="${esc(fullName(s))}">` : esc(initials(s.name))}</div>
@@ -83,6 +84,7 @@
       ${s.lead_role ? `<p class="sf-lead-role">${esc(s.lead_role)}</p>` : ''}
       ${meta.length ? `<p class="sf-meta">${meta.map(esc).join(' · ')}</p>` : ''}
       ${s.teaches ? `<div class="sf-teaches"><b>Teaches</b><p>${esc(s.teaches)}</p></div>` : ''}
+      ${s.help_with ? `<div class="sf-teaches"><b>Students come to me for</b><p>${esc(s.help_with)}</p></div>` : ''}
       ${s.message ? `<figure class="sf-msg"><figcaption>To the Class of ${esc(window.GRAD_YEAR)}</figcaption><blockquote>${esc(s.message)}</blockquote></figure>` : ''}
     </article>`;
   }
@@ -123,7 +125,6 @@
     const s = draft || mine || {};
     const shown = photo === '' ? '' : photo ? photo.preview : window.safeUrl(mine && mine.photo_url);
     const v = k => esc(s[k] || '');
-    const depts = Object.keys(window.DEPT_COURSES_MAP || {});
     box.innerHTML = `${back}<form class="sf-card sf-form" id="sfForm" novalidate>
       <h1>${mine ? 'Your staff profile' : 'Add your staff profile'}</h1>
       ${statusBox()}
@@ -133,6 +134,7 @@
           <label class="sf-btn2" for="sfPhoto">${shown ? 'Change photo' : 'Add a photo'}</label>
           <input type="file" id="sfPhoto" accept="image/*" hidden>
           ${shown ? '<button type="button" class="sf-link" data-act="no-photo">Remove</button>' : ''}
+          ${shown ? '' : '<p class="sf-hint sf-photo-why">A clear photo of your face helps students recognise you on the school charts.</p>'}
         </div>
       </div>
       <div class="form-row">
@@ -160,13 +162,32 @@
       <div class="form-group"><label class="form-label" for="sfLead">Leadership role <span class="sf-opt">(optional)</span></label>
         <input class="form-input" id="sfLead" name="lead_role" maxlength="80" list="sfLeads" autocomplete="off" placeholder="e.g. Dean, Chair of Department, Club Patron" value="${v('lead_role')}">
         <datalist id="sfLeads">${LEAD_ROLES.map(r => `<option value="${esc(r)}">`).join('')}</datalist></div>
-      <div class="form-group"><label class="form-label" for="sfDept">School or office</label>
-        <input class="form-input" id="sfDept" name="dept" maxlength="120" list="sfDepts" placeholder="e.g. School of Medicine, Registry" value="${v('dept')}">
-        <datalist id="sfDepts">${depts.map(d => `<option value="${esc(d)}">`).join('')}</datalist></div>
-      <div class="form-group"><label class="form-label" for="sfUnit">Department or unit <span class="sf-opt">(optional)</span></label>
-        <input class="form-input" id="sfUnit" name="unit" maxlength="120" value="${v('unit')}"></div>
       <div class="form-group" id="sfTeachRow"><label class="form-label" for="sfTeach">Units you teach <span class="sf-opt">(optional)</span></label>
         <textarea class="form-textarea" id="sfTeach" name="teaches" rows="2" maxlength="300" placeholder="e.g. Human Anatomy, Community Health, Research Methods">${v('teaches')}</textarea></div>
+
+      <h2 class="sf-h2">Where you fit at GLUK</h2>
+      <p class="sf-why">Your answers place you on the school and office charts in <a href="university.html#schools">Know your university</a>, so students can see who is who in each school.</p>
+      <div class="form-group"><label class="form-label" for="sfDept">Where do you work? *</label>
+        <select class="form-select" id="sfDept" name="dept" required><option value="">Choose your school or office…</option>
+          <optgroup label="Schools and faculties">${ORG.SCHOOLS.map(d => `<option${s.dept === d ? ' selected' : ''}>${esc(d)}</option>`).join('')}</optgroup>
+          <optgroup label="University offices and services">${ORG.OFFICES.map(d => `<option${s.dept === d ? ' selected' : ''}>${esc(d)}</option>`).join('')}</optgroup>
+          ${s.dept && !ORG.SCHOOLS.includes(s.dept) && !ORG.OFFICES.includes(s.dept) ? `<option selected>${esc(s.dept)}</option>` : ''}</select></div>
+      <div class="form-group"><label class="form-label" for="sfUnit" id="sfUnitLbl">Your department</label>
+        <input class="form-input" id="sfUnit" name="unit" maxlength="120" list="sfUnits" autocomplete="off" value="${v('unit')}">
+        <datalist id="sfUnits"></datalist>
+        <p class="sf-hint" id="sfUnitHint">Pick a suggestion if it fits, so you appear with your colleagues.</p></div>
+      <fieldset class="form-group sf-lead">
+        <legend class="form-label" id="sfLeadQ">Do you lead your school or department?</legend>
+        ${['school', 'department', 'programme'].map(k => `<label class="sf-radio"><input type="radio" name="lead_level" value="${k}"${s.lead_level === k ? ' checked' : ''}> <span data-lead="${k}">${esc(ORG.LEAD[k].label)}</span></label>`).join('')}
+        <label class="sf-radio"><input type="radio" name="lead_level" value=""${!s.lead_level ? ' checked' : ''}> <span>No</span></label>
+      </fieldset>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" for="sfCampus">Campus</label>
+          <select class="form-select" id="sfCampus" name="campus"><option value="">Choose…</option>
+            ${ORG.CAMPUSES.map(c => `<option${s.campus === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-group"><label class="form-label" for="sfHelp">Students come to me for… <span class="sf-opt">(optional)</span></label>
+        <input class="form-input" id="sfHelp" name="help_with" maxlength="160" placeholder="e.g. Clinical rotations, research supervision, fee queries" value="${v('help_with')}"></div>
 
       <h2 class="sf-h2">Your message</h2>
       <div class="form-group"><label class="form-label" for="sfMsg">Message to the Class of ${esc(window.GRAD_YEAR)}</label>
@@ -181,7 +202,29 @@
     document.getElementById('sfPhoto').addEventListener('change', pickPhoto);
     document.getElementById('sfGroup').addEventListener('change', syncGroup);
     document.getElementById('sfRank').addEventListener('change', fillFromRank);
-    syncGroup();
+    document.getElementById('sfDept').addEventListener('change', syncWhere);
+    syncGroup(); syncWhere();
+  }
+
+  // The department question follows where they work: a school suggests its departments (and the ones colleagues
+  // already gave), an office asks for the section; "Do you lead it?" speaks of the school or of the office
+  let unitsFor = {};
+  function syncWhere() {
+    const d = document.getElementById('sfDept').value, school = ORG.isSchool(d);
+    document.getElementById('sfUnitLbl').innerHTML = school ? 'Your department' : `Your section or unit <span class="sf-opt">(optional)</span>`;
+    document.getElementById('sfUnit').placeholder = school ? 'e.g. ' + (ORG.DEPTS[d] || ['Clinical Medicine']).slice(0, 2).join(', ') : 'e.g. Admissions desk, Main Library';
+    document.getElementById('sfUnitHint').hidden = !school;
+    document.getElementById('sfLeadQ').textContent = school || !d ? 'Do you lead your school or department?' : 'Do you lead this office?';
+    document.querySelectorAll('[data-lead]').forEach(el => { el.textContent = (school || !d) ? ORG.LEAD[el.dataset.lead].label : ORG.LEAD[el.dataset.lead].office; });
+    const paint = () => { document.getElementById('sfUnits').innerHTML = [...new Set([...(ORG.DEPTS[d] || []), ...(unitsFor[d] || [])])]
+      .map(u => `<option value="${esc(u)}">`).join(''); };
+    paint();
+    if (d && !unitsFor[d]) {                              // the departments colleagues in this school already chose
+      unitsFor[d] = [];
+      supabase.from('staff_public').select('unit').eq('dept', d).limit(200)
+        .then(({ data }) => { unitsFor[d] = [...new Set((data || []).map(r => (r.unit || '').trim()).filter(Boolean))]; if (document.getElementById('sfDept').value === d) paint(); })
+        .catch(() => {});
+    }
   }
 
   // The form follows the staff group: teaching staff get a rank and "units you teach"; the position suggestions
@@ -223,6 +266,8 @@
     if (!String(d.name || '').trim()) { showToast('Please enter your name ✍️'); f.name.focus(); return; }
     if (!d.category) { showToast('Please choose your staff group'); f.category.focus(); return; }
     if (!String(d.position || '').trim()) { showToast('Please enter your position'); f.position.focus(); return; }
+    if (!d.dept) { showToast('Please choose where you work'); f.dept.focus(); return; }
+    if (ORG.isSchool(d.dept) && d.category === 'teaching' && !String(d.unit || '').trim()) { showToast('Please add your department'); f.unit.focus(); return; }
     if (d.category !== 'teaching') { d.rank = ''; d.teaches = ''; }       // only teaching staff have these
     if (d.since_year && !/^\d{4}$/.test(d.since_year.trim())) { showToast('"At GLUK since" must be a year, like 2015'); f.since_year.focus(); return; }
     btn.disabled = true; btn.textContent = 'Saving…';

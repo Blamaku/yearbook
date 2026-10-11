@@ -210,6 +210,105 @@
     L.openClaim(me, null, null);
   }
 
+  /* ── Schools and offices: the approved staff profiles, placed by their answers on the staff form (staff-org.js) ── */
+  const ORG = window.GLUK_ORG;
+  const ST_COLORS = ['#0f766e', '#1d4ed8', '#7c3aed', '#b45309', '#be123c', '#0369a1', '#15803d'];
+  const ST_OFFICE = '#475569';
+  // Seniority inside a department: the academic ladder from the top (staff.js RANKS)
+  const RANK_ORDER = ['Professor Emeritus', 'Professor', 'Associate Professor', 'Senior Lecturer', 'Senior Research Fellow', 'Lecturer', 'Research Fellow',
+    'Assistant Lecturer', 'Tutorial Fellow', 'Junior Research Fellow', 'Clinical Instructor', 'Tutor', 'Graduate Assistant', 'Research Assistant',
+    'Adjunct Lecturer', 'Visiting Lecturer', 'Part-time Lecturer'];
+  const LEAD_ORDER = { school: 0, department: 1, programme: 2 };
+  let ST = [], stById = {}, stState = 'loading';
+  const stName = s => [s.title, s.name].filter(Boolean).join(' ');
+  const stColor = d => { const i = ORG.SCHOOLS.indexOf(d); return i < 0 ? ST_OFFICE : ST_COLORS[i % ST_COLORS.length]; };
+  function toStaff(s) {
+    const role = s.lead_role || s.position;
+    return { id: 'st' + s.id, staff: true, s, name: stName(s), photo_url: s.photo_url, color: stColor(s.dept), role };
+  }
+  const bySeniority = (a, b) => (LEAD_ORDER[a.s.lead_level] ?? 9) - (LEAD_ORDER[b.s.lead_level] ?? 9)
+    || ((RANK_ORDER.indexOf(a.s.rank) + 1 || 99) - (RANK_ORDER.indexOf(b.s.rank) + 1 || 99)) || String(a.s.name).localeCompare(String(b.s.name));
+  const stFace = (p, cls = '') => window.gLeaders.face({ name: p.s.name, photo_url: p.s.photo_url }, cls);
+  const stTile = p => `<button type="button" class="ku-p" data-who="${p.id}" style="--kc:${p.color}">
+      ${stFace(p)}<b>${E(p.name)}</b><small>${E(p.role)}</small></button>`;
+  const stMid = (p, label) => `<button type="button" class="ku-mid" data-who="${p.id}" style="--kc:${p.color}">
+      ${stFace(p, 'lg')}<span class="ku-role">${E(label)}</span><span class="ku-name">${E(p.name)}</span></button>`;
+  // One school or office: its head at the top, then each department with its chair first
+  function unitPanel(key, list, isSchool) {
+    const heads = list.filter(p => p.s.lead_level === 'school').sort(bySeniority);
+    const rest = list.filter(p => !heads.includes(p));
+    const units = new Map();
+    rest.forEach(p => { const u = (p.s.unit || '').trim(), k = u.toLowerCase() || '~'; if (!units.has(k)) units.set(k, { name: u, people: [] }); units.get(k).people.push(p); });
+    const named = [...units.entries()].filter(([k]) => k !== '~').sort((a, b) => a[1].name.localeCompare(b[1].name)).map(x => x[1]);
+    const loose = units.get('~');
+    const block = (title, people) => {
+      people.sort(bySeniority);
+      const chair = people[0] && people[0].s.lead_level === 'department' ? people[0] : null;
+      return `<div class="st-dept"><p class="st-dept-h">${E(title)} <span>${people.length}</span></p>
+        ${chair ? `<div class="st-chair">${stMid(chair, chair.s.lead_role || (isSchool ? 'Chair of Department' : 'Head'))}</div>` : ''}
+        <div class="ku-board">${people.filter(p => p !== chair).map(stTile).join('')}</div></div>`;
+    };
+    return `<div class="ku-panel st-panel" id="grp-${key}" hidden>
+      ${heads.length ? `<div class="st-heads">${heads.map(h => stMid(h, h.s.lead_role || (isSchool ? 'Dean' : 'Head of office'))).join('')}</div>` : ''}
+      ${named.map(u => block(u.name, u.people)).join('')}
+      ${loose ? block(isSchool ? (named.length ? 'Across the school' : 'Staff') : 'Staff', loose.people) : ''}
+      ${list.length ? '' : `<p class="st-none">No staff from here have added their profile yet.</p>`}
+    </div>`;
+  }
+  function stGroupTile(key, title, list, color, sub) {
+    const head = key !== 'offices' && list.find(p => p.s.lead_level === 'school');   // offices have a head each, not one between them
+    return `<button type="button" class="ku-grp" data-grp="${key}" aria-expanded="false" aria-controls="grp-${key}" style="--kc:${color}">
+      <span class="ku-grp-faces">${list.slice().sort(bySeniority).slice(0, 4).map(p => stFace(p, 'sm')).join('')}</span>
+      <b>${E(title)}</b><small>${list.length ? `${list.length} staff${head ? ' · led by ' + E(head.name) : ''}` : E(sub)}</small><span class="ku-grp-go" aria-hidden="true">▾</span></button>`;
+  }
+  function paintStaff() {
+    const el = $('stBody');
+    const say = t => { el.innerHTML = `<p class="ku-lb-empty">${t}</p>`; };
+    if (stState === 'loading') return say('Loading the schools…');
+    if (stState === 'error') return say('Could not load the staff. Check your connection.');
+    const inSchool = d => ST.filter(p => p.s.dept === d);
+    const offices = ST.filter(p => !ORG.isSchool(p.s.dept));
+    const schools = ORG.SCHOOLS.map((d, i) => ({ key: 'sch' + i, d, list: inSchool(d) }));
+    const tiles = schools.map(x => stGroupTile(x.key, x.d, x.list, stColor(x.d), 'No staff profiles yet'))
+      .concat(stGroupTile('offices', 'Offices and services', offices, ST_OFFICE, 'Registry, library, ICT, finance and more'));
+    // Offices: one panel, each office its own block with its head first
+    const byOffice = new Map();
+    offices.forEach(p => { const k = p.s.dept || 'Other offices'; if (!byOffice.has(k)) byOffice.set(k, []); byOffice.get(k).push(p); });
+    const officePanel = `<div class="ku-panel st-panel" id="grp-offices" hidden>
+      ${[...byOffice.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, people]) => {
+        people.sort(bySeniority);
+        const head = people[0] && people[0].s.lead_level ? people[0] : null;
+        return `<div class="st-dept"><p class="st-dept-h">${E(name)} <span>${people.length}</span></p>
+          ${head ? `<div class="st-chair">${stMid(head, head.s.lead_role || 'Head')}</div>` : ''}
+          <div class="ku-board">${people.filter(p => p !== head).map(stTile).join('')}</div></div>`;
+      }).join('') || '<p class="st-none">No staff from the offices have added their profile yet.</p>'}</div>`;
+    el.innerHTML = `<div class="st-grid">${tiles.join('')}</div>
+      ${schools.map(x => unitPanel(x.key, x.list, true)).join('')}${officePanel}
+      <p class="st-count">${ST.length ? `${ST.length} ${ST.length === 1 ? 'member' : 'members'} of staff so far.` : ''} Lecturers and staff: <a href="staff.html">add your profile</a> to appear here.</p>`;
+  }
+  function staffSheetHTML(p) {
+    const s = p.s, where = [s.unit, s.dept, s.campus].filter(Boolean).join(' · ');
+    return `<div class="ku-sh-face" style="--kc:${p.color}">${stFace(p, 'xxl')}</div>
+      <p class="ku-role" style="--kc:${p.color}">${E(s.lead_role || s.position)}</p>
+      <h3 class="ku-sh-name" id="kuShName">${E(p.name)}</h3>
+      ${s.qualifications ? `<p class="ku-creds">${E(s.qualifications)}</p>` : ''}
+      <p class="ku-creds">${E([s.lead_role ? s.position : '', where].filter(Boolean).join(' · '))}</p>
+      ${s.teaches ? `<div class="ku-what"><b>Teaches</b><p>${E(s.teaches)}</p></div>` : ''}
+      ${s.help_with ? `<div class="ku-what"><b>Students come to them for</b><p>${E(s.help_with)}</p></div>` : ''}
+      <a class="ku-srclink" href="staff.html?id=${Number(s.id)}">See their staff profile ›</a>`;
+  }
+  async function loadStaff() {
+    try {
+      const { data, error } = await supabase.from('staff_public').select('*').order('name').limit(1000);
+      if (error) throw error;
+      ST = (data || []).map(toStaff);
+      stById = Object.fromEntries(ST.map(p => [p.id, p]));
+      stState = 'ok';
+    } catch (e) { console.warn('[staff chart]', e); stState = 'error'; }
+    paintStaff();
+    if (/^#who-st\d+$/.test(location.hash)) route();
+  }
+
   /* ── Who's who? ────────────────────────────────── */
   const ROUND = 10, BEST = 'gluk-kyu-best';
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -418,13 +517,13 @@
     route();
   }
   function route() {
-    const h = location.hash.slice(1), m = /^who-([a-z]+|sl\d+)$/.exec(h), p = m && (byId[m[1]] || slById[m[1]]);
+    const h = location.hash.slice(1), m = /^who-([a-z]+|sl\d+|st\d+)$/.exec(h), p = m && (byId[m[1]] || slById[m[1]] || stById[m[1]]);
     const playing = h === 'play';
     $('kuQuiz').hidden = !playing;
     if (playing && !quiz) { quiz = startRound(); paintQ(); }
     if (!playing) quiz = null;
     $('kuOv').hidden = !p;
-    if (p) { $('kuSheetBody').innerHTML = p.student ? studentHTML(p) : personHTML(p); $('kuSheet').scrollTop = 0; }
+    if (p) { $('kuSheetBody').innerHTML = p.student ? studentHTML(p) : p.staff ? staffSheetHTML(p) : personHTML(p); $('kuSheet').scrollTop = 0; }
     document.documentElement.style.overflow = (playing || p) ? 'hidden' : '';
     if (!h || (!playing && !p)) openedHere = false;
   }
@@ -437,6 +536,18 @@
       const panelEl = $('grp-' + g.dataset.grp), open = panelEl.hidden;
       document.querySelectorAll('.ku-grp').forEach(b => { b.setAttribute('aria-expanded', 'false'); $('grp-' + b.dataset.grp).hidden = true; });
       panelEl.hidden = !open; g.setAttribute('aria-expanded', String(open));
+      return;
+    }
+    const w = e.target.closest('[data-who]'); if (w) go('who-' + w.dataset.who);
+  });
+  // a school or office tile opens its chart (one at a time); a person opens their sheet
+  $('stBody').addEventListener('click', e => {
+    const g = e.target.closest('[data-grp]');
+    if (g) {
+      const panelEl = $('grp-' + g.dataset.grp), open = panelEl.hidden;
+      $('stBody').querySelectorAll('.ku-grp').forEach(b => { b.setAttribute('aria-expanded', 'false'); $('grp-' + b.dataset.grp).hidden = true; });
+      panelEl.hidden = !open; g.setAttribute('aria-expanded', String(open));
+      if (open) setTimeout(() => panelEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
       return;
     }
     const w = e.target.closest('[data-who]'); if (w) go('who-' + w.dataset.who);
@@ -469,7 +580,8 @@
   route();
   loadBoard();
   paintLeaders(); loadLeaders();
+  paintStaff(); loadStaff();
   auth.onAuthStateChanged(u => { user = u; loadMe(); });
 
-  window.__kyu = { PEOPLE, GROUPS, newRound, studentRound, get SL() { return SL; } };     // for the tests
+  window.__kyu = { PEOPLE, GROUPS, newRound, studentRound, get SL() { return SL; }, get ST() { return ST; } };     // for the tests
 })();

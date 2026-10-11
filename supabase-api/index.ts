@@ -378,15 +378,21 @@ const STAFF_GROUPS = ['teaching', 'leadership', 'admin', 'technical', 'library',
 const STAFF_RANKS = ['Graduate Assistant', 'Research Assistant', 'Tutorial Fellow', 'Junior Research Fellow', 'Assistant Lecturer', 'Lecturer',
   'Research Fellow', 'Senior Lecturer', 'Senior Research Fellow', 'Associate Professor', 'Professor', 'Professor Emeritus',
   'Adjunct Lecturer', 'Visiting Lecturer', 'Part-time Lecturer', 'Clinical Instructor', 'Tutor'];
-const STAFF_DETAILS = ['category', 'rank', 'lead_role', 'unit', 'teaches', 'qualifications'];
+const STAFF_CAMPUSES = ['Main campus, Kisumu', 'Milimani', 'Nairobi', 'More than one campus'];
+const STAFF_LEAD_LEVELS = ['school', 'department', 'programme'];       // leads their school or faculty / their department / a programme
+const STAFF_CHART = ['lead_level', 'campus', 'help_with'];             // since the staff_chart migration
+const STAFF_DETAILS = ['category', 'rank', 'lead_role', 'unit', 'teaches', 'qualifications', ...STAFF_CHART];
 // What makes someone look senior: a change to any of these on a live profile goes back to the admin
-const STAFF_CHECKED = ['name', 'title', 'position', 'rank', 'lead_role'];
+const STAFF_CHECKED = ['name', 'title', 'position', 'rank', 'lead_role', 'lead_level'];
 function staffFields(ctx, p) {
   const since = txt(p.since_year, 4, 'Year you joined GLUK');
   if (since && (!/^\d{4}$/.test(since) || +since < 1950 || +since > new Date(ctx.now()).getFullYear())) throw bad('Year you joined GLUK must be a 4-digit year.');
   const category = txt(p.category, 40, 'Staff group'), rank = txt(p.rank, 60, 'Academic rank');
   if (category && !STAFF_GROUPS.includes(category)) throw bad('Choose your staff group from the list.');
   if (rank && !STAFF_RANKS.includes(rank)) throw bad('Choose your academic rank from the list.');
+  const leadLevel = txt(p.lead_level, 20, 'Whether you lead it'), campus = txt(p.campus, 60, 'Campus');
+  if (leadLevel && !STAFF_LEAD_LEVELS.includes(leadLevel)) throw bad('Choose whether you lead your school, your department or a programme.');
+  if (campus && !STAFF_CAMPUSES.includes(campus)) throw bad('Choose your campus from the list.');
   return {
     name: txt(p.name, 120, 'Name', { required: true }),
     title: txt(p.title, 20, 'Title') || null,
@@ -401,11 +407,15 @@ function staffFields(ctx, p) {
     unit: txt(p.unit, 120, 'Department or unit') || null,
     teaches: txt(p.teaches, 300, 'Units you teach') || null,
     qualifications: txt(p.qualifications, 160, 'Qualifications') || null,
+    lead_level: leadLevel || null,
+    campus: campus || null,
+    help_with: txt(p.help_with, 160, 'What students come to you for') || null,
   };
 }
 // Before the staff_details migration the new columns are missing: save without them rather than fail
 const missingColumn = e => !!e && (e.code === '42703' || e.code === 'PGRST204' || /column/i.test(e.message || ''));
-const withoutDetails = rec => Object.fromEntries(Object.entries(rec).filter(([k]) => !STAFF_DETAILS.includes(k)));
+const without = keys => rec => Object.fromEntries(Object.entries(rec).filter(([k]) => !keys.includes(k)));
+const withoutChart = without(STAFF_CHART), withoutDetails = without(STAFF_DETAILS);
 async function myStaff(ctx) {
   const r = await ctx.db.from('staff_profiles').select('*').eq('uid', ctx.user.uid).limit(1);
   if (r.error) throw staffDbError(r.error);
@@ -900,7 +910,8 @@ const ACTIONS = {
       ? ctx.db.from('staff_profiles').update({ ...r, updated_at: new Date(ctx.now()).toISOString(), ...(recheck ? { status: 'pending' } : {}) }).eq('id', old.id)
       : ctx.db.from('staff_profiles').insert({ ...r, uid: ctx.user.uid, status: 'pending' });
     let w = await write(rec);
-    if (w.error && missingColumn(w.error)) w = await write(withoutDetails(rec));
+    if (w.error && missingColumn(w.error)) w = await write(withoutChart(rec));       // before the staff_chart migration
+    if (w.error && missingColumn(w.error)) w = await write(withoutDetails(rec));     // before the staff_details migration
     if (w.error) throw w.error.code === '23505' ? conflict('You already have a staff profile.', 'exists') : staffDbError(w.error);
     return { staff: await myStaff(ctx) };
   },
