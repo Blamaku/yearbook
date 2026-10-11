@@ -2611,3 +2611,21 @@ a.ku-meet { display: inline-flex; align-items: center; }
 .ch-note { margin-top: 14px; font-size: .7rem; line-height: 1.45; color: rgba(255,255,255,.6); }
 [data-theme="dark"] .ch-best { background: var(--blue-vivid); color: #04152a; }
 @media (min-width: 640px) { .ch-cards { grid-template-columns: 1fr 1fr; } }
+
+/* Think it's easy? › Course battle */
+.ch-board { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.ch-board li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--gray-100); }
+.ch-board li.mine { border-color: var(--gold); box-shadow: 0 2px 12px var(--gold-glow); }
+.ch-rank { flex-shrink: 0; width: 24px; text-align: center; font-size: .9rem; font-weight: 900; color: var(--gray-600); }
+.ch-team-ic { flex-shrink: 0; font-size: 1.3rem; }
+.ch-team { flex: 1; min-width: 0; line-height: 1.25; }
+.ch-team b { display: block; font-size: .86rem; font-weight: 900; color: var(--gray-800); }
+.ch-team b em { margin-left: 4px; padding: 1px 7px; border-radius: var(--radius-full); background: var(--gold-glow); color: #7a5600; font-size: .62rem; font-style: normal; font-weight: 800; }
+.ch-team small { display: block; font-size: .7rem; color: var(--gray-600); }
+.ch-bar { display: block; height: 6px; margin-top: 5px; border-radius: 6px; background: var(--gray-100); overflow: hidden; }
+.ch-bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--blue), var(--gold-bright)); }
+.ch-avg { flex-shrink: 0; min-width: 38px; text-align: right; font-size: 1.1rem; font-weight: 900; color: var(--navy); }
+.ch-counted { margin: 6px 0 4px; font-size: .86rem; line-height: 1.45; color: rgba(255,255,255,.9); }
+.ch-counted a { color: var(--gold-bright); font-weight: 800; }
+[data-theme="dark"] .ch-avg { color: var(--gray-800); }
+[data-theme="dark"] .ch-team b em { color: #fcd34d; }

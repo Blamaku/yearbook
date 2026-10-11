@@ -58,6 +58,9 @@ const CONFIG = {
   kyuRound: 10,                                     // questions in a round of Who's who? (university.js)
   kyuMinSeconds: 15,                                // a round finished faster than this does not count
   kyuPerHour: 40,                                   // at most this many rounds started by one person per hour
+  chalRound: 10,                                    // questions in a round of Think it's easy? (challenge.js)
+  chalMinSeconds: 20,                               // a round finished faster than this does not count
+  chalPerHour: 40,                                  // at most this many rounds started by one person per hour
   // Pages whose visits are counted for the Developer tab (each page's <body data-page>)
   trackPages: ['home', 'feed', 'profiles', 'profile', 'clubs', 'club', 'department', 'course', 'class', 'staff',
     'about', 'constitution', 'letters', 'university', 'superlatives', 'challenge'],
@@ -534,6 +537,20 @@ async function kyuRank(ctx, me) {
   if (all.error || ahead.error) throw kyuDbError(all.error || ahead.error);
   return { rank: me.removed ? null : 1 + (ahead.count || 0), total: all.count || 0 };
 }
+
+// ── Think it's easy? course battle (since 2026-10-22) ──────────────────
+// Each player counts for the team of their own course; the board (chal_board) averages each player's best round
+// on their own profession's quiz. The same quizzes and course patterns as challenge.js.
+const CHAL_TEAMS = [
+  ['clinician', /clinical medicine|medical education|surgery/i], ['nurse', /nursing|midwif/i], ['teacher', /education/i],
+  ['publichealth', /public health|community health|nutrition|health service/i], ['counsellor', /counsel|psycholog/i],
+  ['business', /commerce|business|accounting|finance|procurement|human resource/i], ['it', /information technology|computer/i],
+];
+const CHAL_QUIZZES = CHAL_TEAMS.map(t => t[0]);
+const chalTeam = p => { const hit = c => (CHAL_TEAMS.find(([, re]) => re.test(c || '')) || [])[0]; return (p && (hit(p.course) || hit(p.dept))) || null; };
+const chalDbError = e => missingTable(e)
+  ? new ApiError(503, 'chal_coming', 'The course battle is being switched on. Your next rounds will count.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
 
 // ── Class superlatives (since 2026-10-17) ──────────────────────────────
 // Anyone with a yearbook (or approved staff) profile votes once per category for a Class of 2026 graduate, and may
@@ -1117,6 +1134,54 @@ const ACTIONS = {
     const up = await ctx.db.from('kyu_board').update({ hidden: body.hidden, updated_at: new Date(ctx.now()).toISOString() }).eq('uid', ctx.user.uid);
     if (up.error) throw kyuDbError(up.error);
     return { hidden: body.hidden };
+  },
+
+  // ── Think it's easy? course battle ──
+  // A signed-in round starts here, so the api can time it: { quiz }
+  async 'chal.start'(ctx, body) {
+    const quiz = String(body.quiz || '');
+    if (!CHAL_QUIZZES.includes(quiz)) throw bad('Unknown quiz.');
+    const since = new Date(ctx.now() - 3600e3).toISOString();
+    const recent = await ctx.db.from('chal_runs').select('id', { count: 'exact', head: true }).eq('uid', ctx.user.uid).gte('started_at', since);
+    if (recent.error) throw chalDbError(recent.error);
+    if ((recent.count || 0) >= ctx.config.chalPerHour) throw new ApiError(429, 'slow_down', 'You have played a lot this hour. Take a break and try again later.');
+    const ins = await ctx.db.from('chal_runs').insert({ uid: ctx.user.uid, quiz, started_at: new Date(ctx.now()).toISOString() }).select('id');
+    if (ins.error) throw chalDbError(ins.error);
+    return { run: (Array.isArray(ins.data) ? ins.data[0] : ins.data).id };
+  },
+
+  // The round's score ({ run, score }). It counts for the player's team when they have a yearbook profile
+  // and played their own profession's quiz; their best round per quiz is kept either way.
+  async 'chal.finish'(ctx, body) {
+    const cfg = ctx.config, uid = ctx.user.uid, nowIso = new Date(ctx.now()).toISOString();
+    const id = Number(body.run), score = body.score;
+    if (!Number.isInteger(id) || id <= 0) throw bad('Missing or invalid round.');
+    if (!Number.isInteger(score) || score < 0 || score > cfg.chalRound) throw bad(`The score must be from 0 to ${cfg.chalRound}.`);
+    const r = await ctx.db.from('chal_runs').select('*').eq('id', id).eq('uid', uid).limit(1);
+    if (r.error) throw chalDbError(r.error);
+    const run = r.data && r.data[0];
+    if (!run) throw notFound('That round could not be found.');
+    if (run.finished_at) throw conflict('That round has already been counted.', 'counted');
+    const seconds = Math.round((ctx.now() - Date.parse(run.started_at)) / 1000);
+    if (seconds < cfg.chalMinSeconds) throw bad('That was too fast to be a real round.');
+    if (seconds > 3600) throw conflict('That round was started too long ago to count.', 'stale');
+    const up = await ctx.db.from('chal_runs').update({ finished_at: nowIso, score, seconds }).eq('id', id);
+    if (up.error) throw chalDbError(up.error);
+    const me = await ctx.db.from('profiles').select('id,course,dept').eq('uid', uid).limit(1);
+    if (me.error) throw chalDbError(me.error);
+    const prof = me.data && me.data[0];
+    if (!prof) return { score, seconds, counted: false, reason: 'profile' };
+    const team = chalTeam(prof);
+    const b = await ctx.db.from('chal_best').select('*').eq('uid', uid).eq('quiz', run.quiz).limit(1);
+    if (b.error) throw chalDbError(b.error);
+    const old = b.data && b.data[0];
+    const better = !old || score > old.score || (score === old.score && seconds < old.seconds);
+    const row = { uid, quiz: run.quiz, profile_id: prof.id, team, plays: (old ? old.plays : 0) + 1, updated_at: nowIso,
+      ...(better ? { score, seconds, achieved_at: nowIso } : { score: old.score, seconds: old.seconds, achieved_at: old.achieved_at }) };
+    const w = await ctx.db.from('chal_best').upsert(row, { onConflict: 'uid,quiz' });
+    if (w.error) throw chalDbError(w.error);
+    return { score, seconds, team, counted: team === run.quiz, reason: team === run.quiz ? null : team ? 'other_quiz' : 'no_team',
+      best: { score: row.score, seconds: row.seconds }, newBest: better && !!old };
   },
 
   // ── Class superlatives ──

@@ -17,7 +17,7 @@
 
   // q: the question; a: the right answer; w: three wrong answers; why: one line on the answer
   const QUIZZES = [
-    { key: 'clinician', emoji: '🩺', who: 'a clinician', title: 'Think being a clinician is easy?', match: /clinical medicine|medical education|surgery/i, qs: [
+    { key: 'clinician', team: 'Clinicians', emoji: '🩺', who: 'a clinician', title: 'Think being a clinician is easy?', match: /clinical medicine|medical education|surgery/i, qs: [
       { q: 'What is a normal resting heart rate for an adult?', a: '60–100 beats a minute', w: ['30–50 beats a minute', '110–150 beats a minute', '160–200 beats a minute'], why: 'Below 60 is bradycardia, above 100 tachycardia.' },
       { q: 'What is a normal adult breathing rate at rest?', a: '12–20 breaths a minute', w: ['4–8 breaths a minute', '25–35 breaths a minute', '40–60 breaths a minute'], why: 'A fast breathing rate is one of the earliest signs that a patient is getting worse.' },
       { q: 'What is normal body temperature, roughly?', a: '37 °C', w: ['35 °C', '38.5 °C', '40 °C'], why: 'About 36.5–37.5 °C. 38 °C and above is a fever.' },
@@ -34,7 +34,7 @@
       { q: 'Roughly what is a normal fasting blood sugar?', a: '4–6 mmol/L', w: ['1–2 mmol/L', '10–15 mmol/L', '20–25 mmol/L'], why: 'Fasting values of 7 mmol/L and above suggest diabetes.' },
       { q: 'What does a normal adult blood pressure look like?', a: 'About 120/80 mmHg', w: ['About 160/100 mmHg', 'About 60/30 mmHg', 'About 200/120 mmHg'], why: '140/90 mmHg and above, on repeated readings, is high blood pressure.' },
     ] },
-    { key: 'nurse', emoji: '💉', who: 'a nurse', title: 'Think nursing is easy?', match: /nursing|midwif/i, qs: [
+    { key: 'nurse', team: 'Nurses', emoji: '💉', who: 'a nurse', title: 'Think nursing is easy?', match: /nursing|midwif/i, qs: [
       { q: 'Which body registers nurses and midwives in Kenya?', a: 'The Nursing Council of Kenya', w: ['The Clinical Officers Council', 'The Kenya Medical Practitioners and Dentists Council', 'The Teachers Service Commission'], why: 'Every practising nurse needs a current NCK licence.' },
       { q: 'Who is known as the founder of modern nursing?', a: 'Florence Nightingale', w: ['Mary Seacole', 'Clara Barton', 'Virginia Henderson'], why: 'She set up nursing as a trained profession in the 1850s and 1860s.' },
       { q: 'When is International Nurses Day?', a: '12 May', w: ['7 April', '1 December', '5 October'], why: '12 May is Florence Nightingale’s birthday.' },
@@ -51,7 +51,7 @@
       { q: 'Which is a common site for an adult intramuscular injection?', a: 'The deltoid (upper arm)', w: ['The fingertip', 'Under the tongue', 'The eyelid'], why: 'The deltoid and ventrogluteal sites are common for adults.' },
       { q: 'What is a normal adult pulse at rest?', a: '60–100 beats a minute', w: ['20–40 beats a minute', '120–160 beats a minute', '180–220 beats a minute'], why: 'Count it for a full minute if it is irregular.' },
     ] },
-    { key: 'teacher', emoji: '📚', who: 'a teacher', title: 'Think teaching is easy?', match: /education/i, qs: [
+    { key: 'teacher', team: 'Teachers', emoji: '📚', who: 'a teacher', title: 'Think teaching is easy?', match: /education/i, qs: [
       { q: 'Which body registers and employs teachers in Kenya?', a: 'The Teachers Service Commission (TSC)', w: ['KNEC', 'KICD', 'The Ministry of Health'], why: 'A teacher needs a TSC number to teach in a public school.' },
       { q: 'Which body runs Kenya’s national examinations?', a: 'KNEC', w: ['TSC', 'KICD', 'KEMSA'], why: 'The Kenya National Examinations Council.' },
       { q: 'Which body develops Kenya’s school curriculum?', a: 'KICD', w: ['KNEC', 'TSC', 'CUE'], why: 'The Kenya Institute of Curriculum Development.' },
@@ -68,7 +68,7 @@
       { q: 'Which document plans a whole term’s lessons?', a: 'The scheme of work', w: ['The register', 'The report card', 'The timetable only'], why: 'Lesson plans then break it down lesson by lesson.' },
       { q: 'Good lesson objectives use verbs that are…', a: 'Observable and measurable, like "list" or "solve"', w: ['Vague, like "know" or "appreciate"', 'Always in the past tense', 'As long as possible'], why: 'You can only assess what you can see learners do.' },
     ] },
-    { key: 'publichealth', emoji: '🌍', who: 'a public health officer', title: 'Think public health is easy?', match: /public health|community health|nutrition|health service/i, qs: [
+    { key: 'publichealth', team: 'Public health', emoji: '🌍', who: 'a public health officer', title: 'Think public health is easy?', match: /public health|community health|nutrition|health service/i, qs: [
       { q: 'How does the WHO define health?', a: 'Complete physical, mental and social well-being, not merely the absence of disease', w: ['Not being in hospital', 'Having no infections', 'Being able to work'], why: 'From the WHO constitution of 1948.' },
       { q: 'How does cholera mainly spread?', a: 'Through contaminated water and food', w: ['Through mosquito bites', 'Through shaking hands only', 'Through the air over long distances'], why: 'Safe water, sanitation and hygiene stop outbreaks.' },
       { q: 'What does epidemiology study?', a: 'How diseases are spread across populations, and why', w: ['Only the skin', 'How drugs are made', 'The history of hospitals'], why: 'Who gets sick, where, when and why.' },
@@ -85,7 +85,7 @@
       { q: 'How is body mass index (BMI) worked out?', a: 'Weight in kg divided by height in metres, squared', w: ['Height divided by weight', 'Weight times age', 'Waist divided by hips'], why: 'For adults, 18.5–24.9 is a healthy range.' },
       { q: 'When is World Health Day?', a: '7 April', w: ['12 May', '1 December', '10 October'], why: 'It marks the founding of the WHO in 1948.' },
     ] },
-    { key: 'counsellor', emoji: '🧠', who: 'a counsellor', title: 'Think counselling is easy?', match: /counsel|psycholog/i, qs: [
+    { key: 'counsellor', team: 'Counsellors', emoji: '🧠', who: 'a counsellor', title: 'Think counselling is easy?', match: /counsel|psycholog/i, qs: [
       { q: 'Who is known as the father of psychoanalysis?', a: 'Sigmund Freud', w: ['Carl Rogers', 'B. F. Skinner', 'Abraham Maslow'], why: 'He developed talk therapy in the late 1800s.' },
       { q: 'What is at the bottom of Maslow’s hierarchy of needs?', a: 'Physiological needs: food, water, sleep', w: ['Self-actualisation', 'Esteem', 'Belonging'], why: 'Basic needs come first, then safety, belonging, esteem and self-actualisation.' },
       { q: 'Who developed person-centred therapy?', a: 'Carl Rogers', w: ['Sigmund Freud', 'Ivan Pavlov', 'Aaron Beck'], why: 'It trusts the client to find their own way forward.' },
@@ -101,7 +101,7 @@
       { q: 'When is World Mental Health Day?', a: '10 October', w: ['7 April', '1 December', '12 May'], why: 'A day to talk openly about mental health.' },
       { q: 'Who is known for social learning theory (learning by watching others)?', a: 'Albert Bandura', w: ['Ivan Pavlov', 'Carl Rogers', 'Erik Erikson'], why: 'His Bobo doll experiments showed children copying adults.' },
     ] },
-    { key: 'business', emoji: '💼', who: 'an accountant or business manager', title: 'Think business and accounting are easy?', match: /commerce|business|accounting|finance|procurement|human resource/i, qs: [
+    { key: 'business', team: 'Business', emoji: '💼', who: 'an accountant or business manager', title: 'Think business and accounting are easy?', match: /commerce|business|accounting|finance|procurement|human resource/i, qs: [
       { q: 'What is the accounting equation?', a: 'Assets = Liabilities + Equity', w: ['Assets = Profit − Tax', 'Sales = Cost + Tax', 'Equity = Assets + Liabilities'], why: 'Every balance sheet balances on it.' },
       { q: 'Which body collects taxes in Kenya?', a: 'The Kenya Revenue Authority (KRA)', w: ['The Central Bank of Kenya', 'The Capital Markets Authority', 'KASNEB'], why: 'KRA runs the iTax system.' },
       { q: 'Which body examines CPA (K) students?', a: 'KASNEB', w: ['KRA', 'KNEC', 'CBK'], why: 'ICPAK then registers qualified accountants.' },
@@ -117,7 +117,7 @@
       { q: 'When was M-Pesa launched in Kenya?', a: '2007', w: ['1997', '2012', '2017'], why: 'Safaricom launched it in March 2007.' },
       { q: 'Where are shares in listed Kenyan companies bought and sold?', a: 'The Nairobi Securities Exchange', w: ['The Kenya Revenue Authority', 'KASNEB', 'The Central Bank of Kenya'], why: 'The Capital Markets Authority regulates it.' },
     ] },
-    { key: 'it', emoji: '💻', who: 'an IT professional', title: 'Think IT is easy?', match: /information technology|computer/i, qs: [
+    { key: 'it', team: 'IT', emoji: '💻', who: 'an IT professional', title: 'Think IT is easy?', match: /information technology|computer/i, qs: [
       { q: 'What does CPU stand for?', a: 'Central Processing Unit', w: ['Computer Power Unit', 'Central Program Utility', 'Core Processing Upload'], why: 'It carries out a program’s instructions.' },
       { q: 'How many bits are there in a byte?', a: '8', w: ['2', '4', '16'], why: 'A byte can hold 256 different values.' },
       { q: 'What is HTML used for?', a: 'Structuring web pages', w: ['Storing passwords', 'Running the CPU', 'Sending emails only'], why: 'CSS styles the page; JavaScript makes it interactive.' },
@@ -154,9 +154,12 @@
   }
 
   /* ── One round (a full-screen sheet the back button closes: #play-<key>) ── */
+  let roundSeq = 0;
   function newRound(z) {
-    return { z, i: 0, score: 0, answered: false,
+    const r = { z, i: 0, score: 0, answered: false, n: ++roundSeq,
       qs: shuffle(z.qs).slice(0, ROUND).map(q => { const opts = shuffle([q.a, ...q.w]); return { ...q, opts, right: opts.indexOf(q.a) }; }) };
+    if (user && window.gApi) r.runP = window.gApi('chal.start', { quiz: z.key }).then(x => x.run).catch(e => { r.startErr = e; return null; });
+    return r;
   }
   function paintQ() {
     const q = quiz.qs[quiz.i];
@@ -204,11 +207,51 @@
       <p class="kq-msg">${E(verdict(n, z))}</p>
       <p class="kq-bestline">${n > was && was ? 'A new best score!' : `Your best: ${Math.max(n, was)}/${ROUND}`}</p>
       ${join}
+      <p class="kq-board ch-counted" id="chCounted" data-round="${quiz.n}"></p>
       <button type="button" class="kq-next" data-act="share">Challenge a friend</button>
       <button type="button" class="kq-ghost" data-act="again">Play again (new questions)</button>
       <button type="button" class="kq-ghost" data-act="other">Try another profession</button>
       <p class="ch-note">For fun and learning: basic facts every ${E(z.who.replace(/^an? /, ''))} meets early on, not professional advice.</p></div>`;
     paintCards();
+    countRound(quiz);
+  }
+
+  /* ── The course battle: each team's average on its own profession's quiz (chal_board) ── */
+  const teamOf = key => (byKey[key] || {}).team || key;
+  async function countRound(round) {
+    const say = html => { const el = $('chCounted'); if (el && el.dataset.round === String(round.n)) el.innerHTML = html; };
+    if (!round.runP) { if (user) say(''); return; }
+    say('Saving your score…');
+    const id = await round.runP;
+    if (!id) {
+      say(round.startErr && (round.startErr.code === 'chal_coming' || round.startErr.code === 'unknown_action') ? 'The course battle opens very soon: your next rounds will count.' : '');
+      return;
+    }
+    try {
+      const r = await window.gApi('chal.finish', { run: id, score: round.score });
+      say(r.counted ? `🏆 Counted for <b>Team ${E(teamOf(r.team))}</b> · your best: ${r.best.score}/${ROUND}`
+        : r.reason === 'profile' ? '<a class="kq-link" href="profiles.html?action=add">Create your yearbook profile</a> to count for your course in the battle.'
+        : r.reason === 'other_quiz' ? `Nice! Only <b>${E(byKey[r.team].title)}</b> counts for Team ${E(teamOf(r.team))}.` : '');
+      loadBoard();
+    } catch (e) { say(e.code === 'chal_coming' || e.code === 'unknown_action' ? 'The course battle opens very soon: your next rounds will count.' : E(e.message || 'Could not save your score.')); }
+  }
+  async function loadBoard() {
+    const el = $('chBoard');
+    try {
+      const { data, error } = await supabase.from('chal_board').select('team,players,avg_score,perfect');
+      if (error) throw error;
+      const rows = Object.fromEntries((data || []).map(r => [r.team, r]));
+      const teams = QUIZZES.map(z => ({ z, r: rows[z.key] })).sort((a, b) => (Number(b.r && b.r.avg_score) || -1) - (Number(a.r && a.r.avg_score) || -1) || (Number(b.r && b.r.players) || 0) - (Number(a.r && a.r.players) || 0));
+      el.innerHTML = `<ol class="ch-board">${teams.map(({ z, r }, i) => `<li class="${z === course ? 'mine' : ''}">
+        <span class="ch-rank">${r ? (i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1) : '·'}</span><span class="ch-team-ic" aria-hidden="true">${z.emoji}</span>
+        <span class="ch-team"><b>Team ${E(z.team)}${z === course ? ' <em>your team</em>' : ''}</b>
+          <small>${r ? `${r.players} ${r.players === 1 ? 'player' : 'players'}${r.perfect ? ` · ${r.perfect} perfect` : ''}` : 'No players yet'}</small>
+          <span class="ch-bar"><i style="width:${r ? Math.round(Number(r.avg_score) * 10) : 0}%"></i></span></span>
+        <span class="ch-avg">${r ? Number(r.avg_score).toFixed(1) : '–'}</span></li>`).join('')}</ol>`;
+    } catch (e) {
+      const coming = /PGRST205|schema cache|does not exist|42P01/i.test(String(e && (e.message || '') + ' ' + (e.code || '')));
+      el.innerHTML = `<p class="ku-lb-empty">${coming ? 'The course battle opens very soon.' : 'Could not load the course battle. Check your connection.'}</p>`;
+    }
   }
   async function share() {
     const z = quiz ? quiz.z : mine || QUIZZES[0], n = quiz ? quiz.score : bestOf(z.key);
@@ -265,9 +308,9 @@
         if (p) { hasProfile = true; course = QUIZZES.find(q => q.match.test(p.course || '')) || QUIZZES.find(q => q.match.test(p.dept || '')) || null; }
       } catch (e) { /* the cards still work */ }
     }
-    paintHero();
+    paintHero(); loadBoard();
   }
-  paintHero(); route();
+  paintHero(); route(); loadBoard();
   auth.onAuthStateChanged(findMine);
 
   window.__chal = { QUIZZES, newRound };          // for the tests
