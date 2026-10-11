@@ -185,7 +185,7 @@
       window.showToast('Sent ✓ The admin will check it, then it shows on your profile.', 4000);
       if (sheetDone) sheetDone(r.leader);
     } catch (e) {
-      window.showToast(e.code === 'leaders_coming' ? 'Student leaders are being switched on. Please try again later.' : (e.message || 'Could not send it.'), 4500);
+      window.showToast(e.code === 'leaders_coming' || e.code === 'unknown_action' || e.unreachable ? 'Student leaders are being switched on. Please try again later.' : (e.message || 'Could not send it.'), 4500);
     } finally { busy = false; const b = $('ldSend'); if (b) b.disabled = false; }
   }
 
