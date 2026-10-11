@@ -743,6 +743,7 @@
         <div class="d-actions">
           ${arch ? '' : row('edit', '✏️', 'Edit profile')}
           ${row('pdf', '📄', 'Download PDF')}
+          ${arch || s.isanonymous ? '' : row('ld-from', '🎖', 'Add as a student leader', 'GLUKSA, class rep or club role, now or before.')}
           ${arch ? '' : `<a class="a-act" href="${E(pub)}" target="_blank" rel="noopener noreferrer"><span class="a-ico">↗</span><span class="grow">View public profile</span></a>`}
           ${arch ? row('restore', '↩️', 'Restore profile', 'Puts it back in the yearbook.') : row('archive', '🗄', 'Archive profile', 'Hides it from the yearbook. You can restore it.')}
           ${row('delete', '🗑', 'Delete permanently', '', 'danger')}
@@ -1166,6 +1167,16 @@
       window.gLeaders.wireForm($('leaderForm'), 'al');
       paintAlLink(); paintAlPhoto(); renderAlResults();
       openSheet('leaderOv');
+    }
+    // From a student's sheet: the same Add sheet, with their profile already linked
+    function openLeaderFor(id) {
+      const s = findStudent(id); if (!s) return;
+      if (s.isanonymous) { toast('This profile is anonymous: a leadership role would show who it is.'); return; }
+      closeSheet('detailOv');
+      openLeader(0);
+      LD.link = { id: Number(s.id), name: s.name, photo_url: s.photo_url || null, course: s.course || '', classyear: s.classyear || '' };
+      $('alName').value = s.name || '';
+      paintAlLink(); paintAlPhoto();
     }
     function paintAlLink() {
       const p = LD.link, ph = p && window.safeUrl(p.photo_url || '');
@@ -1711,6 +1722,7 @@ let _ocSearchT = null;
         case 'st-review': reviewStaff(id, b.dataset.v); break;
         case 'st-del':   deleteStaff(id); break;
         case 'ld-new':    openLeader(0); break;
+        case 'ld-from':   openLeaderFor(id); break;
         case 'ld-edit':   openLeader(id); break;
         case 'ld-review': reviewLeader(id, b.dataset.v); break;
         case 'ld-del':    deleteLeader(id); break;
