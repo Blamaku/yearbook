@@ -291,7 +291,7 @@ async function pushToUids(ctx, uids, payload) {
 }
 
 // A line in the developer diary (ops_events). Never lets a diary problem break the real work.
-const PUSH_WHAT = { c: 'comment', r: 'reply', p: 'club post', l: 'like', s: 'staff approved', t: 'letter', test: 'test' };
+const PUSH_WHAT = { c: 'comment', r: 'reply', p: 'club post', l: 'like', s: 'staff approved', t: 'letter', ld: 'leader approved', test: 'test' };
 async function logEvent(ctx, kind, ok, details) {
   try { await ctx.db.from('ops_events').insert({ kind, ok, details, created_at: new Date(ctx.now()).toISOString() }); }
   catch (e) { /* the dashboard just misses one line */ }
@@ -389,6 +389,57 @@ async function myStaff(ctx) {
   const r = await ctx.db.from('staff_profiles').select('*').eq('uid', ctx.user.uid).limit(1);
   if (r.error) throw staffDbError(r.error);
   return (r.data && r.data[0]) || null;
+}
+
+// ── Student leaders (since 2026-10-19): GLUKSA, class reps and others, past and present ──
+// The admin adds anyone, alumni with no profile too. A student may claim a role on their own profile;
+// it shows only once the admin approves it, so nobody can make themselves president.
+const LEADER_ORGS = ['gluksa', 'class', 'club', 'other'];
+const LEADER_STATUS = ['pending', 'approved', 'hidden'];
+const LEADER_COLS = 'id,profile_id,name,org,title,unit,term_from,term_to,current,honour,note,photo_url,status,claimed_by,created_at,updated_at,reviewed_at';
+const leaderDbError = e => missingTable(e)
+  ? new ApiError(503, 'leaders_coming', 'Student leaders are being switched on. Please try again later.')
+  : e && e.code === '23505' ? conflict('That role and term are already on this profile.', 'exists')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+// The fields a student and the admin both fill in
+function leaderFields(ctx, p) {
+  const org = String(p.org || '');
+  if (!LEADER_ORGS.includes(org)) throw bad('Choose where the role was: GLUKSA, a class, a club or other.');
+  const title = txt(p.title, 80, 'Position', { required: true });
+  if (title.length < 2) throw bad('Write the position, e.g. Class representative.');
+  const unit = txt(p.unit, 120, org === 'class' ? 'Class' : org === 'club' ? 'Club' : 'Office or campus');
+  if (org === 'class' && !unit) throw bad('Say which class, e.g. BSc. Nursing, Class of 2027.');
+  if (org === 'club' && !unit) throw bad('Say which club.');
+  const year = new Date(ctx.now()).getUTCFullYear();
+  const from = Number(p.term_from), to = p.term_to === undefined || p.term_to === null || p.term_to === '' ? null : Number(p.term_to);
+  if (!Number.isInteger(from) || from < 1990 || from > year + 1) throw bad('Choose the year the term started.');
+  if (to !== null && (!Number.isInteger(to) || to < from || to > from + 8 || to > year + 2)) throw bad('The term must end in or after the year it started.');
+  if (p.current !== undefined && typeof p.current !== 'boolean') throw bad('Say whether they are serving now.');
+  return { org, title, unit: unit || null, term_from: from, term_to: to, current: p.current === true, note: txt(p.note, 300, 'A line about it') || null };
+}
+// The caller's own student profile (a claim always goes on it)
+async function myProfile(ctx) {
+  const r = await ctx.db.from('profiles').select('id,name,isanonymous').eq('uid', ctx.user.uid).limit(1);
+  if (r.error) throw new ApiError(500, 'db', 'Could not check your profile.');
+  return (r.data && r.data[0]) || null;
+}
+const ownLeader = r => ({ id: r.id, org: r.org, title: r.title, unit: r.unit, term_from: r.term_from, term_to: r.term_to,
+  current: r.current, honour: r.honour, note: r.note, status: r.status, mine: !!r.claimed_by, created_at: r.created_at });
+// "2024/2025" for one academic year, "2023–2025" for longer, "since 2025" while serving with no end set (also in leaders.js)
+const leaderTerm = r => r.term_to == null ? (r.current ? `since ${r.term_from}` : String(r.term_from))
+  : r.term_to === r.term_from ? String(r.term_from) : r.term_to === r.term_from + 1 ? `${r.term_from}/${r.term_to}` : `${r.term_from}–${r.term_to}`;
+// The student hears when their role goes live (a claim the admin approved, or one the admin added for them)
+async function notifyLeader(ctx, row) {
+  let uid = row.claimed_by;
+  if (!uid && row.profile_id) {
+    const p = await ctx.db.from('profiles').select('uid').eq('id', row.profile_id).limit(1);
+    uid = p.data && p.data[0] && p.data[0].uid;
+  }
+  if (!uid) return;
+  const where = row.org === 'gluksa' ? 'GLUKSA' : row.unit || '';
+  return pushToUids(ctx, [uid], { title: 'You are on the roll of student leaders 🎖',
+    body: snip(`${row.title}${where ? ', ' + where : ''} · ${leaderTerm(row)}. It now shows on your profile and on Know your university.`, 180),
+    url: row.profile_id ? `/profile.html?id=${row.profile_id}` : '/university.html#leaders', tag: 'ld-' + row.id });
 }
 
 // ── Letters to the Class of 2026 (since 2026-10-12) ─────────────────────
@@ -839,6 +890,52 @@ const ACTIONS = {
     return {};
   },
 
+  // ── student leaders ──
+  // The roles on your own profile: the ones the admin added for you and your own claims, whatever their status
+  async 'leaders.mine'(ctx) {
+    const me = await myProfile(ctx);
+    if (!me) return { profile: null, rows: [] };
+    const r = await ctx.db.from('student_leaders').select(LEADER_COLS).eq('profile_id', me.id)
+      .order('term_from', { ascending: false }).limit(50);
+    if (r.error) throw leaderDbError(r.error);
+    return { profile: { id: me.id, anonymous: !!me.isanonymous }, rows: (r.data || []).map(ownLeader) };
+  },
+
+  // Claim a role on your own profile ({ leader }), or change a claim of yours ({ id, leader }).
+  // Either way it waits for the admin: nothing shows on the site before then.
+  async 'leaders.claim'(ctx, body) {
+    if (!isObj(body.leader)) throw bad('Missing role.');
+    const me = await myProfile(ctx);
+    if (!me) throw forbidden('Create your yearbook profile first, then add your role.');
+    if (me.isanonymous) throw forbidden('Your profile is anonymous, and a leadership role would show your name. Ask the admin instead.');
+    const rec = leaderFields(ctx, body.leader), nowIso = new Date(ctx.now()).toISOString();
+    if (body.id != null) {
+      const row = await getRow(ctx, 'student_leaders', body.id);
+      if (row.claimed_by !== ctx.user.uid || Number(row.profile_id) !== Number(me.id)) throw forbidden('You can only change roles you added yourself.');
+      const up = await ctx.db.from('student_leaders').update({ ...rec, status: 'pending', updated_at: nowIso }).eq('id', row.id).select(LEADER_COLS);
+      if (up.error) throw leaderDbError(up.error);
+      return { leader: ownLeader(up.data[0]) };
+    }
+    const have = await ctx.db.from('student_leaders').select('id,status').eq('profile_id', me.id).limit(100);
+    if (have.error) throw leaderDbError(have.error);
+    const rows = have.data || [];
+    if (rows.length >= 12) throw conflict('That is a lot of roles! Ask the admin to add any more.', 'too_many');
+    if (rows.filter(x => x.status === 'pending').length >= 4) throw conflict('The admin has not checked your other roles yet. Add more once they have.', 'too_many');
+    const ins = await ctx.db.from('student_leaders').insert({ ...rec, profile_id: me.id, name: snip(me.name, 120), claimed_by: ctx.user.uid,
+      status: 'pending', created_at: nowIso, updated_at: nowIso }).select(LEADER_COLS);
+    if (ins.error) throw leaderDbError(ins.error);
+    return { leader: ownLeader(ins.data[0]) };
+  },
+
+  // Take back a role you added yourself. One the admin added stays: ask the admin.
+  async 'leaders.withdraw'(ctx, body) {
+    const row = await getRow(ctx, 'student_leaders', body.id);
+    if (row.claimed_by !== ctx.user.uid) throw forbidden('Only the admin can remove this one.');
+    const del = await ctx.db.from('student_leaders').delete().eq('id', row.id);
+    if (del.error) throw leaderDbError(del.error);
+    return {};
+  },
+
   // ── Letters to the Class of 2026 ──
   // Everything the letters page needs. Letters written to you are only a count until the letters open.
   // countOnly: just how many are waiting for you (the Home page).
@@ -1189,6 +1286,77 @@ const ACTIONS = {
     const row = await getRow(ctx, 'staff_profiles', body.id);
     const del = await ctx.db.from('staff_profiles').delete().eq('id', row.id);
     if (del.error) throw staffDbError(del.error);
+    return {};
+  },
+
+  // Student leaders: every entry, claims waiting for approval too, with the linked profiles
+  async 'admin.leaders.list'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.from('student_leaders').select(LEADER_COLS)
+      .order('term_from', { ascending: false }).order('id', { ascending: false }).limit(2000);
+    if (r.error) throw leaderDbError(r.error);
+    const rows = r.data || [], ids = [...new Set(rows.map(x => Number(x.profile_id)).filter(Boolean))], profiles = {};
+    for (let i = 0; i < ids.length; i += 200) {
+      const p = await ctx.db.from('profiles').select('id,name,photo_url,course,classyear,isanonymous').in('id', ids.slice(i, i + 200));
+      if (p.error) throw leaderDbError(p.error);
+      (p.data || []).forEach(x => { profiles[x.id] = x; });
+    }
+    return { rows, profiles };
+  },
+
+  // Add a leader ({ leader }) or change one ({ id, leader }). Only the admin sets the name, the linked profile,
+  // a photo, an honour (e.g. President emeritus) and the status. A leader the admin adds is live straight away.
+  async 'admin.leaders.save'(ctx, body) {
+    requireAdmin(ctx);
+    if (!isObj(body.leader)) throw bad('Missing leader.');
+    const p = body.leader, rec = leaderFields(ctx, p), nowIso = new Date(ctx.now()).toISOString();
+    const old = body.id != null ? await getRow(ctx, 'student_leaders', body.id) : null, was = old ? old.status : null;
+    let profile = null;
+    if (p.profile_id !== undefined && p.profile_id !== null && p.profile_id !== '') {
+      const pid = Number(p.profile_id);
+      if (!Number.isInteger(pid) || pid <= 0) throw bad('Invalid profile.');
+      const r = await ctx.db.from('profiles').select('id,uid,name,isanonymous').eq('id', pid).limit(1);
+      if (r.error) throw leaderDbError(r.error);
+      profile = r.data && r.data[0];
+      if (!profile) throw notFound('That profile could not be found.');
+      if (profile.isanonymous) throw bad('That profile is anonymous: linking it would show who it is.');
+    }
+    rec.profile_id = profile ? profile.id : null;
+    rec.name = txt(p.name, 120, 'Name') || (profile ? snip(profile.name, 120) : '');
+    if (rec.name.length < 2) throw bad('Write their name.');
+    rec.honour = txt(p.honour, 60, 'Honour') || null;
+    rec.photo_url = !p.photo_url ? null : old && p.photo_url === old.photo_url ? old.photo_url
+      : fileUrls(ctx.config, [p.photo_url], ctx.config.profileBucket, 1, 'Photo', ctx.user.uid)[0];
+    const status = p.status === undefined ? (was || 'approved') : String(p.status);
+    if (!LEADER_STATUS.includes(status)) throw bad('Unknown status.');
+    rec.status = status;
+    rec.updated_at = nowIso;
+    if (was !== status) Object.assign(rec, { reviewed_at: nowIso, reviewed_by: ctx.user.email });
+    const w = old ? await ctx.db.from('student_leaders').update(rec).eq('id', old.id).select(LEADER_COLS)
+      : await ctx.db.from('student_leaders').insert({ ...rec, created_at: nowIso }).select(LEADER_COLS);
+    if (w.error) throw leaderDbError(w.error);
+    const row = w.data[0];
+    if (status === 'approved' && was !== 'approved') ctx.background(notifyLeader(ctx, row));
+    return { leader: row };
+  },
+
+  // Approve, hide or send back to pending. The student's phone hears when their role goes live.
+  async 'admin.leaders.review'(ctx, body) {
+    requireAdmin(ctx);
+    const status = String(body.status || '');
+    if (!LEADER_STATUS.includes(status)) throw bad('Unknown status.');
+    const row = await getRow(ctx, 'student_leaders', body.id), was = row.status, nowIso = new Date(ctx.now()).toISOString();
+    const up = await ctx.db.from('student_leaders').update({ status, reviewed_at: nowIso, reviewed_by: ctx.user.email }).eq('id', row.id);
+    if (up.error) throw leaderDbError(up.error);
+    if (status === 'approved' && was !== 'approved') ctx.background(notifyLeader(ctx, { ...row, status }));
+    return {};
+  },
+
+  async 'admin.leaders.delete'(ctx, body) {
+    requireAdmin(ctx);
+    const row = await getRow(ctx, 'student_leaders', body.id);
+    const del = await ctx.db.from('student_leaders').delete().eq('id', row.id);
+    if (del.error) throw leaderDbError(del.error);
     return {};
   },
 

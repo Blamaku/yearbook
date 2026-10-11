@@ -2051,6 +2051,8 @@ function initProfilePage(){
       });
       startComments(id);
       paintSuperlativeBadges(data.id);                    // from 15 Nov: "🏆 Most likely to …" for the winners
+      // Student leaders (leaders.js): the 🎖 badges for everyone, and the owner's own roles with "Add a leadership role"
+      if (window.gLeaders) auth.onAuthStateChanged(u => window.gLeaders.paintProfile(data, u));
       // Show edit button to profile owner — check immediately + on auth change
       function _refreshEditBtn(user){
         const btn=document.getElementById('editProfileBtn');

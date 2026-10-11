@@ -258,13 +258,14 @@
 
     <!-- ── Moderation ── -->
     <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button></div>
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button></div>
       <div id="mod-comments"><div id="cList"></div></div>
       <div id="mod-posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
         <div id="pList"></div><div id="pMore"></div>
       </div>
       <div id="mod-staff" style="display:none"><div id="stList"></div></div>
+      <div id="mod-leaders" style="display:none"><div id="ldList"></div></div>
       <div id="mod-letters" style="display:none"><div id="ltList"></div></div>
       <div id="mod-sup" style="display:none">
         <div class="a-item">
@@ -372,6 +373,29 @@
     </form>
   </div></div>
 
+  <!-- ── Student leader sheet: add one, or change one (a student's claim too) ── -->
+  <div class="a-ov" id="leaderOv" data-act="backdrop"><div class="a-sheet">
+    <div class="modal-handle"></div>
+    <div class="a-sheet-head"><div class="modal-title" style="margin:0" id="alHead">Add a student leader</div><button type="button" class="a-x" data-act="close" data-v="leaderOv" aria-label="Close">✕</button></div>
+    <form id="leaderForm" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="alSearch">Their yearbook profile <span style="font-weight:400;color:var(--gray-400)">(optional: gives the photo, the course and a badge on the profile)</span></label>
+        <div id="alLinked"></div>
+        <input class="form-input" type="text" id="alSearch" placeholder="Search by name or reg number…" autocomplete="off">
+        <div id="alResults"></div>
+      </div>
+      <div class="form-group"><label class="form-label" for="alName">Name</label><input class="form-input" type="text" id="alName" maxlength="120" placeholder="e.g. Francis Kibira"></div>
+      <div class="form-group"><label class="form-label" for="alPhoto">Photo <span style="font-weight:400;color:var(--gray-400)">(optional: the profile photo is used if there is none)</span></label>
+        <div style="display:flex;gap:10px;align-items:center"><span class="a-av" id="alPhotoPrev"></span><input type="file" id="alPhoto" accept="image/jpeg,image/png,image/webp" style="flex:1;min-width:0;font-size:.75rem"><button type="button" class="a-mini" data-act="al-photo-clear">Remove</button></div></div>
+      <div id="alFields"></div>
+      <div class="form-group"><label class="form-label" for="alHonour">Honour <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label><input class="form-input" type="text" id="alHonour" maxlength="60" placeholder="e.g. President emeritus"></div>
+      <div class="form-group"><label class="form-label" for="alStatus">On the site?</label>
+        <select class="form-select" id="alStatus"><option value="approved">Yes: live</option><option value="pending">Waiting (not shown yet)</option><option value="hidden">Hidden</option></select></div>
+      <button type="submit" class="btn-primary" id="alSave">💾 &nbsp; Save</button>
+      <button type="button" class="btn-secondary" data-act="close" data-v="leaderOv">Cancel</button>
+    </form>
+  </div></div>
+
   <!-- ── Club officials sheet ── -->
   <div class="a-ov" id="clubOv" data-act="backdrop"><div class="a-sheet">
     <div class="modal-handle"></div>
@@ -401,6 +425,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
   <script src="supabase.js"></script>
   <script src="app.js"></script>
+  <script src="leaders.js"></script>
   <script>
   (function () {
     'use strict';
@@ -488,7 +513,7 @@
     function lock(on) { document.documentElement.style.overflow = on ? 'hidden' : ''; }
     function openSheet(id)  { $(id).classList.add('open'); lock(true); }
     function closeSheet(id) { $(id).classList.remove('open'); if (!document.querySelector('.a-ov.open')) lock(false); }
-    function closeAllSheets() { ['filtersOv', 'detailOv', 'editOv', 'clubOv'].forEach(id => $(id).classList.remove('open')); lock(false); }
+    function closeAllSheets() { ['filtersOv', 'detailOv', 'editOv', 'clubOv', 'leaderOv'].forEach(id => $(id).classList.remove('open')); lock(false); }
   
     async function fetchAll(table) {                       // reads every page (Supabase returns at most 1,000 rows per request)
       const PAGE = 1000, rows = [];
@@ -561,6 +586,9 @@
       let staffWaiting = 0;                                // staff profiles to approve (none before the staff table exists)
       try { staffWaiting = ((await window.gApi('admin.staff.list', {})).rows || []).filter(s => s.status === 'pending').length; } catch (e) {}
       const rows = [];
+      let leadersWaiting = 0;                              // students' leadership claims to check (none before the table exists)
+      try { leadersWaiting = ((await window.gApi('admin.leaders.list', {})).rows || []).filter(s => s.status === 'pending').length; } catch (e) {}
+      if (leadersWaiting > 0) rows.push({ ico: '🎖', txt: leadersWaiting + ' student leader ' + plural(leadersWaiting, 'claim is', 'claims are') + ' waiting for approval', v: 'leaders' });
       if (staffWaiting > 0) rows.push({ ico: '🎓', txt: staffWaiting + ' staff ' + plural(staffWaiting, 'profile is', 'profiles are') + ' waiting for approval', v: 'staff' });
       if (nophoto > 0) rows.push({ ico: '📷', txt: nfmt(nophoto) + ' ' + plural(nophoto, 'profile', 'profiles') + ' without a photo', v: 'nophoto' });
       if (withOfficials !== null && totalClubs - withOfficials > 0) {
@@ -919,6 +947,8 @@
       $('mod-comments').style.display = M.tab === 'comments' ? 'block' : 'none';
       $('mod-posts').style.display    = M.tab === 'posts' ? 'block' : 'none';
       $('mod-staff').style.display    = M.tab === 'staff' ? 'block' : 'none';
+      $('mod-leaders').style.display  = M.tab === 'leaders' ? 'block' : 'none';
+      $('seg-mld').classList.toggle('on', M.tab === 'leaders');
       $('mod-letters').style.display  = M.tab === 'letters' ? 'block' : 'none';
       $('mod-sup').style.display      = M.tab === 'sup' ? 'block' : 'none';
       $('seg-msp').classList.toggle('on', M.tab === 'sup');
@@ -927,6 +957,7 @@
       if (M.tab === 'comments' && !M.loadedC) loadComments();
       if (M.tab === 'posts' && !M.loadedP) loadPosts(true);
       if (M.tab === 'staff') loadStaff();
+      if (M.tab === 'leaders') loadLeaders();
       if (M.tab === 'letters') loadLetters();
       if (M.tab === 'sup') loadSup();
     }
@@ -1068,6 +1099,134 @@
       if (!confirm('Delete this staff profile? This cannot be undone.')) return;
       try { await window.gApi('admin.staff.delete', { id }); ST.rows = ST.rows.filter(x => Number(x.id) !== id); renderStaff(); toast('Staff profile deleted 🗑'); _dashT = 0; }
       catch (e) { console.error('[staff delete]', e); toast('❌ Delete failed.'); }
+    }
+
+    /* ══ Student leaders: GLUKSA, class reps and others, past and present. A student's claim waits here until approved ══ */
+    const LD = { rows: [], profiles: {}, err: '', edit: null, link: null, photo: '', results: [] };
+    async function loadLeaders() {
+      $('ldList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try { const r = await window.gApi('admin.leaders.list', {}); LD.rows = r.rows || []; LD.profiles = r.profiles || {}; LD.err = ''; }
+      catch (e) {
+        console.error('[leaders]', e);
+        LD.err = e.code === 'leaders_coming' || e.code === 'unknown_action'
+          ? 'Student leaders are not switched on yet: run the student_leaders SQL, then deploy the api.' : (e.message || 'Could not load the student leaders');
+      }
+      renderLeaders();
+    }
+    function leaderHTML(l) {
+      const G = window.gLeaders, p = LD.profiles[l.profile_id], photo = window.safeUrl(l.photo_url || (p && p.photo_url) || '');
+      const btn = (st, label, cls) => `<button type="button" class="a-mini${cls ? ' ' + cls : ''}" data-act="ld-review" data-id="${Number(l.id)}" data-v="${st}">${label}</button>`;
+      const where = p ? `<a href="profile.html?id=${Number(p.id)}" target="_blank" rel="noopener">profile</a>${p.isanonymous ? ' (anonymous, so not shown)' : ''}` : l.profile_id ? 'its profile is gone' : 'no profile';
+      return `<div class="a-item">
+        <div class="a-item-top">
+          <span class="a-av">${photo ? `<img src="${E(photo)}" alt="">` : E(initials(l.name))}</span>
+          <div class="grow"><div><span class="a-name" style="display:inline">${E(l.name)}</span>${ST_BADGE[l.status] || ''}${l.current ? '<span class="a-badge">Serving now</span>' : ''}</div>
+            <div class="a-sub" style="white-space:normal">${E(G.roleLine(l))} · ${E(G.term(l))}${l.honour ? ' · 🎖 ' + E(l.honour) : ''}</div>
+            ${l.note ? `<div class="a-text">${E(l.note)}</div>` : ''}
+            <div class="a-sub" style="white-space:normal">${l.claimed_by ? 'Added by the student' : 'Added by you'} ${E(ago(l.created_at))} · ${where}</div></div>
+        </div>
+        <div class="a-item-acts">
+          ${l.status !== 'approved' ? btn('approved', '✅ Approve') : ''}${l.status !== 'hidden' ? btn('hidden', 'Hide') : ''}
+          <button type="button" class="a-mini" data-act="ld-edit" data-id="${Number(l.id)}">Edit</button>
+          <button type="button" class="a-mini danger" data-act="ld-del" data-id="${Number(l.id)}">Delete</button>
+        </div>
+      </div>`;
+    }
+    function renderLeaders() {
+      const order = { pending: 0, approved: 1, hidden: 2 };
+      const rows = LD.rows.slice().sort((a, b) => (order[a.status] - order[b.status]) || (b.current - a.current) || (b.term_from - a.term_from) || window.gLeaders.byRank(a, b));
+      const waiting = rows.filter(r => r.status === 'pending').length;
+      $('ldList').innerHTML = LD.err ? `<div class="a-empty">${E(LD.err)}</div>`
+        : `<button type="button" class="btn-primary" data-act="ld-new" style="margin:0 0 12px">➕ &nbsp; Add a student leader</button>
+          <div class="a-sub" style="margin:0 2px 10px;white-space:normal">GLUKSA officials, class reps and other student leaders, past and present. Live ones show on Know your university, as a 🎖 badge on their profile and in Who's who?. ${waiting
+            ? `<b>${waiting} ${plural(waiting, 'claim is', 'claims are')} waiting.</b> Check each one is true before approving.` : 'Students add their own roles from their profile; those wait here for you.'}</div>`
+          + (rows.length ? rows.map(leaderHTML).join('') : '<div class="a-empty">No student leaders yet.</div>');
+    }
+    async function reviewLeader(id, status) {
+      try {
+        await window.gApi('admin.leaders.review', { id, status });
+        const l = LD.rows.find(x => Number(x.id) === id); if (l) l.status = status;
+        renderLeaders(); toast(status === 'approved' ? 'Approved: it is live now ✅' : status === 'hidden' ? 'Hidden from the site' : 'Updated');
+        _dashT = 0;
+      } catch (e) { console.error('[leader review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
+    }
+    async function deleteLeader(id) {
+      if (!confirm('Delete this student leader? This cannot be undone.')) return;
+      try { await window.gApi('admin.leaders.delete', { id }); LD.rows = LD.rows.filter(x => Number(x.id) !== id); renderLeaders(); toast('Deleted 🗑'); _dashT = 0; }
+      catch (e) { console.error('[leader delete]', e); toast('❌ Delete failed.'); }
+    }
+    function openLeader(id) {
+      const l = id ? LD.rows.find(x => Number(x.id) === id) : null;
+      LD.edit = l || null; LD.photo = (l && l.photo_url) || ''; LD.results = [];
+      LD.link = l && l.profile_id ? (LD.profiles[l.profile_id] || { id: l.profile_id, name: l.name }) : null;
+      $('alHead').textContent = l ? 'Change a student leader' : 'Add a student leader';
+      $('alName').value = l ? l.name : ''; $('alHonour').value = (l && l.honour) || ''; $('alStatus').value = l ? l.status : 'approved';
+      $('alSearch').value = ''; $('alPhoto').value = '';
+      $('alFields').innerHTML = window.gLeaders.fieldsHTML('al', l || {});
+      window.gLeaders.wireForm($('leaderForm'), 'al');
+      paintAlLink(); paintAlPhoto(); renderAlResults();
+      openSheet('leaderOv');
+    }
+    function paintAlLink() {
+      const p = LD.link, ph = p && window.safeUrl(p.photo_url || '');
+      $('alLinked').innerHTML = p ? `<div class="a-row static"><span class="a-av">${ph ? `<img src="${E(ph)}" alt="">` : E(initials(p.name))}</span>
+        <span class="grow"><span class="a-name">${E(p.name || 'Profile ' + p.id)}</span><span class="a-sub">${E([p.course, p.classyear ? 'Class of ' + p.classyear : ''].filter(Boolean).join(' · '))}</span></span>
+        <button type="button" class="a-mini" data-act="al-unlink">Unlink</button></div>` : '';
+      $('alSearch').style.display = p ? 'none' : '';
+    }
+    function paintAlPhoto() {
+      const u = window.safeUrl(LD.photo || (LD.link && LD.link.photo_url) || '');
+      $('alPhotoPrev').innerHTML = u ? `<img src="${E(u)}" alt="">` : '📷';
+    }
+    let _alT = null;
+    function searchAl(q) {
+      clearTimeout(_alT);
+      if (q.length < 2) { LD.results = []; renderAlResults(); return; }
+      _alT = setTimeout(async () => {
+        try {
+          const seen = new Set();                            // anonymous profiles can't be linked: it would show who they are
+          LD.results = ((await window.gApi('admin.profile.search', { q })).rows || []).filter(p => !p.isanonymous && !seen.has(p.id) && seen.add(p.id)).slice(0, 8);
+        } catch (e) { console.warn('[leader search]', e); LD.results = []; }
+        renderAlResults();
+      }, 280);
+    }
+    function renderAlResults() {
+      $('alResults').innerHTML = LD.results.length ? `<div class="a-card" style="margin-top:6px">${LD.results.map(p => {
+        const ph = window.safeUrl(p.photo_url || '');
+        return `<button type="button" class="a-row" data-act="al-pick" data-id="${Number(p.id)}"><span class="a-av">${ph ? `<img src="${E(ph)}" alt="">` : E(initials(p.name))}</span>
+          <span class="grow"><span class="a-name">${E(p.name || 'Unnamed')}</span><span class="a-sub">${E(p.reg || '—')} · Class of ${E(p.classyear || '?')}</span></span></button>`;
+      }).join('')}</div>` : '';
+    }
+    function pickAl(id) {
+      const p = LD.results.find(x => Number(x.id) === id); if (!p) return;
+      LD.link = p; if (!$('alName').value.trim()) $('alName').value = p.name || '';
+      LD.results = []; $('alSearch').value = ''; renderAlResults(); paintAlLink(); paintAlPhoto();
+    }
+    async function pickAlPhoto(file) {
+      if (!file) return;
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { toast('Choose a JPEG, PNG or WebP photo.'); return; }
+      $('alSave').disabled = true; toast('Uploading the photo…');
+      try {
+        const dataUrl = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+        const { blob } = await compressImage(dataUrl, 640, 0.82);
+        LD.photo = await uploadPhoto(blob, _admin.uid, 'leader');
+        paintAlPhoto(); toast('Photo ready ✅ Save to keep it.');
+      } catch (e) { console.error('[leader photo]', e); toast('❌ ' + (e.message || 'Could not upload the photo.')); }
+      finally { $('alSave').disabled = false; }
+    }
+    async function saveLeader(e) {
+      e.preventDefault();
+      const v = window.gLeaders.readForm($('leaderForm'));
+      const leader = { ...v, name: $('alName').value.trim(), honour: $('alHonour').value.trim(), status: $('alStatus').value,
+        profile_id: LD.link ? LD.link.id : null, photo_url: LD.photo || '' };
+      if (!leader.name && !LD.link) { toast('Write their name, or link their profile.'); $('alName').focus(); return; }
+      if (leader.title.length < 2) { toast('Write the position, e.g. Chairperson.'); return; }
+      $('alSave').disabled = true;
+      try {
+        await window.gApi('admin.leaders.save', LD.edit ? { id: LD.edit.id, leader } : { leader });
+        closeSheet('leaderOv'); toast(LD.edit ? 'Saved ✅' : 'Added ✅'); _dashT = 0; loadLeaders();
+      } catch (er) { console.error('[leader save]', er); toast('❌ ' + (er.message || 'Could not save.'), 4000); }
+      finally { $('alSave').disabled = false; }
     }
   
     async function loadComments() {
@@ -1525,6 +1684,7 @@ let _ocSearchT = null;
           if (b.dataset.v === 'nophoto') { S.view = 'active'; S.f = NOFILTER(); S.f.noPhoto = true; S.q = ''; $('sSearch').value = ''; S.shown = STEP; go('students'); }
           else if (b.dataset.v === 'clubs') { C.filter = 'none'; go('clubs'); }
           else if (b.dataset.v === 'staff') { M.tab = 'staff'; go('mod'); }
+          else if (b.dataset.v === 'leaders') { M.tab = 'leaders'; go('mod'); }
           else { M.tab = 'comments'; go('mod'); }
           break;
         case 'qa-export': S.view = 'active'; S.f = NOFILTER(); S.q = ''; go('students'); ensureStudents().then(exportExcel); break;
@@ -1550,6 +1710,13 @@ let _ocSearchT = null;
         case 'r-del':    deleteReply(b.dataset.cid, b.dataset.rid); break;
         case 'st-review': reviewStaff(id, b.dataset.v); break;
         case 'st-del':   deleteStaff(id); break;
+        case 'ld-new':    openLeader(0); break;
+        case 'ld-edit':   openLeader(id); break;
+        case 'ld-review': reviewLeader(id, b.dataset.v); break;
+        case 'ld-del':    deleteLeader(id); break;
+        case 'al-pick':   pickAl(id); break;
+        case 'al-unlink': LD.link = null; paintAlLink(); paintAlPhoto(); break;
+        case 'al-photo-clear': LD.photo = ''; $('alPhoto').value = ''; paintAlPhoto(); break;
         case 'lt-review': reviewLetter(id, b.dataset.v === '1'); break;
         case 'sup-add':    supAdd(); break;
         case 'sup-rename': supRename(id); break;
@@ -1572,6 +1739,7 @@ let _ocSearchT = null;
       if (t.id === 'sSearch') { S.q = String(t.value || '').trim().toLowerCase(); S.shown = STEP; renderStudents(); }
       else if (t.id === 'cSearch') { C.q = String(t.value || '').trim(); renderClubs(); }
     else if (t.id === 'ocSearch') { searchOcTerm(String(t.value || '').trim()); }
+      else if (t.id === 'alSearch') { searchAl(String(t.value || '').trim()); }
     });
     document.addEventListener('change', e => {
       const t = e.target || {};
@@ -1580,8 +1748,9 @@ let _ocSearchT = null;
       else if (t.id === 'fCounty') { S.d.county = t.value; buildFilterSheet(); }
       else if (t.id === 'postClub') { M.club = t.value; loadPosts(true); }
     else if (t.id === 'ocRole') { updateRoleNote(); }
+      else if (t.id === 'alPhoto') { pickAlPhoto(t.files && t.files[0]); }
     });
-    document.addEventListener('submit', e => { if (e.target && e.target.id === 'editForm') saveEdit(e); });
+    document.addEventListener('submit', e => { if (e.target && e.target.id === 'editForm') saveEdit(e); else if (e.target && e.target.id === 'leaderForm') saveLeader(e); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllSheets(); });
   
     function start() {

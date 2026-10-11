@@ -79,19 +79,19 @@
     umb:     { name: 'University Management Board', ids: ['miseda', 'mwayuli', 'wafula', 'ochola', 'onyango', 'nandi', 'oria', 'kojwang', 'ochiel', 'cotieno', 'okayo', 'assefa', 'lubeka', 'osoo', 'atieno', 'nyapada', 'obiero'], page: 'university-management-board/', color: '#1d4ed8' },
   };
   const COLOR = { nyongo: '#b45309', miseda: '#0f4c81', mwayuli: '#0e7490', wafula: '#0e7490' };
-  const colorOf = p => COLOR[p.id] || (GROUPS.bot.ids.includes(p.id) ? GROUPS.bot.color : GROUPS.umb.ids.includes(p.id) ? GROUPS.umb.color : GROUPS.council.color);
+  const colorOf = p => p.student ? p.color : COLOR[p.id] || (GROUPS.bot.ids.includes(p.id) ? GROUPS.bot.color : GROUPS.umb.ids.includes(p.id) ? GROUPS.umb.color : GROUPS.council.color);
   const groupsOf = p => Object.values(GROUPS).filter(g => g.ids.includes(p.id));
   const isText = p => p.is || 'is the ' + (p.short || p.role);
 
   // A round face, or initials when there is no photo
   const ini = n => n.replace(/^(The |Right |Rev\.|Prof\.|Dr\.|Eng\.|Mr\.|Mrs\.|Ms\.|Bishop |Canon, |CPA, |\s)+/g, '').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-  const face = (p, cls = '') => p.photo
+  const face = (p, cls = '') => p.student ? window.gLeaders.face(p.r, cls) : p.photo
     ? `<span class="ku-face ${cls}" style="background-image:url('img/leaders/${p.id}.jpg')" aria-hidden="true"></span>`
     : `<span class="ku-face ini ${cls}" aria-hidden="true">${E(ini(p.name))}</span>`;
 
   /* ── The chart ─────────────────────────────────── */
   const big = (p, label) => `<button type="button" class="ku-big" data-who="${p.id}" style="--kc:${colorOf(p)}">
-      ${face(p, 'xl')}<span class="ku-role">${E(label)}</span><span class="ku-name">${E(p.name)}</span><span class="ku-tap">What the office does ›</span></button>`;
+      ${face(p, 'xl')}<span class="ku-role">${E(label)}</span><span class="ku-name">${E(p.name)}</span><span class="ku-tap">${p.student ? 'See more ›' : 'What the office does ›'}</span></button>`;
   const mid = (p, label) => `<button type="button" class="ku-mid" data-who="${p.id}" style="--kc:${colorOf(p)}">
       ${face(p, 'lg')}<span class="ku-role">${E(label)}</span><span class="ku-name">${E(p.name)}</span></button>`;
   const small = p => `<button type="button" class="ku-p" data-who="${p.id}" style="--kc:${colorOf(p)}">
@@ -135,6 +135,81 @@
       <a class="ku-srclink" href="${SITE + p.page}" target="_blank" rel="noopener">See on gluk.ac.ke ↗</a>`;
   }
 
+  /* ── Student leaders: GLUKSA, class reps and others, now and before (leaders.js; the admin approves each) ── */
+  const L = window.gLeaders;
+  const SL_COLOR = { gluksa: '#c2410c', class: '#0369a1', club: '#7e22ce', other: '#475569' };
+  let SL = [], slById = {}, slState = 'loading';
+  // One office someone held, shaped like the officials above so the chart, the sheet and the quiz take it as it is
+  function toPerson(r) {
+    const t = L.term(r), of = L.sentence({ ...r, current: true }).replace(/^is the /, '');
+    return { id: 'sl' + r.id, name: r.name, r, student: true, color: SL_COLOR[r.org] || SL_COLOR.other,
+      short: `${L.roleLine(r)} (${t})`, is: L.sentence(r),
+      ask: r.current ? `Who is the ${of}?` : `Who was the ${of} in ${t}?` };
+  }
+  const slTile = p => `<button type="button" class="ku-p" data-who="${p.id}" style="--kc:${p.color}">
+      ${face(p)}<b>${E(p.name)}</b><small>${E(p.r.honour || p.r.title)}${p.r.org !== 'gluksa' && p.r.unit ? ' · ' + E(p.r.unit) : ''}</small></button>`;
+  function paintLeaders() {
+    const el = $('slBody');
+    const say = t => { el.innerHTML = `<p class="ku-lb-empty">${t}</p>`; };
+    if (slState === 'loading') return say('Loading the student leaders…');
+    if (slState === 'coming') return say('The roll of student leaders opens very soon.');
+    if (slState === 'error') return say('Could not load the student leaders. Check your connection.');
+    if (!SL.length) return say('The roll of student leaders is just starting. Were you a GLUKSA leader or a class rep? Add your role below.');
+    const now = SL.filter(p => p.r.current), past = SL.filter(p => !p.r.current), rk = (a, b) => L.byRank(a.r, b.r);
+    const nowG = now.filter(p => p.r.org === 'gluksa').sort(rk), head = nowG.find(p => L.isHead(p.r));
+    const reps = now.filter(p => p.r.org === 'class').sort((a, b) => String(a.r.unit).localeCompare(String(b.r.unit)));
+    const rest = now.filter(p => p.r.org === 'club' || p.r.org === 'other').sort(rk);
+    // The heads of GLUKSA, newest first; then everyone else who has served, by term
+    const heads = SL.filter(p => L.isHead(p.r)).sort((a, b) => b.r.term_from - a.r.term_from || b.r.current - a.r.current);
+    const terms = new Map();
+    past.filter(p => !L.isHead(p.r)).sort((a, b) => b.r.term_from - a.r.term_from || (b.r.term_to || 0) - (a.r.term_to || 0) || rk(a, b))
+      .forEach(p => { const t = L.term(p.r); if (!terms.has(t)) terms.set(t, []); terms.get(t).push(p); });
+    const board = list => list.length ? `<div class="ku-board">${list.map(slTile).join('')}</div>` : '';
+    el.innerHTML = `
+      ${now.length ? `<div class="ku-lvl">Serving now</div>
+        ${head ? big(head, `${head.r.title} · GLUKSA`) : ''}${board(nowG.filter(p => p !== head))}
+        ${reps.length ? `<div class="ku-lvl sl-lvl">Class reps</div>${board(reps)}` : ''}
+        ${rest.length ? `<div class="ku-lvl sl-lvl">Clubs and more</div>${board(rest)}` : ''}` : ''}
+      ${heads.length ? `<div class="ku-lvl sl-lvl">GLUKSA through the years</div>
+        <ol class="sl-years">${heads.map(p => `<li style="--kc:${p.color}"><button type="button" class="sl-yr${p.r.current ? ' now' : ''}" data-who="${p.id}">
+          <span class="sl-term">${E(L.term(p.r))}</span>${face(p, 'sm2')}<span class="sl-yr-t"><b>${E(p.name)}</b>
+          <small>${E(p.r.honour || p.r.title)}${p.r.current ? ' · serving now' : ''}</small></span></button></li>`).join('')}</ol>` : ''}
+      ${terms.size ? `<div class="ku-lvl sl-lvl">Hall of leaders</div>
+        ${[...terms].map(([t, list]) => `<p class="sl-term-h">${E(t)}</p>${board(list)}`).join('')}` : ''}`;
+  }
+  function studentHTML(p) {
+    const r = p.r, more = SL.filter(x => x !== p && L.person(x.r) === L.person(r));
+    const about = [L.term(r) + (r.current ? ' · serving now' : ''), r.course ? r.course + (r.classyear ? ', Class of ' + r.classyear : '') : ''].filter(Boolean).join(' · ');
+    return `<div class="ku-sh-face" style="--kc:${p.color}">${face(p, 'xxl')}</div>
+      <p class="ku-role" style="--kc:${p.color}">${E(L.roleLine(r))}</p>
+      <h3 class="ku-sh-name" id="kuShName">${E(r.name)}</h3>
+      <p class="ku-creds">${E(about)}</p>
+      ${r.honour ? `<p class="sl-honour">🎖 ${E(r.honour)}</p>` : ''}
+      ${r.note ? `<div class="ku-what"><b>Their time in office</b><p>${E(r.note)}</p></div>` : ''}
+      ${more.length ? `<p class="ku-also">Also: ${more.map(x => E(`${L.roleLine(x.r)} (${L.term(x.r)})`)).join(' · ')}</p>` : ''}
+      <p class="ku-in"><span style="--kc:${p.color}">${E(L.ORGS[r.org].label === 'Other' ? 'Student leader' : L.ORGS[r.org].label)}</span></p>
+      ${r.profile_id ? `<a class="ku-srclink" href="profile.html?id=${Number(r.profile_id)}">See their yearbook profile ›</a>` : ''}`;
+  }
+  async function loadLeaders() {
+    try {
+      SL = (await L.load()).map(toPerson);
+      slById = Object.fromEntries(SL.map(p => [p.id, p]));
+      slState = 'ok';
+    } catch (e) { console.warn('[student leaders]', e); slState = e.coming ? 'coming' : 'error'; }
+    paintLeaders();
+    if (/^#who-sl\d+$/.test(location.hash)) route();     // a link straight to a student leader
+  }
+  // "Add your role": signed in, with a yearbook profile that is not anonymous
+  async function claim() {
+    if (!user) { window.openAuthModal(null, 'login'); return; }
+    const { data, error } = await supabase.from('profiles_public').select('id,course,classyear,isanonymous').eq('uid', user.uid).limit(1);
+    if (error) { window.showToast('Could not check your profile. Try again.'); return; }
+    const me = data && data[0];
+    if (!me) { window.showToast('Create your yearbook profile first, then add your role.', 3500); window.openProfileChooser(); return; }
+    if (me.isanonymous) { window.showToast('Your profile is anonymous, and a role would show your name. Ask the admin to add it.', 4500); return; }
+    L.openClaim(me, null, null);
+  }
+
   /* ── Who's who? ────────────────────────────────── */
   const ROUND = 10, BEST = 'gluk-kyu-best';
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -156,17 +231,49 @@
     if (kind === 'role') return { kind, p, ask: `What is ${p.name}’s office at GLUK?`, opts: shuffle([p, ...others(p, named, 3)]) };
     return { kind: 'name', p, ask: 'Who is this?', opts: shuffle([p, ...others(p, withPhoto, 3)]) };
   }
-  // The first question is always the Vice Chancellor; then the best-known offices, then anyone
+  // A question about a student leader; the other choices are other student leaders (one office each)
+  const SL_QS = 2;                                             // student leader questions in a round, once they have loaded
+  function studentQ(p, people) {
+    const me = L.person(p.r);
+    const rivals = shuffle([...people.keys()].filter(k => k !== me)).slice(0, 3).map(k => shuffle(people.get(k))[0]);
+    if (rivals.length < 2) return null;
+    const kinds = [];
+    if (SL.filter(x => x.ask === p.ask).length === 1) kinds.push('face');          // "Who was the President of GLUKSA in 2024/2025?"
+    const seen = new Set([p.short]), roles = rivals.filter(o => !seen.has(o.short) && seen.add(o.short));
+    if (roles.length >= 2) kinds.push('role');
+    if (window.safeUrl(p.r.photo_url || '')) kinds.push('name');
+    if (!kinds.length) return null;
+    const kind = shuffle(kinds)[0];
+    if (kind === 'face') return { kind, p, ask: p.ask, opts: shuffle([p, ...rivals]) };
+    if (kind === 'role') return { kind, p, ask: `What role ${p.r.current ? 'does' : 'did'} ${p.name} hold?`, opts: shuffle([p, ...roles]) };
+    return { kind, p, ask: 'Which student leader is this?', opts: shuffle([p, ...rivals]) };
+  }
+  // GLUKSA's head and officials come up most, then anyone; never two questions about the same person
+  function studentRound(n) {
+    const people = new Map();
+    SL.forEach(p => { const k = L.person(p.r); if (!people.has(k)) people.set(k, []); people.get(k).push(p); });
+    if (people.size < 3) return [];
+    const weight = p => (L.isHead(p.r) ? 2 : p.r.org === 'gluksa' ? 1 : 0) + Math.random() * 3;
+    const out = [], used = new Set();
+    for (const p of SL.map(p => [weight(p), p]).sort((a, b) => b[0] - a[0]).map(x => x[1])) {
+      if (out.length >= n || used.has(L.person(p.r))) continue;
+      const q = studentQ(p, people);
+      if (q) { out.push(q); used.add(L.person(p.r)); }
+    }
+    return out;
+  }
+  // The first question is always the Vice Chancellor; then the best-known offices, anyone, and the student leaders
   function newRound() {
-    const vc = byId.miseda;
+    const vc = byId.miseda, sq = studentRound(SL_QS);
     const keys = shuffle(named.filter(p => p.key && p !== vc)).slice(0, 5);
-    const rest = shuffle(withPhoto.filter(p => p !== vc && !keys.includes(p))).slice(0, ROUND - 1 - keys.length);
-    const qs = [question('face', vc), ...shuffle([...keys, ...rest]).map(p => question(shuffle(p.uniq ? ['name', 'face', 'role'] : ['name'])[0], p))];
+    const rest = shuffle(withPhoto.filter(p => p !== vc && !keys.includes(p))).slice(0, ROUND - 1 - keys.length - sq.length);
+    const qs = [question('face', vc), ...shuffle([...[...keys, ...rest].map(p => question(shuffle(p.uniq ? ['name', 'face', 'role'] : ['name'])[0], p)), ...sq])];
     return { qs, i: 0, score: 0, answered: false };
   }
   const best = () => { try { return Number(localStorage.getItem(BEST)) || 0; } catch (e) { return 0; } };
   function saveBest(n) { try { if (n > best()) localStorage.setItem(BEST, String(n)); } catch (e) {} }
-  function preload(q) { if (q) (q.kind === 'face' ? q.opts : [q.p]).forEach(p => { if (p.photo) new Image().src = `img/leaders/${p.id}.jpg`; }); }
+  const photoOf = p => p.student ? window.safeUrl(p.r.photo_url || '') : p.photo ? `img/leaders/${p.id}.jpg` : '';
+  function preload(q) { if (q) (q.kind === 'face' ? q.opts : [q.p]).forEach(p => { const u = photoOf(p); if (u) new Image().src = u; }); }
 
   function paintQ() {
     const q = quiz.qs[quiz.i];
@@ -175,7 +282,7 @@
     $('kqBar').style.width = (quiz.i / quiz.qs.length * 100) + '%';
     const media = q.kind === 'face' ? '' : `<div class="kq-photo">${face(q.p, 'q')}</div>${q.kind === 'role' ? `<p class="kq-who">${E(q.p.name)}</p>` : ''}`;
     const opts = q.kind === 'face'
-      ? `<div class="kq-faces">${q.opts.map((o, i) => `<button type="button" class="kq-fopt" data-i="${i}" aria-label="Choice ${i + 1}">${face(o, 'q2')}<span class="kq-fname">${E(o.name)}</span></button>`).join('')}</div>`
+      ? `<div class="kq-faces${q.p.student ? ' named' : ''}">${q.opts.map((o, i) => `<button type="button" class="kq-fopt" data-i="${i}" aria-label="${q.p.student ? E(o.name) : `Choice ${i + 1}`}">${face(o, 'q2')}<span class="kq-fname">${E(o.name)}</span></button>`).join('')}</div>`
       : `<div class="kq-opts">${q.opts.map((o, i) => `<button type="button" class="kq-opt" data-i="${i}">${E(q.kind === 'role' ? o.short : o.name)}</button>`).join('')}</div>`;
     $('kqBody').innerHTML = `<p class="kq-ask" id="kqAsk">${E(q.ask)}</p>${media}${opts}<p class="kq-feedback" id="kqFb" aria-live="polite"></p>
       <button type="button" class="kq-next" id="kqNext" hidden>${quiz.i + 1 < quiz.qs.length ? 'Next question ›' : 'See my score ›'}</button>`;
@@ -311,13 +418,13 @@
     route();
   }
   function route() {
-    const h = location.hash.slice(1), m = /^who-([a-z]+)$/.exec(h), p = m && byId[m[1]];
+    const h = location.hash.slice(1), m = /^who-([a-z]+|sl\d+)$/.exec(h), p = m && (byId[m[1]] || slById[m[1]]);
     const playing = h === 'play';
     $('kuQuiz').hidden = !playing;
     if (playing && !quiz) { quiz = startRound(); paintQ(); }
     if (!playing) quiz = null;
     $('kuOv').hidden = !p;
-    if (p) { $('kuSheetBody').innerHTML = personHTML(p); $('kuSheet').scrollTop = 0; }
+    if (p) { $('kuSheetBody').innerHTML = p.student ? studentHTML(p) : personHTML(p); $('kuSheet').scrollTop = 0; }
     document.documentElement.style.overflow = (playing || p) ? 'hidden' : '';
     if (!h || (!playing && !p)) openedHere = false;
   }
@@ -334,6 +441,8 @@
     }
     const w = e.target.closest('[data-who]'); if (w) go('who-' + w.dataset.who);
   });
+  $('slBody').addEventListener('click', e => { const w = e.target.closest('[data-who]'); if (w) go('who-' + w.dataset.who); });
+  $('slClaim').addEventListener('click', claim);
   document.querySelectorAll('[data-play]').forEach(b => b.addEventListener('click', () => { quiz = null; go('play'); }));
   $('kuMeet').addEventListener('click', () => $('chart').scrollIntoView({ behavior: 'smooth', block: 'start' }));
   $('kuX').addEventListener('click', close);
@@ -359,7 +468,8 @@
   window.addEventListener('hashchange', route);
   route();
   loadBoard();
+  paintLeaders(); loadLeaders();
   auth.onAuthStateChanged(u => { user = u; loadMe(); });
 
-  window.__kyu = { PEOPLE, GROUPS, newRound };     // for the tests
+  window.__kyu = { PEOPLE, GROUPS, newRound, studentRound, get SL() { return SL; } };     // for the tests
 })();
