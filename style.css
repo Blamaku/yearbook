@@ -2593,3 +2593,21 @@ a.ku-meet { display: inline-flex; align-items: center; }
 .sf-lead legend { margin-bottom: 6px; }
 .sf-radio { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 0; font-size: .84rem; color: var(--gray-800); cursor: pointer; }
 .sf-radio input { width: 18px; height: 18px; accent-color: var(--blue); flex-shrink: 0; }
+
+/* Think it's easy? (challenge.html) */
+.ch-cards { display: grid; gap: 10px; }
+.ch-card { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--gray-100);
+  background: var(--surface); box-shadow: var(--shadow-sm); font: inherit; color: var(--gray-800); text-align: left; cursor: pointer; }
+.ch-card:active { transform: scale(.98); }
+.ch-card.mine { border-color: var(--gold); box-shadow: 0 2px 14px var(--gold-glow); }
+.ch-emoji { flex-shrink: 0; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: var(--off-white); font-size: 1.5rem; }
+.ch-t { flex: 1; min-width: 0; line-height: 1.3; }
+.ch-t b { display: block; font-size: .92rem; font-weight: 900; }
+.ch-t small { display: block; margin-top: 2px; font-size: .72rem; color: var(--gray-600); }
+.ch-best { flex-shrink: 0; padding: 5px 10px; border-radius: var(--radius-full); background: var(--navy); color: #fff; font-size: .72rem; font-weight: 800; }
+.ch-card.mine .ch-best { background: var(--gold); color: var(--navy); }
+.ch-join { margin: 4px 0 6px; font-size: .86rem; line-height: 1.5; color: rgba(255,255,255,.9); }
+.ch-join a, .ch-join button { color: var(--gold-bright); }
+.ch-note { margin-top: 14px; font-size: .7rem; line-height: 1.45; color: rgba(255,255,255,.6); }
+[data-theme="dark"] .ch-best { background: var(--blue-vivid); color: #04152a; }
+@media (min-width: 640px) { .ch-cards { grid-template-columns: 1fr 1fr; } }

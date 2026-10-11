@@ -60,7 +60,7 @@ const CONFIG = {
   kyuPerHour: 40,                                   // at most this many rounds started by one person per hour
   // Pages whose visits are counted for the Developer tab (each page's <body data-page>)
   trackPages: ['home', 'feed', 'profiles', 'profile', 'clubs', 'club', 'department', 'course', 'class', 'staff',
-    'about', 'constitution', 'letters', 'university', 'superlatives'],
+    'about', 'constitution', 'letters', 'university', 'superlatives', 'challenge'],
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
