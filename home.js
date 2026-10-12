@@ -191,6 +191,25 @@
   }
 
   greet('');
+  // Graduation week: during the week the card says which day it is and what is open
+  (function paintGrad() {
+    const G = window.GLUK_GRADWEEK, card = $('hmGrad');
+    if (!G || !card) return;
+    const t = G.today();
+    if (t >= 0 && t < 7) {
+      const d = G.DAYS[t];
+      card.classList.add('live'); card.href = 'grad.html#day-' + d.key;
+      $('hmGradIc').textContent = d.emoji;
+      $('hmGradT').textContent = `Graduation week · Day ${t + 1}: ${d.title}`;
+      $('hmGradSub').textContent = d.line;
+    } else if (t >= 7) {
+      $('hmGradT').textContent = 'Congratulations, Class of 2026 🎓';
+      $('hmGradSub').textContent = 'Relive graduation week: letters, Glow Up and more.';
+    } else {
+      const days = Math.ceil((G.START - Date.now()) / 864e5);
+      $('hmGradSub').textContent = `Starts in ${days} ${days === 1 ? 'day' : 'days'}. Seven days, seven surprises. See the plan and get ready.`;
+    }
+  })();
   // Class superlatives: from the reveal, the card invites people to see the winners
   if ($('hmSupSub') && Date.now() >= Date.parse(window.SUP_REVEAL_AT || '2026-11-14T21:00:00Z')) $('hmSupSub').textContent = 'The winners are out! See who the Class of 2026 voted for.';
   loadNew().catch(() => show('hmNewSec', false));

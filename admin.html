@@ -258,7 +258,7 @@
 
     <!-- ── Moderation ── -->
     <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button></div>
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button></div>
       <div id="mod-comments"><div id="cList"></div></div>
       <div id="mod-posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
@@ -267,6 +267,7 @@
       <div id="mod-staff" style="display:none"><div id="stList"></div></div>
       <div id="mod-leaders" style="display:none"><div id="ldList"></div></div>
       <div id="mod-letters" style="display:none"><div id="ltList"></div></div>
+      <div id="mod-glow" style="display:none"><div id="guList"></div></div>
       <div id="mod-sup" style="display:none">
         <div class="a-item">
           <div class="a-name">Add a category</div>
@@ -953,6 +954,8 @@
       $('mod-letters').style.display  = M.tab === 'letters' ? 'block' : 'none';
       $('mod-sup').style.display      = M.tab === 'sup' ? 'block' : 'none';
       $('seg-msp').classList.toggle('on', M.tab === 'sup');
+      $('mod-glow').style.display     = M.tab === 'glow' ? 'block' : 'none';
+      $('seg-mgu').classList.toggle('on', M.tab === 'glow');
       $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
       $('seg-ms').classList.toggle('on', M.tab === 'staff'); $('seg-ml').classList.toggle('on', M.tab === 'letters');
       if (M.tab === 'comments' && !M.loadedC) loadComments();
@@ -961,6 +964,7 @@
       if (M.tab === 'leaders') loadLeaders();
       if (M.tab === 'letters') loadLetters();
       if (M.tab === 'sup') loadSup();
+      if (M.tab === 'glow') loadGlow();
     }
 
     /* ══ Letters: the class wall and anything someone reported. Private letters nobody reported never come here. ══ */
@@ -1002,6 +1006,45 @@
         const l = LT.rows.find(x => Number(x.id) === id); if (l) { l.hidden = hidden; l.reported = false; }
         renderLetters(); toast(hidden ? 'Hidden from the site' : 'Done ✅');
       } catch (e) { console.error('[letters review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
+    }
+
+    /* ══ Glow Up: every graduate's Then vs Now (public from Monday 16 November), reported ones first ══ */
+    const GU = { rows: [], err: '' };
+    async function loadGlow() {
+      $('guList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try { GU.rows = (await window.gApi('admin.glow.list', {})).rows || []; GU.err = ''; }
+      catch (e) {
+        console.error('[glow]', e);
+        GU.err = e.code === 'glow_coming' || e.code === 'unknown_action'
+          ? 'Glow Up is not switched on yet: run the glow_up SQL, then deploy the api.' : (e.message || 'Could not load Glow Up');
+      }
+      renderGlow();
+    }
+    function renderGlow() {
+      const rows = GU.rows;
+      $('guList').innerHTML = GU.err ? `<div class="a-empty">${E(GU.err)}</div>`
+        : rows.length ? '<div class="a-sub" style="margin:0 2px 10px;white-space:normal">' + rows.length + ' glow-ups. They go public on Monday 16 November. Hide any that should not be in the gallery.</div>'
+          + rows.map(g => `<div class="a-item">
+            <div class="a-item-top"><div class="grow">
+              <div><span class="a-name" style="display:inline">${E(g.name || 'Profile ' + g.profile_id)}</span> <span class="a-sub" style="display:inline">${E(g.course || '')}</span>
+                ${g.reported ? '<span class="a-badge warn">Reported</span>' : ''}${g.hidden ? '<span class="a-badge">Hidden</span>' : ''}</div>
+              <div style="display:flex;gap:6px;margin:8px 0"><img src="${E(g.then_url)}" alt="Then" loading="lazy" style="width:90px;height:112px;object-fit:cover;border-radius:8px">
+                <img src="${E(g.now_url)}" alt="Now" loading="lazy" style="width:90px;height:112px;object-fit:cover;border-radius:8px"></div>
+              ${g.caption ? `<div class="a-text">“${E(g.caption)}”</div>` : ''}
+              <div class="a-sub">${g.then_year ? 'Then: ' + Number(g.then_year) + ' · ' : ''}Updated ${E(ago(g.updated_at))}</div></div></div>
+            <div class="a-item-acts">
+              ${g.hidden ? `<button type="button" class="a-mini" data-act="gu-review" data-id="${Number(g.profile_id)}" data-v="0">Show again</button>`
+                : `<button type="button" class="a-mini danger" data-act="gu-review" data-id="${Number(g.profile_id)}" data-v="1">Hide</button>`}
+              ${g.reported && !g.hidden ? `<button type="button" class="a-mini" data-act="gu-review" data-id="${Number(g.profile_id)}" data-v="0">It's fine</button>` : ''}
+            </div></div>`).join('')
+        : '<div class="a-empty">No glow-ups yet.</div>';
+    }
+    async function reviewGlow(id, hidden) {
+      try {
+        await window.gApi('admin.glow.review', { profileId: id, hidden });
+        const g = GU.rows.find(x => Number(x.profile_id) === id); if (g) { g.hidden = hidden; g.reported = false; }
+        renderGlow(); toast(hidden ? 'Hidden from the gallery' : 'Done ✅');
+      } catch (e) { console.error('[glow review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
     }
 
     /* ══ Class superlatives: the leaders so far (only the admin sees counts) and the categories ══ */
@@ -1574,7 +1617,8 @@ let _ocSearchT = null;
     /* Traffic: who visits, where they go, when (admin.dev.traffic) */
     const PAGE_NAME = { home: 'Home', feed: 'Students feed', profiles: 'Students list', profile: 'Profiles', clubs: 'Clubs list', club: 'Club pages',
       department: 'Schools', course: 'Programmes', class: 'Classes', staff: 'Staff profiles', about: 'About GLUK', constitution: 'GLUKSA constitution',
-      letters: 'Letters', university: 'Know your university' };
+      letters: 'Letters', university: 'Know your university', superlatives: 'Class superlatives', challenge: "Think it's easy?",
+      grad: 'Graduation week', glowup: 'Glow Up' };
     const pct = (n, of) => of ? Math.round(n / of * 100) + '%' : '–';
     async function loadTraffic() {
       const tiles = $('devTrafficTiles'), card = $('devTraffic');
@@ -1730,6 +1774,7 @@ let _ocSearchT = null;
         case 'al-unlink': LD.link = null; paintAlLink(); paintAlPhoto(); break;
         case 'al-photo-clear': LD.photo = ''; $('alPhoto').value = ''; paintAlPhoto(); break;
         case 'lt-review': reviewLetter(id, b.dataset.v === '1'); break;
+        case 'gu-review': reviewGlow(id, b.dataset.v === '1'); break;
         case 'sup-add':    supAdd(); break;
         case 'sup-rename': supRename(id); break;
         case 'sup-hide':   supCategory({ id, hidden: b.dataset.v === '1' }, b.dataset.v === '1' ? 'Hidden from the page' : 'Shown again ✅'); break;

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <meta name="description" content="Graduation week for the GLUK Class of 2026: seven days, 15–21 November, one surprise a day.">
+  <title>Graduation week — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="Graduation week 🎓 Seven days of the Class of 2026">
+  <meta property="og:description" content="15–21 November: letters unsealed, Glow Up, Time Machine, My People and more. One surprise a day.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="grad">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- Graduation week: seven days, 15–21 November 2026, one theme a day (gradweek.js) -->
+  <main class="ab gw">
+    <header class="ab-hero">
+      <a class="ab-back" href="index.html">‹ Home</a>
+      <div class="hm-crest-ring ab-ring"><span class="hm-aura" aria-hidden="true"></span><span class="sp-trophy" aria-hidden="true">🎓</span></div>
+      <p class="hm-uni">Graduation week · 15–21 November</p>
+      <h1>Seven days of the Class of 2026</h1>
+      <p class="ab-place" id="gwPlace">Seven days, seven surprises. Each morning something new opens.</p>
+      <div class="gw-next" id="gwNext" hidden><span id="gwNextT"></span><b id="gwNextN"></b></div>
+    </header>
+
+    <section class="ab-sec">
+      <h2>The week</h2>
+      <ol class="gw-days" id="gwDays"></ol>
+    </section>
+
+    <section class="ab-sec">
+      <div class="gw-all">
+        <span class="gw-emo" aria-hidden="true">🌟</span>
+        <div><b>All week: Faces of 2026</b><span>Every graduate gets a moment in the spotlight on Home: “GLUK Yearbook congratulates …”. Make sure your profile has a photo.</span></div>
+      </div>
+      <div class="ku-hero-btns gw-acts"><button type="button" class="ku-play" id="gwShare">Share graduation week</button></div>
+    </section>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="gradweek.js"></script>
+</body>
+</html>

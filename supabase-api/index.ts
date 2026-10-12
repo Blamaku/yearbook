@@ -52,6 +52,7 @@ const CONFIG = {
   lettersOpenAt: '2026-11-14T21:00:00Z',            // letters open on Sunday 15 November 2026, 00:00 in Kisumu (also in letters.js and the SQL)
   lettersClass: '2026',                             // the graduating class letters are written to
   lettersPerPerson: 30,                             // at most this many new letters by one person per 24 hours
+  glowRevealAt: '2026-11-15T21:00:00Z',             // Glow Up opens on Monday 16 November 2026, 00:00 in Kisumu (also in glowup.js and the SQL)
   contactsPerDay: 20,                               // different classmates' contact details one person may open per 24 hours
   supRevealAt: '2026-11-14T21:00:00Z',              // superlatives: voting closes and the top 3 are shown (Sunday 15 November, 00:00 in Kisumu)
   supClass: '2026',                                 // the class whose graduates can be voted for
@@ -63,7 +64,8 @@ const CONFIG = {
   chalPerHour: 40,                                  // at most this many rounds started by one person per hour
   // Pages whose visits are counted for the Developer tab (each page's <body data-page>)
   trackPages: ['home', 'feed', 'profiles', 'profile', 'clubs', 'club', 'department', 'course', 'class', 'staff',
-    'about', 'constitution', 'letters', 'university', 'superlatives', 'challenge'],
+    'about', 'constitution', 'letters', 'university', 'superlatives', 'challenge',
+    'grad', 'glowup'],
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -508,6 +510,17 @@ async function notifyLetter(ctx, letter) {
     body: open ? 'Open the yearbook to read it.' : 'It stays sealed until Sunday 15 November.',
     url: '/letters.html#for-you', tag: 't-' + letter.id });
 }
+
+// ── Glow Up: Then vs Now (graduation week, day 2; since 2026-10-23) ──────
+// One per Class of 2026 graduate with a named profile: a first-year photo and one from now, both from their
+// own storage folder. Sealed until glowRevealAt; then the public glowups_wall view shows it.
+const GLOW_MINE = 'profile_id,then_url,now_url,then_year,caption,hidden,created_at,updated_at';
+const glowDbError = e => missingTable(e)
+  ? new ApiError(503, 'glow_coming', 'Glow Up is being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+const glowOpen = ctx => ctx.now() >= Date.parse(ctx.config.glowRevealAt);
+const ownGlow = r => r ? { profile_id: r.profile_id, then_url: r.then_url, now_url: r.now_url, then_year: r.then_year ?? null,
+  caption: r.caption || '', hidden: !!r.hidden, created_at: r.created_at, updated_at: r.updated_at } : null;
 
 // ── Who's who? leaderboard (since 2026-10-13) ──────────────────────────
 const kyuDbError = e => missingTable(e)
@@ -1138,6 +1151,68 @@ const ACTIONS = {
 
   // ── Think it's easy? course battle ──
   // A signed-in round starts here, so the api can time it: { quiz }
+  // ── Glow Up: Then vs Now ──
+  // Your own glow-up (if any), how many are sealed so far, and whether the gallery is open
+  async 'glow.mine'(ctx) {
+    const [g, c] = await Promise.all([
+      ctx.db.from('glowups').select(GLOW_MINE).eq('uid', ctx.user.uid).limit(1),
+      ctx.db.from('glowups').select('uid', { count: 'exact', head: true }).eq('hidden', false),
+    ]);
+    if (g.error || c.error) throw glowDbError(g.error || c.error);
+    return { glow: ownGlow(g.data && g.data[0]), count: c.count || 0, open: glowOpen(ctx), revealAt: ctx.config.glowRevealAt };
+  },
+
+  // Add or change yours ({ then_url, now_url, then_year?, caption? }). Both photos must be your own uploads.
+  async 'glow.save'(ctx, body) {
+    const cfg = ctx.config, uid = ctx.user.uid, now = new Date(ctx.now()).toISOString();
+    const p = await ctx.db.from('profiles').select('id,classyear,isanonymous').eq('uid', uid).limit(1);
+    if (p.error) throw glowDbError(p.error);
+    const prof = p.data && p.data[0];
+    if (!prof) throw conflict('Create your yearbook profile first, then add your Glow Up.', 'no_profile');
+    if (String(prof.classyear || '') !== cfg.lettersClass) throw bad(`Glow Up is for the Class of ${cfg.lettersClass}.`);
+    if (prof.isanonymous) throw bad('Your profile is anonymous. Show your name on it to add a Glow Up.');
+    if (!body.then_url || !body.now_url) throw bad('Add both photos: one from then and one from now.');
+    const [thenUrl] = fileUrls(cfg, [body.then_url], cfg.profileBucket, 1, 'The "then" photo', uid);
+    const [nowUrl] = fileUrls(cfg, [body.now_url], cfg.profileBucket, 1, 'The "now" photo', uid);
+    if (thenUrl === nowUrl) throw bad('Use two different photos.');
+    let year = null;
+    if (body.then_year != null && body.then_year !== '') {
+      year = Number(body.then_year);
+      if (!Number.isInteger(year) || year < 2015 || year > 2026) throw bad('Choose the year the first photo was taken.');
+    }
+    const caption = txt(body.caption, 140, 'The caption');
+    const old = await ctx.db.from('glowups').select('*').eq('uid', uid).limit(1);
+    if (old.error) throw glowDbError(old.error);
+    const was = old.data && old.data[0];
+    const row = { uid, profile_id: prof.id, then_url: thenUrl, now_url: nowUrl, then_year: year, caption,
+      hidden: was ? !!was.hidden : false, reported: was ? !!was.reported : false,
+      created_at: was ? was.created_at : now, updated_at: now };
+    const w = await ctx.db.from('glowups').upsert(row, { onConflict: 'uid' });
+    if (w.error) throw glowDbError(w.error);
+    return { glow: ownGlow(row) };
+  },
+
+  async 'glow.delete'(ctx) {
+    const del = await ctx.db.from('glowups').delete().eq('uid', ctx.user.uid);
+    if (del.error) throw glowDbError(del.error);
+    return {};
+  },
+
+  // Ask the admin to look at a glow-up in the gallery ({ profileId })
+  async 'glow.report'(ctx, body) {
+    const pid = Number(body.profileId);
+    if (!Number.isInteger(pid) || pid <= 0) throw bad('Missing or invalid glow-up.');
+    if (!glowOpen(ctx)) throw forbidden();
+    const r = await ctx.db.from('glowups').select('uid,hidden').eq('profile_id', pid).limit(1);
+    if (r.error) throw glowDbError(r.error);
+    const row = r.data && r.data[0];
+    if (!row || row.hidden) throw notFound('That glow-up could not be found.');
+    const up = await ctx.db.from('glowups').update({ reported: true }).eq('profile_id', pid);
+    if (up.error) throw glowDbError(up.error);
+    await logEvent(ctx, 'glow_report', true, { profile_id: pid });
+    return {};
+  },
+
   async 'chal.start'(ctx, body) {
     const quiz = String(body.quiz || '');
     if (!CHAL_QUIZZES.includes(quiz)) throw bad('Unknown quiz.');
@@ -1480,6 +1555,33 @@ const ACTIONS = {
     const row = await letterRow(ctx, body.id);
     const up = await ctx.db.from('letters').update({ hidden: !!body.hidden, reported: false }).eq('id', row.id);
     if (up.error) throw letterDbError(up.error);
+    return {};
+  },
+
+  // Glow Up: every glow-up (reported first) with the graduate's name
+  async 'admin.glow.list'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.from('glowups').select('profile_id,then_url,now_url,then_year,caption,hidden,reported,created_at,updated_at')
+      .order('updated_at', { ascending: false }).limit(1000);
+    if (r.error) throw glowDbError(r.error);
+    const rows = r.data || [], ids = rows.map(x => x.profile_id);
+    const names = {};
+    if (ids.length) {
+      const p = await ctx.db.from('profiles').select('id,name,course').in('id', ids);
+      if (!p.error) (p.data || []).forEach(x => { names[x.id] = x; });
+    }
+    rows.sort((a, b) => (b.reported ? 1 : 0) - (a.reported ? 1 : 0));
+    return { rows: rows.map(x => ({ ...x, name: (names[x.profile_id] || {}).name || '', course: (names[x.profile_id] || {}).course || '' })),
+      revealAt: ctx.config.glowRevealAt };
+  },
+
+  // Hide or show a glow-up ({ profileId, hidden }); either way its report is dealt with
+  async 'admin.glow.review'(ctx, body) {
+    requireAdmin(ctx);
+    const pid = Number(body.profileId);
+    if (!Number.isInteger(pid) || pid <= 0) throw bad('Missing or invalid glow-up.');
+    const up = await ctx.db.from('glowups').update({ hidden: !!body.hidden, reported: false }).eq('profile_id', pid);
+    if (up.error) throw glowDbError(up.error);
     return {};
   },
 
