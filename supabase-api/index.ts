@@ -1171,8 +1171,6 @@ const ACTIONS = {
     return { hidden: body.hidden };
   },
 
-  // ── Think it's easy? course battle ──
-  // A signed-in round starts here, so the api can time it: { quiz }
   // ── Glow Up: Then vs Now ──
   // Your own glow-up (if any), how many are sealed so far, and whether the gallery is open
   async 'glow.mine'(ctx) {
@@ -1282,6 +1280,8 @@ const ACTIONS = {
     return { kept: true };
   },
 
+  // ── Think it's easy? course battle ──
+  // A signed-in round starts here, so the api can time it: { quiz }
   async 'chal.start'(ctx, body) {
     const quiz = String(body.quiz || '');
     if (!CHAL_QUIZZES.includes(quiz)) throw bad('Unknown quiz.');
