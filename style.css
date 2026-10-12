@@ -2727,3 +2727,15 @@ a.ku-meet { display: inline-flex; align-items: center; }
 @media (min-width: 640px) { .gu-wall { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 1100px) { .gu-wall { grid-template-columns: 1fr 1fr 1fr; } }
 @media (min-width: 900px) { .gu .ab-sec { max-width: 980px; margin-left: auto; margin-right: auto; } #yours .lt-card { max-width: 520px; margin: 0 auto; } }
+
+/* ══ Time capsule (capsule.html, capsule.js) ══ */
+.cp-img { display: block; width: 100%; max-height: 360px; object-fit: cover; border-radius: var(--radius-md); margin: 0 0 10px; }
+.cp-photo { margin-top: 12px; }
+.cp-photo .lt-btn { margin-top: 0; }
+.cp-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.cp-list li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--gray-100); font-size: .82rem; color: var(--gray-600); }
+.hm-cap { margin-top: 10px; background: linear-gradient(135deg, #f3fbf6, #dff3e7); border-color: #c6e8d3; color: #0d3b22; }
+.hm-cap .hm-letters-t span { color: #2f6b49; }
+.hm-cap .hm-letters-go { color: #15803d; }
+[data-theme="dark"] .hm-cap { background: #0d2a1b; border-color: #1f5136; color: #bbf7d0; }
+[data-theme="dark"] .hm-cap .hm-letters-t span { color: #86efac; }

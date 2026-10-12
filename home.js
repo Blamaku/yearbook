@@ -146,17 +146,17 @@
     }).join('');
   }
 
-  // How many letters are waiting for you (only a count until 15 November); quietly does nothing if letters aren't on yet
+  // How many letters are waiting for you (only a count until graduation day, 21 November); quietly does nothing if letters aren't on yet
   async function paintLetters(user, mine) {
     const sub = $('hmLettersSub');
-    const base = 'Write to a graduate. Every letter stays sealed until Sunday 15 November.';
+    const base = 'Write to a graduate. Every letter stays sealed until graduation day.';
     if (!user) { sub.textContent = base; return; }
     try {
       const r = await window.gApi('letters.mine', { countOnly: true });
       if (mine !== run) return;
       const n = r.forMe.count;
       sub.textContent = !n ? base : r.open ? `${n} ${n === 1 ? 'letter is' : 'letters are'} waiting for you. Open them!`
-        : `${n} sealed ${n === 1 ? 'letter is' : 'letters are'} waiting for you. ${n === 1 ? 'It opens' : 'They open'} on Sunday 15 November.`;
+        : `${n} sealed ${n === 1 ? 'letter is' : 'letters are'} waiting for you. ${n === 1 ? 'It opens' : 'They open'} on graduation day, 21 November.`;
     } catch (e) { sub.textContent = base; }
   }
 

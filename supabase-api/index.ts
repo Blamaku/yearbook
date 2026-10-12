@@ -49,9 +49,11 @@ const CONFIG = {
   notifyWindowMs: 10 * 60 * 1000,                   // a comment or reply can only trigger a push within 10 minutes of being written
   notifyPerPerson: 20,                              // at most this many pushes triggered by one person per 10 minutes
   commentsPerPerson: 20,                            // at most this many comments + replies by one person per 10 minutes
-  lettersOpenAt: '2026-11-14T21:00:00Z',            // letters open on Sunday 15 November 2026, 00:00 in Kisumu (also in letters.js and the SQL)
+  lettersOpenAt: '2026-11-20T21:00:00Z',            // letters open on graduation day, Saturday 21 November 2026, 00:00 in Kisumu (also in letters.js and the SQL)
   lettersClass: '2026',                             // the graduating class letters are written to
   lettersPerPerson: 30,                             // at most this many new letters by one person per 24 hours
+  capsulesPerPerson: 20,                            // time capsule notes one student may seal
+  errorsPerMinute: 60,                              // app error reports kept per minute, from everyone together
   glowRevealAt: '2026-11-15T21:00:00Z',             // Glow Up opens on Monday 16 November 2026, 00:00 in Kisumu (also in glowup.js and the SQL)
   contactsPerDay: 20,                               // different classmates' contact details one person may open per 24 hours
   supRevealAt: '2026-11-14T21:00:00Z',              // superlatives: voting closes and the top 3 are shown (Sunday 15 November, 00:00 in Kisumu)
@@ -65,7 +67,7 @@ const CONFIG = {
   // Pages whose visits are counted for the Developer tab (each page's <body data-page>)
   trackPages: ['home', 'feed', 'profiles', 'profile', 'clubs', 'club', 'department', 'course', 'class', 'staff',
     'about', 'constitution', 'letters', 'university', 'superlatives', 'challenge',
-    'grad', 'glowup'],
+    'grad', 'glowup', 'capsule'],
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -507,7 +509,7 @@ async function notifyLetter(ctx, letter) {
   const open = lettersOpen(ctx);
   return pushToUids(ctx, [letter.to_uid], {
     title: open ? `💌 ${letter.author_name} wrote you a letter` : '💌 Someone wrote you a letter',
-    body: open ? 'Open the yearbook to read it.' : 'It stays sealed until Sunday 15 November.',
+    body: open ? 'Open the yearbook to read it.' : 'It stays sealed until graduation day, 21 November.',
     url: '/letters.html#for-you', tag: 't-' + letter.id });
 }
 
@@ -521,6 +523,26 @@ const glowDbError = e => missingTable(e)
 const glowOpen = ctx => ctx.now() >= Date.parse(ctx.config.glowRevealAt);
 const ownGlow = r => r ? { profile_id: r.profile_id, then_url: r.then_url, now_url: r.now_url, then_year: r.then_year ?? null,
   caption: r.caption || '', hidden: !!r.hidden, created_at: r.created_at, updated_at: r.updated_at } : null;
+
+// ── Time capsule (since 2026-10-25) ────────────────────────────────────
+// A student seals notes to their future self; they open on their own class's graduation day (grad_days,
+// posted by the admin). The class comes from the profile when it is read, so a changed class follows.
+const capDbError = e => missingTable(e)
+  ? new ApiError(503, 'capsule_coming', 'The time capsule is being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+async function capsuleState(ctx) {
+  const p = await ctx.db.from('profiles').select('id,classyear').eq('uid', ctx.user.uid).limit(1);
+  if (p.error) throw capDbError(p.error);
+  const prof = p.data && p.data[0];
+  if (!prof) return { prof: null, classyear: null, opensAt: null, open: false };
+  const classyear = String(prof.classyear || '');
+  const g = classyear ? await ctx.db.from('grad_days').select('opens_at').eq('classyear', classyear).limit(1) : { data: [] };
+  if (g.error) throw capDbError(g.error);
+  const opensAt = g.data && g.data[0] ? g.data[0].opens_at : null;
+  return { prof, classyear, opensAt, open: !!opensAt && ctx.now() >= Date.parse(opensAt) };
+}
+// A short, safe copy of an error's stack (no query strings)
+const errStack = v => snip(String(v || '').replace(/\?[^\s):]*/g, ''), 1500);
 
 // ── Who's who? leaderboard (since 2026-10-13) ──────────────────────────
 const kyuDbError = e => missingTable(e)
@@ -1213,6 +1235,53 @@ const ACTIONS = {
     return {};
   },
 
+  // ── Time capsule ──
+  // Your class, its graduation day if posted, and your capsule notes: sealed ones are only dates until it opens
+  async 'capsule.mine'(ctx) {
+    const st = await capsuleState(ctx);
+    const r = await ctx.db.from('capsules').select(st.open ? 'id,body,photo_url,created_at' : 'id,photo_url,created_at')
+      .eq('uid', ctx.user.uid).order('created_at', { ascending: true }).limit(100);
+    if (r.error) throw capDbError(r.error);
+    const rows = (r.data || []).map(x => st.open ? x : { id: x.id, created_at: x.created_at, has_photo: !!x.photo_url });
+    return { hasProfile: !!st.prof, classyear: st.classyear, opensAt: st.opensAt, open: st.open, capsules: rows };
+  },
+
+  // Seal a note ({ body, photo_url? }): the photo must be your own upload
+  async 'capsule.save'(ctx, body) {
+    const cfg = ctx.config, uid = ctx.user.uid;
+    const st = await capsuleState(ctx);
+    if (!st.prof) throw conflict('Create your yearbook profile first, so we know your class.', 'no_profile');
+    const text = txt(body.body, 4000, 'Your note', { required: true });
+    const photo = body.photo_url ? fileUrls(cfg, [body.photo_url], cfg.profileBucket, 1, 'The photo', uid)[0] : null;
+    const n = await ctx.db.from('capsules').select('id', { count: 'exact', head: true }).eq('uid', uid);
+    if (n.error) throw capDbError(n.error);
+    if ((n.count || 0) >= cfg.capsulesPerPerson) throw new ApiError(429, 'slow_down', `Your time capsule is full (${cfg.capsulesPerPerson} notes).`);
+    const rec = { uid, body: text, photo_url: photo, created_at: new Date(ctx.now()).toISOString() };
+    const ins = await ctx.db.from('capsules').insert(rec).select('id');
+    if (ins.error) throw capDbError(ins.error);
+    return { capsule: { id: (Array.isArray(ins.data) ? ins.data[0] : ins.data).id, created_at: rec.created_at, has_photo: !!photo } };
+  },
+
+  async 'capsule.delete'(ctx, body) {
+    const id = Number(body.id);
+    if (!Number.isInteger(id) || id <= 0) throw bad('Missing or invalid note.');
+    const del = await ctx.db.from('capsules').delete().eq('id', id).eq('uid', ctx.user.uid);
+    if (del.error) throw capDbError(del.error);
+    return {};
+  },
+
+  // ── app errors (no sign-in needed): kept for the Developer tab ──
+  async err(ctx, body) {
+    const since = new Date(ctx.now() - 60e3).toISOString();
+    const recent = await ctx.db.from('ops_events').select('kind', { count: 'exact', head: true }).eq('kind', 'client_error').gte('created_at', since);
+    if (recent.error || (recent.count || 0) >= ctx.config.errorsPerMinute) return { kept: false };
+    const line = Number(body.line) || 0, col = Number(body.col) || 0;
+    await logEvent(ctx, 'client_error', false, { msg: snip(body.msg, 300) || 'Error', page: snip(body.page, 120), file: snip(body.file, 200),
+      line: line > 0 && line < 1e6 ? Math.floor(line) : 0, col: col > 0 && col < 1e6 ? Math.floor(col) : 0,
+      stack: errStack(body.stack), kind: snip(body.kind, 20), ua: snip(body.ua, 160), signedIn: body.signedIn === true });
+    return { kept: true };
+  },
+
   async 'chal.start'(ctx, body) {
     const quiz = String(body.quiz || '');
     if (!CHAL_QUIZZES.includes(quiz)) throw bad('Unknown quiz.');
@@ -1558,6 +1627,66 @@ const ACTIONS = {
     return {};
   },
 
+  // App and server errors of the last 14 days (newest first) for the Developer tab
+  async 'admin.dev.errors'(ctx) {
+    requireAdmin(ctx);
+    const since = new Date(ctx.now() - 14 * 864e5).toISOString();
+    const r = await ctx.db.from('ops_events').select('kind,details,created_at').in('kind', ['client_error', 'api_error'])
+      .gte('created_at', since).order('created_at', { ascending: false }).limit(1000);
+    if (r.error) throw new ApiError(500, 'db', 'Could not load the errors.');
+    return { rows: r.data || [] };
+  },
+
+  // Graduation days: every class's posted day, and how many capsule notes wait in each class
+  async 'admin.graddays.list'(ctx) {
+    requireAdmin(ctx);
+    const [g, c] = await Promise.all([
+      ctx.db.from('grad_days').select('classyear,opens_at,posted_at').order('classyear', { ascending: true }),
+      ctx.db.from('capsules').select('uid').limit(10000),
+    ]);
+    if (g.error || c.error) throw capDbError(g.error || c.error);
+    const uids = [...new Set((c.data || []).map(x => x.uid))], byUid = {};
+    for (let i = 0; i < uids.length; i += 500) {
+      const p = await ctx.db.from('profiles').select('uid,classyear').in('uid', uids.slice(i, i + 500));
+      if (!p.error) (p.data || []).forEach(x => { byUid[x.uid] = String(x.classyear || ''); });
+    }
+    const waiting = {};
+    (c.data || []).forEach(x => { const y = byUid[x.uid] || '?'; waiting[y] = (waiting[y] || 0) + 1; });
+    return { rows: g.data || [], waiting };
+  },
+
+  // Post (or move) a class's graduation day ({ classyear, date: 'YYYY-MM-DD' }); capsules open at 00:00 in Kisumu.
+  // Students of that class with capsule notes hear about it on their phones.
+  async 'admin.gradday.save'(ctx, body) {
+    requireAdmin(ctx);
+    const classyear = String(body.classyear || '').trim(), date = String(body.date || '').trim();
+    if (!/^20[0-9]{2}$/.test(classyear)) throw bad('Enter the class year, e.g. 2027.');
+    if (!/^20[0-9]{2}-[01][0-9]-[0-3][0-9]$/.test(date) || isNaN(Date.parse(date + 'T00:00:00+03:00'))) throw bad('Choose the graduation date.');
+    const opensAt = new Date(Date.parse(date + 'T00:00:00+03:00')).toISOString();
+    const w = await ctx.db.from('grad_days').upsert({ classyear, opens_at: opensAt, posted_at: new Date(ctx.now()).toISOString() }, { onConflict: 'classyear' });
+    if (w.error) throw capDbError(w.error);
+    ctx.background((async () => {
+      const p = await ctx.db.from('profiles').select('uid').eq('classyear', classyear).limit(5000);
+      const uids = (p.data || []).map(x => x.uid).filter(Boolean);
+      if (!uids.length) return;
+      const c = await ctx.db.from('capsules').select('uid').in('uid', uids).limit(10000);
+      const who = [...new Set((c.data || []).map(x => x.uid))];
+      if (!who.length || await claimEvent(ctx, 'gd:' + classyear + ':' + date) !== 'ok') return;
+      const day = new Date(opensAt).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Nairobi' });
+      await pushToUids(ctx, who, { title: '📦 Your graduation day is set', body: `Your time capsule opens on ${day}.`, url: '/capsule.html', tag: 'gd-' + classyear });
+    })().catch(e => console.warn('[gradday push]', e)));
+    return { row: { classyear, opens_at: opensAt } };
+  },
+
+  async 'admin.gradday.delete'(ctx, body) {
+    requireAdmin(ctx);
+    const classyear = String(body.classyear || '').trim();
+    if (!/^20[0-9]{2}$/.test(classyear)) throw bad('Missing class year.');
+    const del = await ctx.db.from('grad_days').delete().eq('classyear', classyear);
+    if (del.error) throw capDbError(del.error);
+    return {};
+  },
+
   // Glow Up: every glow-up (reported first) with the graduate's name
   async 'admin.glow.list'(ctx) {
     requireAdmin(ctx);
@@ -1733,7 +1862,7 @@ const ACTIONS = {
 };
 
 // Actions anyone may call without signing in: they change nobody's data, and show only what anyone may see
-const PUBLIC_ACTIONS = ['hit', 'sup.board'];
+const PUBLIC_ACTIONS = ['hit', 'sup.board', 'err'];
 
 // ── The request handler ────────────────────────────────────────────────
 export function createApi({ config, db, storage, getKeys, now = () => Date.now(), rand = () => Math.random().toString(36).slice(2, 8),
@@ -1752,6 +1881,7 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
   async function handle(req) {
     const headers = cors(req.headers.get('origin'));
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+    let action = '';
     try {
       const ping = async () => json({ ok: true, service: 'gluk-api', version: 1, keys: await keysStatus(), push: push ? 'on' : 'off' }, 200, headers);
       if (req.method === 'GET') return ping();
@@ -1761,7 +1891,7 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       let body;
       try { const text = await req.text(); if (text.length > config.maxBodyBytes) throw new Error('big'); body = JSON.parse(text); } catch (e) { throw bad('The request could not be read.'); }
       if (!isObj(body)) throw bad('The request could not be read.');
-      const action = String(body.action || '');
+      action = String(body.action || '');
       if (action === 'ping') return ping();
       const fn = Object.prototype.hasOwnProperty.call(ACTIONS, action) ? ACTIONS[action] : null;
       if (!fn) throw new ApiError(404, 'unknown_action', 'Unknown action.');
@@ -1776,8 +1906,10 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       const result = await fn({ user, isAdmin, db, storage, config, now, rand, push, firestore, firestoreStats, newId, background, keysStatus }, body);
       return json({ ok: true, ...result }, 200, headers);
     } catch (e) {
+      if (e instanceof ApiError && e.status >= 500 && e.code !== 'too_large') await logEvent({ db, now }, 'api_error', false, { msg: snip(e.message, 300), code: e.code, action, stack: errStack(e.stack) });
       if (e instanceof ApiError) return json({ ok: false, error: e.message, code: e.code, ...e.extra }, e.status, headers);
       console.error('[api] unexpected error', e);
+      await logEvent({ db, now }, 'api_error', false, { msg: snip(e && e.message || e, 300), action, stack: errStack(e && e.stack) });
       return json({ ok: false, error: 'Something went wrong on the server.', code: 'server' }, 500, headers);
     }
   }

@@ -258,7 +258,7 @@
 
     <!-- ── Moderation ── -->
     <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button></div>
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button><button type="button" id="seg-mgd" data-act="mod-tab" data-v="graddays">Grad days</button></div>
       <div id="mod-comments"><div id="cList"></div></div>
       <div id="mod-posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
@@ -268,6 +268,15 @@
       <div id="mod-leaders" style="display:none"><div id="ldList"></div></div>
       <div id="mod-letters" style="display:none"><div id="ltList"></div></div>
       <div id="mod-glow" style="display:none"><div id="guList"></div></div>
+      <div id="mod-graddays" style="display:none">
+        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Each class's graduation day. Students' time capsules open at 00:00 (Kisumu) on their class's day; students with sealed notes get a phone notification when you post it.</div>
+        <div class="a-item" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input id="gdYear" inputmode="numeric" maxlength="4" placeholder="Class, e.g. 2027" style="width:140px" class="form-input">
+          <input id="gdDate" type="date" class="form-input" style="width:auto">
+          <button type="button" class="a-mini" data-act="gd-save">Post</button>
+        </div>
+        <div id="gdList"></div>
+      </div>
       <div id="mod-sup" style="display:none">
         <div class="a-item">
           <div class="a-name">Add a category</div>
@@ -294,6 +303,8 @@
       <div class="a-meta"><span id="devAt">Loading…</span><span style="flex:1"></span><button type="button" class="a-mini" data-act="dev-refresh">↻ Refresh</button></div>
       <div class="a-sec">Health</div>
       <div class="a-card" id="devHealth"></div>
+      <div class="a-sec">Errors (last 14 days)</div>
+      <div class="a-card" id="devErrors"></div>
       <div class="a-sec">Traffic</div>
       <div class="a-stats" id="devTrafficTiles"></div>
       <div class="a-card" id="devTraffic" style="margin-top:10px"></div>
@@ -956,6 +967,8 @@
       $('seg-msp').classList.toggle('on', M.tab === 'sup');
       $('mod-glow').style.display     = M.tab === 'glow' ? 'block' : 'none';
       $('seg-mgu').classList.toggle('on', M.tab === 'glow');
+      $('mod-graddays').style.display = M.tab === 'graddays' ? 'block' : 'none';
+      $('seg-mgd').classList.toggle('on', M.tab === 'graddays');
       $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
       $('seg-ms').classList.toggle('on', M.tab === 'staff'); $('seg-ml').classList.toggle('on', M.tab === 'letters');
       if (M.tab === 'comments' && !M.loadedC) loadComments();
@@ -965,6 +978,7 @@
       if (M.tab === 'letters') loadLetters();
       if (M.tab === 'sup') loadSup();
       if (M.tab === 'glow') loadGlow();
+      if (M.tab === 'graddays') loadGradDays();
     }
 
     /* ══ Letters: the class wall and anything someone reported. Private letters nobody reported never come here. ══ */
@@ -997,7 +1011,7 @@
     function renderLetters() {
       const rows = LT.rows.slice().sort((a, b) => (b.reported - a.reported) || String(b.created_at).localeCompare(String(a.created_at)));
       $('ltList').innerHTML = LT.err ? `<div class="a-empty">${E(LT.err)}</div>`
-        : rows.length ? '<div class="a-sub" style="margin:0 2px 10px;white-space:normal">Letters on the class wall (public from Sunday 15 November) and any letter someone reported. Private letters only appear here if the person they were written to reports one.</div>' + rows.map(letterHTML).join('')
+        : rows.length ? '<div class="a-sub" style="margin:0 2px 10px;white-space:normal">Letters on the class wall (public from graduation day, 21 November) and any letter someone reported. Private letters only appear here if the person they were written to reports one.</div>' + rows.map(letterHTML).join('')
         : '<div class="a-empty">No class-wall or reported letters yet.</div>';
     }
     async function reviewLetter(id, hidden) {
@@ -1045,6 +1059,33 @@
         const g = GU.rows.find(x => Number(x.profile_id) === id); if (g) { g.hidden = hidden; g.reported = false; }
         renderGlow(); toast(hidden ? 'Hidden from the gallery' : 'Done ✅');
       } catch (e) { console.error('[glow review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
+    }
+
+    /* ══ Graduation days (time capsules open on them) ══ */
+    async function loadGradDays() {
+      $('gdList').innerHTML = '<div class="a-empty">Loading…</div>';
+      let d;
+      try { d = await window.gApi('admin.graddays.list', {}); }
+      catch (e) { $('gdList').innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' ? 'Deploy the latest “api” function, then refresh.' : e.message || 'Could not load.')}</div>`; return; }
+      const w = d.waiting || {}, posted = new Set(d.rows.map(r => r.classyear));
+      const wait = Object.keys(w).filter(y => !posted.has(y)).sort();
+      $('gdList').innerHTML = d.rows.map(r => `<div class="a-item"><div class="a-item-top"><div class="grow">
+          <span class="a-name" style="display:inline">Class of ${E(r.classyear)}</span>
+          <div class="a-sub">${E(new Date(r.opens_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Nairobi' }))} · ${Number(w[r.classyear] || 0)} sealed notes</div></div></div>
+          <div class="a-item-acts"><button type="button" class="a-mini danger" data-act="gd-del" data-v="${E(r.classyear)}">Remove</button></div></div>`).join('')
+        + (wait.length ? `<div class="a-sub" style="margin:10px 2px;white-space:normal">Waiting for a date: ${wait.map(y => 'Class of ' + E(y) + ' (' + Number(w[y]) + ' notes)').join(', ')}</div>` : '')
+        || '<div class="a-empty">No graduation days yet.</div>';
+    }
+    async function saveGradDay() {
+      try {
+        await window.gApi('admin.gradday.save', { classyear: $('gdYear').value.trim(), date: $('gdDate').value });
+        toast('Posted ✅'); $('gdYear').value = ''; $('gdDate').value = ''; loadGradDays();
+      } catch (e) { toast('❌ ' + (e.message || 'Could not post it.')); }
+    }
+    async function deleteGradDay(y) {
+      if (!confirm('Remove the graduation day for the Class of ' + y + '? Their capsules stay sealed until you post a new one.')) return;
+      try { await window.gApi('admin.gradday.delete', { classyear: y }); toast('Removed'); loadGradDays(); }
+      catch (e) { toast('❌ ' + (e.message || 'Could not remove it.')); }
     }
 
     /* ══ Class superlatives: the leaders so far (only the admin sees counts) and the categories ══ */
@@ -1538,7 +1579,7 @@ let _ocSearchT = null;
       if (!force && Date.now() - _devT < 20000) return;
       _devT = Date.now();
       $('devAt').textContent = 'Loading…';
-      loadTraffic(); loadKyu();
+      loadTraffic(); loadKyu(); loadErrors();
       let d;
       try { d = await window.gApi('admin.dev.stats'); }
       catch (e) {
@@ -1606,6 +1647,7 @@ let _ocSearchT = null;
         if (e.kind === 'push') return (x.what && x.what !== 'other' ? 'Notification for a ' + x.what : 'Notification') + ' · ' + nfmt(x.sent) + ' of ' + nfmt(x.devices) + ' delivered';
         if (e.kind === 'contact_limit') return 'Reached the daily limit of classmates’ contact details: ' + (x.email || 'an account');
         if (e.kind === 'letter_report') return 'A letter was reported';
+        if (e.kind === 'client_error' || e.kind === 'api_error') return (e.kind === 'api_error' ? 'Server error: ' : 'App error: ') + (x.msg || '');
         return String(e.kind);
       };
       $('devRecent').innerHTML = (d.recent || []).length
@@ -1614,11 +1656,48 @@ let _ocSearchT = null;
       renderDevLinks();
     }
 
+    /* Errors: app (browser) and server errors, the same ones grouped, each with a link that opens the line in VS Code.
+       The lines match the code on main, which is what the live site and the api run. */
+    const REPO = 'C:/Users/Admin/projects/gluk-yearbook/';
+    function errWhere(e) {
+      const x = e.details || {};
+      if (e.kind === 'api_error') {
+        const m = /index\.ts:(\d+):(\d+)/.exec(x.stack || '');
+        return m ? { path: 'supabase-api/index.ts', line: +m[1], col: +m[2] } : { path: 'supabase-api/index.ts', line: 0, col: 0 };
+      }
+      let path = '';
+      try { path = new URL(x.file).pathname.replace(/^\//, '') || 'index.html'; } catch (er) {}
+      return { path, line: Number(x.line) || 0, col: Number(x.col) || 0 };
+    }
+    async function loadErrors() {
+      const box = $('devErrors');
+      box.innerHTML = '<div class="a-empty">Loading…</div>';
+      let rows;
+      try { rows = (await window.gApi('admin.dev.errors', {})).rows || []; }
+      catch (e) { box.innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' ? 'Deploy the latest “api” function, then refresh.' : e.message || 'Could not load the errors.')}</div>`; return; }
+      const groups = new Map();
+      for (const e of rows) {
+        const w = errWhere(e), x = e.details || {}, key = e.kind + '|' + (x.msg || '') + '|' + w.path + ':' + w.line;
+        const g = groups.get(key) || { e, w, n: 0, pages: new Set(), last: e.created_at };
+        g.n++; if (x.page) g.pages.add(x.page);
+        if (x.action) g.pages.add('action ' + x.action);
+        groups.set(key, g);
+      }
+      box.innerHTML = groups.size ? [...groups.values()].map(g => {
+        const x = g.e.details || {}, w = g.w;
+        const link = w.path ? `<a class="a-mini" href="vscode://file/${E(REPO + w.path)}${w.line ? ':' + w.line + ':' + (w.col || 1) : ''}">Open in VS Code</a>` : '';
+        const stack = x.stack ? `<details style="margin-top:4px"><summary class="a-sub" style="cursor:pointer">Stack</summary><pre style="white-space:pre-wrap;font-size:.7rem;margin:4px 0 0">${E(x.stack)}</pre></details>` : '';
+        return `<div class="a-row static" style="align-items:flex-start"><span class="a-tile">${g.e.kind === 'api_error' ? '🖥' : x.kind === 'logged' ? '📝' : '💥'}</span>
+          <span class="grow"><span class="a-name" style="white-space:normal">${E(x.msg || 'Error')}</span>
+          <span class="a-sub" style="white-space:normal">${E(w.path ? w.path + (w.line ? ':' + w.line : '') : 'unknown place')} · ${g.n}× · last ${E(when(g.last))}${g.pages.size ? ' · ' + E([...g.pages].join(', ')) : ''}</span>${stack}</span>${link}</div>`;
+      }).join('') : '<div class="a-empty" style="padding:22px 16px">✅ No errors in the last 14 days.</div>';
+    }
+
     /* Traffic: who visits, where they go, when (admin.dev.traffic) */
     const PAGE_NAME = { home: 'Home', feed: 'Students feed', profiles: 'Students list', profile: 'Profiles', clubs: 'Clubs list', club: 'Club pages',
       department: 'Schools', course: 'Programmes', class: 'Classes', staff: 'Staff profiles', about: 'About GLUK', constitution: 'GLUKSA constitution',
       letters: 'Letters', university: 'Know your university', superlatives: 'Class superlatives', challenge: "Think it's easy?",
-      grad: 'Graduation week', glowup: 'Glow Up' };
+      grad: 'Graduation week', glowup: 'Glow Up', capsule: 'Time capsule' };
     const pct = (n, of) => of ? Math.round(n / of * 100) + '%' : '–';
     async function loadTraffic() {
       const tiles = $('devTrafficTiles'), card = $('devTraffic');
@@ -1775,6 +1854,8 @@ let _ocSearchT = null;
         case 'al-photo-clear': LD.photo = ''; $('alPhoto').value = ''; paintAlPhoto(); break;
         case 'lt-review': reviewLetter(id, b.dataset.v === '1'); break;
         case 'gu-review': reviewGlow(id, b.dataset.v === '1'); break;
+        case 'gd-save': saveGradDay(); break;
+        case 'gd-del': deleteGradDay(b.dataset.v); break;
         case 'sup-add':    supAdd(); break;
         case 'sup-rename': supRename(id); break;
         case 'sup-hide':   supCategory({ id, hidden: b.dataset.v === '1' }, b.dataset.v === '1' ? 'Hidden from the page' : 'Shown again ✅'); break;

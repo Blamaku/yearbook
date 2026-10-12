@@ -10,10 +10,10 @@
   const DAY = 864e5;
   const START = Date.parse('2026-11-14T21:00:00Z');        // Sunday 15 November 2026, 00:00 in Kisumu
   const DAYS = [
-    { key: 'unsealed', emoji: '💌', title: 'Unsealed',
-      line: 'Every sealed letter opens, and the class superlative winners are revealed.',
-      prep: 'Write your letters and cast your votes before Sunday.',
-      links: [['💌 Letters', 'letters.html'], ['🏆 Superlatives', 'superlatives.html']] },
+    { key: 'reveal', emoji: '🏆', title: 'The Reveal',
+      line: 'The class superlative winners are revealed. Who did the Class of 2026 vote for?',
+      prep: 'Cast your votes before Sunday.',
+      links: [['🏆 Superlatives', 'superlatives.html']] },
     { key: 'glowup', emoji: '✨', title: 'Glow Up',
       line: 'First year vs now. Drag the slider across the whole class’s glow-ups.',
       prep: 'Add your Then vs Now photos. They stay sealed until Monday.',
@@ -29,7 +29,9 @@
       prep: 'Play your course’s quiz so your course leads the battle.',
       links: [['🏆 Course battle', 'challenge.html#battle']] },
     { key: 'bigday', emoji: '🎓', title: 'The Big Day',
-      line: 'Graduation Day. The whole yearbook turns gold. We came as students. We leave as graduates.' },
+      line: 'Graduation Day. Every sealed letter opens and the whole yearbook turns gold. We came as students. We leave as graduates.',
+      prep: 'Write your letters now: they all open on graduation day.',
+      links: [['💌 Letters', 'letters.html']] },
   ];
   const dayStart = i => START + i * DAY;
   // -1 before the week, 0–6 during it, 7 after it

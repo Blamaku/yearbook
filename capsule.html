@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <meta name="description" content="A GLUK time capsule: write to your future self. It stays sealed until your own graduation day.">
+  <title>Time capsule — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="📦 A time capsule for your graduation day">
+  <meta property="og:description" content="Write to your future self. It stays sealed until you graduate.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="capsule">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- Time capsule: notes to your future self, sealed until your own class's graduation day
+       (posted by the admin). capsule.js fills it; the api (capsule.*) keeps them. -->
+  <main class="ab lt gu cp">
+    <header class="ab-hero">
+      <a class="ab-back" href="index.html">‹ Home</a>
+      <div class="hm-crest-ring ab-ring"><span class="hm-aura" aria-hidden="true"></span><span class="sp-trophy" aria-hidden="true">📦</span></div>
+      <p class="hm-uni">For every GLUK student</p>
+      <h1>Time capsule</h1>
+      <p class="ab-place" id="cpPlace">Write to your future self. It stays sealed until your own graduation day.</p>
+    </header>
+
+    <section class="ab-sec" id="yours">
+      <h2 id="cpTitle">Your capsule</h2>
+      <div class="lt-card" id="cpMine"><div class="lt-quiet">Loading…</div></div>
+    </section>
+
+    <section class="ab-sec" id="write" hidden>
+      <h2>Add a note</h2>
+      <div class="lt-card lt-write">
+        <label class="lt-label" for="cpBody">Dear future me</label>
+        <textarea class="lt-body" id="cpBody" rows="7" maxlength="4000" placeholder="What are you worried about right now? What do you hope you'll have done by graduation?"></textarea>
+        <div class="lt-meta"><span>Only you will ever read it.</span><span id="cpChars">0 / 4000</span></div>
+        <div class="cp-photo" id="cpPhoto"></div>
+        <div class="lt-acts"><button type="button" class="lt-send" id="cpSend">Seal it 📦</button></div>
+      </div>
+    </section>
+  </main>
+
+  <input type="file" accept="image/*" id="cpFile" hidden>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="capsule.js"></script>
+</body>
+</html>

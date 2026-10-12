@@ -6,6 +6,48 @@
 // =====================================================
 'use strict';
 
+// ── App errors → admin › Developer › Errors (with the file and line, to open in VS Code) ──
+// Crashes, failed promises and the app's own console.error lines. At most 5 a page, each only once.
+// Only on the live site (or with window.__reportErrors set, for tests).
+(function () {
+  if (!window.__reportErrors && !/^yearbook-d3f4f\.(web\.app|firebaseapp\.com)$/.test(location.hostname)) return;
+  let sent = 0;
+  const seen = new Set();
+  const frame = stack => {                           // the first line of the stack that is one of our own files
+    const m = String(stack || '').split('\n').map(l => /(https?:\/\/[^\s()]+?):(\d+):(\d+)/.exec(l))
+      .find(x => x && x[1].startsWith(location.origin));
+    return m ? { file: m[1], line: +m[2], col: +m[3] } : null;
+  };
+  function report(kind, msg, where, stack) {
+    msg = String(msg || 'Error').slice(0, 300);
+    where = where || frame(stack) || {};
+    const key = msg + '|' + where.file + ':' + where.line;
+    if (sent >= 5 || seen.has(key) || typeof SUPABASE_KEY === 'undefined') return;
+    seen.add(key); sent++;
+    try {
+      fetch(SUPABASE_URL + '/functions/v1/api', { method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY },
+        body: JSON.stringify({ action: 'err', kind, msg, file: where.file || '', line: where.line || 0, col: where.col || 0,
+          stack: String(stack || '').slice(0, 1500), page: (document.body && document.body.dataset.page) || location.pathname,
+          ua: navigator.userAgent, signedIn: !!(window.auth && window.auth.currentUser) }) }).catch(() => {});
+    } catch (e) { /* reporting must never break the page */ }
+  }
+  window.addEventListener('error', e => {
+    if (!e.message) return;                          // a missing image or script, not a code error
+    report('crash', e.message, e.filename && e.filename.startsWith(location.origin) ? { file: e.filename, line: e.lineno, col: e.colno } : null, e.error && e.error.stack);
+  });
+  window.addEventListener('unhandledrejection', e => { const r = e.reason || {}; report('promise', r.message || r, null, r.stack); });
+  const original = console.error.bind(console);
+  console.error = function (...args) {
+    original(...args);
+    const err = args.find(a => a instanceof Error);
+    const text = args.map(a => a instanceof Error ? a.message : typeof a === 'string' ? a : (a && a.message) || '').filter(Boolean).join(' ');
+    // the line that called console.error (skipping this function's own), where the app handles the problem
+    const here = String(new Error().stack || '').split('\n').filter(l => /https?:\/\//.test(l)).slice(1).join('\n');
+    report('logged', text, frame(here) || frame(err && err.stack), err ? err.stack : here);
+  };
+})();
+
 // ── Dark Mode Toggle ──────────────────────────────────
 window.toggleTheme = function() {
   const curr = document.documentElement.getAttribute('data-theme') || 'light';

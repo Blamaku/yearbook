@@ -3,7 +3,7 @@
 //
 //  • Write to one graduate (only they read it), to the whole class (the class
 //    wall) or, for graduates, to your first-year self (kept, or shared on the wall).
-//  • Everything stays sealed until Sunday 15 November 2026, 00:00 in Kisumu.
+//  • Everything stays sealed until graduation day, Saturday 21 November 2026, 00:00 in Kisumu.
 //    Before then "For you" is only a count; letters you wrote can still be
 //    changed or deleted.
 //  • letters.html?to=<profile id> starts a letter to that graduate.
@@ -12,7 +12,7 @@
 // =====================================================
 (function () {
   'use strict';
-  const OPEN_AT = Date.parse('2026-11-14T21:00:00Z');      // also in supabase-api CONFIG.lettersOpenAt and the SQL
+  const OPEN_AT = Date.parse('2026-11-20T21:00:00Z');      // also in supabase-api CONFIG.lettersOpenAt and the SQL
   const CLASS = '2026';
   const MAX = 2000;
   const $ = id => document.getElementById(id);
@@ -30,7 +30,7 @@
   function paintHead() {
     $('ltOpens').textContent = isOpen()
       ? 'The letters are open. Letters written now arrive straight away.'
-      : `Every letter stays sealed until Sunday 15 November · ${daysLeft()} ${plural(daysLeft(), 'day', 'days')} to go.`;
+      : `Every letter stays sealed until graduation day, Saturday 21 November · ${daysLeft()} ${plural(daysLeft(), 'day', 'days')} to go.`;
   }
 
   // ── For you ──
@@ -50,8 +50,8 @@
       box.innerHTML = n
         ? `<div class="lt-sealed"><div class="lt-stack" aria-hidden="true">${'<i>💌</i>'.repeat(Math.min(n, 5))}</div>
              <div><b>${n} sealed ${plural(n, 'letter is', 'letters are')} waiting for you</b>
-             <span>${plural(n, 'It opens', 'They open')} on Sunday 15 November, in ${daysLeft()} ${plural(daysLeft(), 'day', 'days')}.</span></div></div>${shareBtn}`
-        : `<div class="lt-quiet">No letters for you yet. They will stay sealed until Sunday 15 November.</div>${shareBtn}`;
+             <span>${plural(n, 'It opens', 'They open')} on graduation day, Saturday 21 November, in ${daysLeft()} ${plural(daysLeft(), 'day', 'days')}.</span></div></div>${shareBtn}`
+        : `<div class="lt-quiet">No letters for you yet. They will stay sealed until graduation day, Saturday 21 November.</div>${shareBtn}`;
       return;
     }
     const list = data.forMe.letters;
@@ -78,7 +78,7 @@
     return user ? (user.displayName || String(user.email || '').split('@')[0]) : '';
   }
   function note() {
-    const when = isOpen() ? 'straight away' : 'from Sunday 15 November';
+    const when = isOpen() ? 'straight away' : 'from graduation day, 21 November';
     if (kind === 'graduate') return picked ? `Only ${first(picked.name)} will be able to read it, ${when}.` : 'Choose a graduate. Only they will be able to read your letter.';
     if (kind === 'class') return `It goes on the class wall for everyone to read, ${when}.`;
     return $('ltShare').checked ? `You will read it ${when}, and it goes on the class wall too.` : `Only you will read it, ${when}.`;
@@ -153,7 +153,7 @@
       const payload = editing ? { id: editing.id, body, share: $('ltShare').checked }
         : { to: kind, profileId: picked ? Number(picked.id) : undefined, body, share: $('ltShare').checked };
       await window.gApi('letters.save', payload);
-      showToast(wasEditing ? 'Saved ✅' : isOpen() ? 'Sent 💌' : 'Sealed 💌 It opens on Sunday 15 November', 3500);
+      showToast(wasEditing ? 'Saved ✅' : isOpen() ? 'Sent 💌' : 'Sealed 💌 It opens on graduation day, 21 November', 3500);
       resetForm();
       await load(user);
       $('yours').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -176,7 +176,7 @@
     $('yours').hidden = !user || !list.length;
     $('ltMine').innerHTML = list.map(l => {
       const status = l.hidden ? '<span class="lt-chip warn">Hidden by the admin</span>'
-        : isOpen() ? '<span class="lt-chip">Delivered</span>' : '<span class="lt-chip">Sealed · opens 15 Nov</span>';
+        : isOpen() ? '<span class="lt-chip">Delivered</span>' : '<span class="lt-chip">Sealed · opens 21 Nov</span>';
       const wall = l.to_kind === 'self' && l.on_wall ? ' · shared on the wall' : '';
       return `<div class="lt-card lt-mine">
         <div class="lt-mine-top"><b>${toLine(l)}</b>${status}</div>
@@ -194,7 +194,7 @@
     if (!isOpen()) {
       const n = data ? data.wallCount : null;
       box.innerHTML = `<div class="lt-card lt-quiet">${n ? `${n} ${plural(n, 'letter', 'letters')} to the whole class ${plural(n, 'is', 'are')} sealed here.` : 'Letters to the whole class will appear here.'}
-        They open on Sunday 15 November.</div>`;
+        They open on graduation day, Saturday 21 November.</div>`;
       return;
     }
     const { data: rows, error } = await supabase.from('letters_wall').select('id,author_name,to_kind,body,created_at').order('created_at', { ascending: false }).limit(300);
@@ -246,7 +246,7 @@
     else if (act === 'unpick') { picked = null; paintWrite(); $('ltFind').focus(); }
     else if (act === 'share') {
       const url = location.origin + '/letters.html?to=' + encodeURIComponent(me.id) + '#write';
-      const text = `Write me a letter for graduation week 💌 It stays sealed until 15 November.`;
+      const text = `Write me a letter for graduation week 💌 It stays sealed until graduation day, 21 November.`;
       if (navigator.share) { try { await navigator.share({ title: 'Write me a letter', text, url }); } catch (er) {} }
       else { try { await navigator.clipboard.writeText(text + ' ' + url); showToast('Link copied. Paste it in your class group 💌'); } catch (er) { prompt('Copy this link:', url); } }
     }
