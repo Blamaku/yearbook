@@ -258,7 +258,7 @@
 
     <!-- ── Moderation ── -->
     <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button><button type="button" id="seg-mgd" data-act="mod-tab" data-v="graddays">Grad days</button></div>
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button><button type="button" id="seg-mgd" data-act="mod-tab" data-v="graddays">Grad days</button><button type="button" id="seg-mwl" data-act="mod-tab" data-v="wall">Class wall</button></div>
       <div id="mod-comments"><div id="cList"></div></div>
       <div id="mod-posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
@@ -268,6 +268,7 @@
       <div id="mod-leaders" style="display:none"><div id="ldList"></div></div>
       <div id="mod-letters" style="display:none"><div id="ltList"></div></div>
       <div id="mod-glow" style="display:none"><div id="guList"></div></div>
+      <div id="mod-wall" style="display:none"><div id="wlList"></div></div>
       <div id="mod-graddays" style="display:none">
         <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Each class's graduation day. Students' time capsules open at 00:00 (Kisumu) on their class's day; students with sealed notes get a phone notification when you post it.</div>
         <div class="a-item" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -969,6 +970,8 @@
       $('seg-mgu').classList.toggle('on', M.tab === 'glow');
       $('mod-graddays').style.display = M.tab === 'graddays' ? 'block' : 'none';
       $('seg-mgd').classList.toggle('on', M.tab === 'graddays');
+      $('mod-wall').style.display = M.tab === 'wall' ? 'block' : 'none';
+      $('seg-mwl').classList.toggle('on', M.tab === 'wall');
       $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
       $('seg-ms').classList.toggle('on', M.tab === 'staff'); $('seg-ml').classList.toggle('on', M.tab === 'letters');
       if (M.tab === 'comments' && !M.loadedC) loadComments();
@@ -979,6 +982,7 @@
       if (M.tab === 'sup') loadSup();
       if (M.tab === 'glow') loadGlow();
       if (M.tab === 'graddays') loadGradDays();
+      if (M.tab === 'wall') loadWall();
     }
 
     /* ══ Letters: the class wall and anything someone reported. Private letters nobody reported never come here. ══ */
@@ -1059,6 +1063,39 @@
         const g = GU.rows.find(x => Number(x.profile_id) === id); if (g) { g.hidden = hidden; g.reported = false; }
         renderGlow(); toast(hidden ? 'Hidden from the gallery' : 'Done ✅');
       } catch (e) { console.error('[glow review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
+    }
+
+    /* ══ The class wall (graduation week days 3–6): every post, reported ones first ══ */
+    const WL = { rows: [], err: '' };
+    const WL_KIND = { memory: '⏳ Memory', tag: '🫂 Tag', song: '🎧 Song', joke: '😂 Inside joke', advice: '🔥 Advice' };
+    const WL_ROLE = { bestie: 'best friend', study: 'study partner', mentor: 'mentor', chaos: 'chaos partner' };
+    async function loadWall() {
+      $('wlList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try { WL.rows = (await window.gApi('admin.wall.list', {})).rows || []; WL.err = ''; }
+      catch (e) { WL.err = e.code === 'wall_coming' || e.code === 'unknown_action' ? 'The class wall is not switched on yet.' : (e.message || 'Could not load the class wall'); }
+      renderWall();
+    }
+    function renderWall() {
+      $('wlList').innerHTML = WL.err ? `<div class="a-empty">${E(WL.err)}</div>`
+        : WL.rows.length ? '<div class="a-sub" style="margin:0 2px 10px;white-space:normal">' + WL.rows.length + ' posts. Each kind goes public on its graduation-week day (Tue 17 to Fri 20 November).</div>'
+          + WL.rows.map(p => `<div class="a-item"><div class="a-item-top"><div class="grow">
+              <div><span class="a-name" style="display:inline">${E(p.name || 'Profile ' + p.profile_id)}</span> <span class="a-sub" style="display:inline">${E(WL_KIND[p.kind] || p.kind)}${p.year ? ' · ' + Number(p.year) : ''}${p.kind === 'tag' ? ' · ' + E(WL_ROLE[p.tag_role] || '') + ': ' + E(p.tagged_name || '?') : ''}</span>
+                ${p.reported ? '<span class="a-badge warn">Reported</span>' : ''}${p.hidden ? '<span class="a-badge">Hidden</span>' : ''}</div>
+              ${p.title ? `<div class="a-text"><b>${E(p.title)}</b></div>` : ''}${p.body ? `<div class="a-text" style="white-space:pre-wrap">${E(p.body)}</div>` : ''}
+              <div class="a-sub">Added ${E(ago(p.created_at))}</div></div></div>
+            <div class="a-item-acts">
+              ${p.hidden ? `<button type="button" class="a-mini" data-act="wl-review" data-id="${Number(p.id)}" data-v="0">Show again</button>`
+                : `<button type="button" class="a-mini danger" data-act="wl-review" data-id="${Number(p.id)}" data-v="1">Hide</button>`}
+              ${p.reported && !p.hidden ? `<button type="button" class="a-mini" data-act="wl-review" data-id="${Number(p.id)}" data-v="0">It's fine</button>` : ''}
+            </div></div>`).join('')
+        : '<div class="a-empty">Nothing on the class wall yet.</div>';
+    }
+    async function reviewWall(id, hidden) {
+      try {
+        await window.gApi('admin.wall.review', { id, hidden });
+        const p = WL.rows.find(x => Number(x.id) === id); if (p) { p.hidden = hidden; p.reported = false; }
+        renderWall(); toast(hidden ? 'Hidden from the wall' : 'Done ✅');
+      } catch (e) { toast('❌ ' + (e.message || 'Could not update.')); }
     }
 
     /* ══ Graduation days (time capsules open on them) ══ */
@@ -1697,7 +1734,7 @@ let _ocSearchT = null;
     const PAGE_NAME = { home: 'Home', feed: 'Students feed', profiles: 'Students list', profile: 'Profiles', clubs: 'Clubs list', club: 'Club pages',
       department: 'Schools', course: 'Programmes', class: 'Classes', staff: 'Staff profiles', about: 'About GLUK', constitution: 'GLUKSA constitution',
       letters: 'Letters', university: 'Know your university', superlatives: 'Class superlatives', challenge: "Think it's easy?",
-      grad: 'Graduation week', glowup: 'Glow Up', capsule: 'Time capsule' };
+      grad: 'Graduation week', glowup: 'Glow Up', capsule: 'Time capsule', wall: 'Class wall' };
     const pct = (n, of) => of ? Math.round(n / of * 100) + '%' : '–';
     async function loadTraffic() {
       const tiles = $('devTrafficTiles'), card = $('devTraffic');
@@ -1855,6 +1892,7 @@ let _ocSearchT = null;
         case 'lt-review': reviewLetter(id, b.dataset.v === '1'); break;
         case 'gu-review': reviewGlow(id, b.dataset.v === '1'); break;
         case 'gd-save': saveGradDay(); break;
+        case 'wl-review': reviewWall(id, b.dataset.v === '1'); break;
         case 'gd-del': deleteGradDay(b.dataset.v); break;
         case 'sup-add':    supAdd(); break;
         case 'sup-rename': supRename(id); break;

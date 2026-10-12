@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <meta name="description" content="The Class of 2026 wall: memories from every year, your people, the class playlist, inside jokes and advice for the freshers. Opens in graduation week.">
+  <title>The class wall — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="The Class of 2026 wall ⏳🫂🎧🔥">
+  <meta property="og:description" content="Add a memory, tag your people, a song for the playlist. It all opens in graduation week.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="wall">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- The class wall: graduation week days 3–6 (wall.js). Students add now; each part opens on its day. -->
+  <main class="ab lt wl">
+    <header class="ab-hero">
+      <a class="ab-back" href="grad.html">‹ Graduation week</a>
+      <div class="hm-crest-ring ab-ring"><span class="hm-aura" aria-hidden="true"></span><span class="sp-trophy" aria-hidden="true" id="wlEmo">⏳</span></div>
+      <p class="hm-uni" id="wlDay">Graduation week</p>
+      <h1 id="wlTitle">The class wall</h1>
+      <p class="ab-place" id="wlPlace"></p>
+    </header>
+
+    <nav class="wl-tabs" id="wlTabs" aria-label="Days"></nav>
+
+    <section class="ab-sec" id="add">
+      <h2 id="wlAddTitle">Add yours</h2>
+      <div class="lt-card lt-write" id="wlForm"><div class="lt-quiet">Loading…</div></div>
+    </section>
+
+    <section class="ab-sec" id="yours" hidden>
+      <h2>Yours</h2>
+      <div id="wlMine"></div>
+    </section>
+
+    <section class="ab-sec" id="wall">
+      <h2 id="wlWallTitle">The wall</h2>
+      <div id="wlWall"><div class="lt-card lt-quiet">Loading…</div></div>
+    </section>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="wall.js"></script>
+</body>
+</html>

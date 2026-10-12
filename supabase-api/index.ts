@@ -54,6 +54,9 @@ const CONFIG = {
   lettersPerPerson: 30,                             // at most this many new letters by one person per 24 hours
   capsulesPerPerson: 20,                            // time capsule notes one student may seal
   errorsPerMinute: 60,                              // app error reports kept per minute, from everyone together
+  // The class wall (wall.html): each kind opens on its graduation-week day, 00:00 in Kisumu (also in wall.js and the SQL)
+  wallOpens: { memory: '2026-11-16T21:00:00Z', tag: '2026-11-17T21:00:00Z', song: '2026-11-18T21:00:00Z', joke: '2026-11-18T21:00:00Z', advice: '2026-11-19T21:00:00Z' },
+  wallLimits: { memory: 10, tag: 4, song: 5, joke: 5, advice: 3 },   // per person
   glowRevealAt: '2026-11-15T21:00:00Z',             // Glow Up opens on Monday 16 November 2026, 00:00 in Kisumu (also in glowup.js and the SQL)
   contactsPerDay: 20,                               // different classmates' contact details one person may open per 24 hours
   supRevealAt: '2026-11-14T21:00:00Z',              // superlatives: voting closes and the top 3 are shown (Sunday 15 November, 00:00 in Kisumu)
@@ -67,7 +70,7 @@ const CONFIG = {
   // Pages whose visits are counted for the Developer tab (each page's <body data-page>)
   trackPages: ['home', 'feed', 'profiles', 'profile', 'clubs', 'club', 'department', 'course', 'class', 'staff',
     'about', 'constitution', 'letters', 'university', 'superlatives', 'challenge',
-    'grad', 'glowup', 'capsule'],
+    'grad', 'glowup', 'capsule', 'wall'],
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -541,6 +544,25 @@ async function capsuleState(ctx) {
   const opensAt = g.data && g.data[0] ? g.data[0].opens_at : null;
   return { prof, classyear, opensAt, open: !!opensAt && ctx.now() >= Date.parse(opensAt) };
 }
+// ── The class wall (since 2026-10-26): graduation week days 3–6 ──────────
+// Memories by year, tagging your people, the class playlist, inside jokes and advice for the freshers.
+// Anyone with a named yearbook profile adds them; each kind stays sealed until its day (CONFIG.wallOpens).
+const WALL_KINDS = ['memory', 'tag', 'song', 'joke', 'advice'];
+const WALL_ROLES = { bestie: 'best friend', study: 'study partner', mentor: 'mentor', chaos: 'chaos partner' };
+const WALL_COLS = 'id,kind,year,tag_role,tagged_profile,title,body,hidden,created_at';
+const wallDbError = e => missingTable(e)
+  ? new ApiError(503, 'wall_coming', 'The class wall is being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+const wallOpen = (ctx, kind) => ctx.now() >= Date.parse(ctx.config.wallOpens[kind]);
+async function wallRow(ctx, id) {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n <= 0) throw bad('Missing or invalid post.');
+  const r = await ctx.db.from('grad_posts').select('*').eq('id', n).limit(1);
+  if (r.error) throw wallDbError(r.error);
+  if (!r.data || !r.data[0]) throw notFound('That post could not be found.');
+  return r.data[0];
+}
+
 // A short, safe copy of an error's stack (no query strings)
 const errStack = v => snip(String(v || '').replace(/\?[^\s):]*/g, ''), 1500);
 
@@ -1268,6 +1290,95 @@ const ACTIONS = {
     return {};
   },
 
+  // ── The class wall ──
+  // Your own posts (with the names of the people you tagged), how many of each kind are sealed, and which are open
+  async 'wall.mine'(ctx) {
+    const me = await myProfile(ctx);
+    const [mine, ...cs] = await Promise.all([
+      me ? ctx.db.from('grad_posts').select(WALL_COLS).eq('uid', ctx.user.uid).order('created_at', { ascending: true }).limit(100) : { data: [] },
+      ...WALL_KINDS.map(k => ctx.db.from('grad_posts').select('id', { count: 'exact', head: true }).eq('kind', k).eq('hidden', false)),
+    ]);
+    const err = mine.error || (cs.find(c => c.error) || {}).error;
+    if (err) throw wallDbError(err);
+    const rows = mine.data || [], ids = [...new Set(rows.map(x => x.tagged_profile).filter(Boolean))], names = {};
+    if (ids.length) {
+      const p = await ctx.db.from('profiles').select('id,name').in('id', ids);
+      (p.data || []).forEach(x => { names[x.id] = x.name; });
+    }
+    const counts = Object.fromEntries(WALL_KINDS.map((k, i) => [k, cs[i].count || 0]));
+    const open = Object.fromEntries(WALL_KINDS.map(k => [k, wallOpen(ctx, k)]));
+    return { profile: me ? { id: me.id, anonymous: !!me.isanonymous } : null, mine: rows.map(x => ({ ...x, tagged_name: names[x.tagged_profile] || null })),
+      counts, open, opens: ctx.config.wallOpens, limits: ctx.config.wallLimits };
+  },
+
+  // Add a post: { kind, year? (memory), role + profileId (tag: replaces your earlier tag for that role), title (song), body }
+  async 'wall.save'(ctx, body) {
+    const cfg = ctx.config, uid = ctx.user.uid, kind = String(body.kind || '');
+    if (!WALL_KINDS.includes(kind)) throw bad('Unknown kind of post.');
+    const me = await myProfile(ctx);
+    if (!me) throw conflict('Create your yearbook profile first, then add to the class wall.', 'no_profile');
+    const rec = { uid, profile_id: me.id, kind, year: null, tag_role: null, tagged_profile: null, title: null, body: '', hidden: false, reported: false,
+      created_at: new Date(ctx.now()).toISOString() };
+    let tagged = null;
+    if (kind === 'memory') {
+      const y = Number(body.year);
+      if (!Number.isInteger(y) || y < 2015 || y > 2026) throw bad('Choose the year it happened.');
+      rec.year = y; rec.body = txt(body.body, 600, 'Your memory', { required: true });
+    } else if (kind === 'tag') {
+      const role = String(body.role || '');
+      if (!WALL_ROLES[role]) throw bad('Choose who they are to you.');
+      const pid = Number(body.profileId);
+      if (!Number.isInteger(pid) || pid <= 0) throw bad('Choose a classmate.');
+      const p = await ctx.db.from('profiles').select('id,uid,name,isanonymous').eq('id', pid).limit(1);
+      if (p.error) throw wallDbError(p.error);
+      tagged = p.data && p.data[0];
+      if (!tagged) throw notFound('That classmate could not be found.');
+      if (tagged.isanonymous) throw bad('That profile is anonymous, so it cannot be tagged.');
+      if (tagged.id === me.id) throw bad('Tag a classmate, not yourself!');
+      Object.assign(rec, { tag_role: role, tagged_profile: tagged.id, body: txt(body.body, 200, 'A line about them') });
+    } else if (kind === 'song') {
+      rec.title = txt(body.title, 120, 'The song', { required: true });
+      if (rec.title.length < 2) throw bad('Write the song and who sings it.');
+      rec.body = txt(body.body, 200, 'Why this song');
+    } else {
+      rec.body = txt(body.body, kind === 'advice' ? 400 : 300, kind === 'advice' ? 'Your advice' : 'Your inside joke', { required: true });
+    }
+    const have = await ctx.db.from('grad_posts').select('id,tag_role').eq('uid', uid).eq('kind', kind).limit(100);
+    if (have.error) throw wallDbError(have.error);
+    const same = kind === 'tag' ? (have.data || []).find(x => x.tag_role === rec.tag_role) : null;
+    if (!same && (have.data || []).length >= cfg.wallLimits[kind]) throw new ApiError(429, 'slow_down', `You have added ${cfg.wallLimits[kind]} already. Delete one to add another.`);
+    const w = same ? await ctx.db.from('grad_posts').update({ tagged_profile: rec.tagged_profile, body: rec.body, hidden: false, reported: false, created_at: rec.created_at }).eq('id', same.id).select(WALL_COLS)
+      : await ctx.db.from('grad_posts').insert(rec).select(WALL_COLS);
+    if (w.error) throw wallDbError(w.error);
+    const row = Array.isArray(w.data) ? w.data[0] : w.data;
+    // the person tagged hears that someone tagged them, but not who, until My People day
+    if (tagged && tagged.uid && tagged.uid !== uid) ctx.background((async () => {
+      if (await claimEvent(ctx, `wt:${uid}:${rec.tag_role}:${tagged.id}`) !== 'ok') return;
+      const open = wallOpen(ctx, 'tag');
+      await pushToUids(ctx, [tagged.uid], { title: `🫂 Someone tagged you as their ${WALL_ROLES[rec.tag_role]}`,
+        body: open ? 'See who on the class wall.' : 'Find out who on Wednesday 18 November, My People day.', url: '/wall.html?d=mypeople', tag: 'wt-' + row.id });
+    })().catch(e => console.warn('[wall tag push]', e)));
+    return { post: { ...row, tagged_name: tagged ? tagged.name : null } };
+  },
+
+  async 'wall.delete'(ctx, body) {
+    const row = await wallRow(ctx, body.id);
+    if (row.uid !== ctx.user.uid) throw forbidden('You can only delete your own posts.');
+    const del = await ctx.db.from('grad_posts').delete().eq('id', row.id);
+    if (del.error) throw wallDbError(del.error);
+    return {};
+  },
+
+  // Ask the admin to look at a post on the wall (once it is public)
+  async 'wall.report'(ctx, body) {
+    const row = await wallRow(ctx, body.id);
+    if (row.hidden || !wallOpen(ctx, row.kind)) throw forbidden();
+    const up = await ctx.db.from('grad_posts').update({ reported: true }).eq('id', row.id);
+    if (up.error) throw wallDbError(up.error);
+    await logEvent(ctx, 'wall_report', true, { id: row.id, kind: row.kind });
+    return {};
+  },
+
   // ── app errors (no sign-in needed): kept for the Developer tab ──
   async err(ctx, body) {
     const since = new Date(ctx.now() - 60e3).toISOString();
@@ -1684,6 +1795,29 @@ const ACTIONS = {
     if (!/^20[0-9]{2}$/.test(classyear)) throw bad('Missing class year.');
     const del = await ctx.db.from('grad_days').delete().eq('classyear', classyear);
     if (del.error) throw capDbError(del.error);
+    return {};
+  },
+
+  // The class wall: every post (reported first), with the names of who wrote it and who was tagged
+  async 'admin.wall.list'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.from('grad_posts').select('id,profile_id,kind,year,tag_role,tagged_profile,title,body,hidden,reported,created_at')
+      .order('created_at', { ascending: false }).limit(1000);
+    if (r.error) throw wallDbError(r.error);
+    const rows = r.data || [], ids = [...new Set(rows.flatMap(x => [x.profile_id, x.tagged_profile]).filter(Boolean))], names = {};
+    for (let i = 0; i < ids.length; i += 200) {
+      const p = await ctx.db.from('profiles').select('id,name').in('id', ids.slice(i, i + 200));
+      if (!p.error) (p.data || []).forEach(x => { names[x.id] = x.name; });
+    }
+    rows.sort((a, b) => (b.reported ? 1 : 0) - (a.reported ? 1 : 0));
+    return { rows: rows.map(x => ({ ...x, name: names[x.profile_id] || '', tagged_name: names[x.tagged_profile] || null })), opens: ctx.config.wallOpens };
+  },
+
+  async 'admin.wall.review'(ctx, body) {
+    requireAdmin(ctx);
+    const row = await wallRow(ctx, body.id);
+    const up = await ctx.db.from('grad_posts').update({ hidden: !!body.hidden, reported: false }).eq('id', row.id);
+    if (up.error) throw wallDbError(up.error);
     return {};
   },
 
