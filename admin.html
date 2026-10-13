@@ -1890,7 +1890,9 @@ let _ocSearchT = null;
 
     /* Audit (Developer › Audit): every list an office opened, every export, every change to the office admins */
     const AUDIT_NAME = { office_admin_added: 'Made an office admin', office_admin_removed: 'Removed an office admin', admin_added: 'Made an admin',
-      admin_changed: 'Changed what an admin may do', admin_removed: 'Removed an admin', 'profile.update': 'Edited a profile', 'club.post.delete': 'Deleted a club post' };
+      admin_changed: 'Changed what an admin may do', admin_removed: 'Removed an admin', 'profile.update': 'Edited a profile', 'club.post.delete': 'Deleted a club post',
+      alumni_viewed: 'Opened the alumni records', alumni_exported: 'Exported the alumni records', alumni_contact_list: 'Copied an alumni email list',
+      alumni_pending_viewed: 'Opened the not-yet-filled list', alumni_removed: 'Removed an alumni record (asked by its owner)' };
     async function loadAudit() {
       const box = $('devAudit');
       box.innerHTML = '<div class="a-empty">Loading…</div>';
@@ -2159,7 +2161,7 @@ $('devRecent').innerHTML = (d.recent || []).length
         ['clubs', 'Club officials', 'Add and remove the officials of every club.']]],
       ['Office dashboards (office.html)', [['dos.students', 'Dean of Students: students database', 'Every student with contacts, and the CSV export.', true],
         ['dos.clubs', 'Dean of Students: club records', 'Each year’s club activity, by trimester.'],
-        ['alumni', 'Directorate of External Affairs', 'The alumni form and database (coming next).']]],
+        ['alumni', 'Directorate of External Affairs', 'The alumni records, who has not filled the form, withdrawals, and contacting alumni.', true]]],
       ['Developer', [['dev', 'Developer tab', 'Errors, traffic, who has notifications on, and activity. It shows some people’s names and emails.', true],
         ['audit', 'Audit log', 'What every admin opened and did.']]],
     ];

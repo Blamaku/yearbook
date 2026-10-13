@@ -1951,6 +1951,29 @@ window.gGhost = (function () {
   return { check, save };
 })();
 
+// ── The alumni form: the graduating class is reminded on their own profile and in graduation week until they send it ──
+// (api alumni.mine, asked once a session; alumni-form.js sets the answer to '0' once the form is sent)
+(function () {
+  const page = document.body && document.body.dataset.page;
+  if (typeof auth === 'undefined' || (page !== 'profile' && page !== 'grad')) return;
+  auth.onAuthStateChanged(async u => {
+    const old = document.getElementById('alumniBanner'); if (old) old.remove();
+    if (!u || !window.gApi) return;
+    const key = 'gluk-alumni:' + u.uid;
+    let v = null; try { v = sessionStorage.getItem(key); } catch (e) {}
+    if (v === null) {
+      try { const r = await window.gApi('alumni.mine', {}); v = r.due ? String(r.profileId) : '0'; } catch (e) { return; }
+      try { sessionStorage.setItem(key, v); } catch (e) {}
+    }
+    const bar = document.getElementById('userBar');
+    if (v === '0' || !bar || (page === 'profile' && new URLSearchParams(location.search).get('id') !== v)) return;
+    const el = document.createElement('div');
+    el.id = 'alumniBanner'; el.className = 'ghost-banner'; el.setAttribute('role', 'status');
+    el.innerHTML = '<span>🎓 <b>Your alumni form is waiting.</b> It is part of your graduation clearance and takes about five minutes.</span><a href="alumni-form.html">Fill it in</a>';
+    bar.insertAdjacentElement('afterend', el);
+  });
+})();
+
 // Delete my profile (profile page): type DELETE, then it is hidden at once and removed for good after 90 days
 window.openDeleteProfile = function () {
   const m = document.getElementById('deleteModal'), inp = document.getElementById('delConfirm'), go = document.getElementById('delGo');

@@ -4,7 +4,8 @@
 //  the super admin sees every office, with a switch. Every list an office opens and every export is written
 //  in the audit log (the api does that before it answers).
 //    dos     Office of the Dean of Students: the students database (permission dos.students) and the club activity records (dos.clubs)
-//    alumni  Directorate of External Affairs: the alumni form and database (Phase 5; permission alumni)
+//    alumni  Directorate of External Affairs: the alumni records from alumni-form.html, who has not filled it yet, withdrawal
+//            requests, and contacting alumni privately (BCC email, one-by-one WhatsApp) (permission alumni)
 // =====================================================
 'use strict';
 (function () {
@@ -160,23 +161,157 @@
     btn.disabled = false; btn.textContent = '⬇ Export CSV';
   }
 
+  // ══ Directorate of External Affairs: the alumni records (alumni-form.html fills them) ══
+  const ALU = { tab: 'records', f: {}, rows: [], total: 0, more: false, withdrawals: 0, year: 0, pending: [], subject: '', msg: '' };
+  const INTEREST = { mentorship: 'Mentorship', lectures: 'Guest lectures', internships: 'Internships / jobs', events: 'Events and reunions', fundraising: 'Fundraising', other: 'Other' };
+  const WORK = ['Employed', 'Self-employed', 'Unemployed', 'Further studies', 'Internship'];
+  const ALU_TABS = [['records', '🎓 Alumni records'], ['pending', '⏳ Not yet filled'], ['withdrawals', '🗑 Withdrawal requests']];
+  const formLink = () => location.origin + '/alumni-form.html';
+  const reminder = name => `Hello ${String(name || '').trim().split(/\s+/)[0] || ''}, this is GLUK's Directorate of External Affairs. Please fill in your alumni registration form, part of your graduation clearance: ${formLink()}`;
+  const mailto = (to, subject, text, bcc) => `mailto:${encodeURIComponent(to || '')}?${bcc ? 'bcc=' + encodeURIComponent(bcc) + '&' : ''}subject=${encodeURIComponent(subject || '')}&body=${encodeURIComponent(text || '')}`;
+  const waHref = (phone, text) => { const l = window.waLink ? window.waLink(phone) : ''; return l ? l + '?text=' + encodeURIComponent(text || '') : ''; };
+  const okEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || ''));
+  async function copy(text) {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch (e) { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); const ok = document.execCommand('copy'); t.remove(); return ok; }
+  }
+  function paintAlumni() {
+    body.innerHTML = `<div class="of-tabs" role="tablist">${ALU_TABS.map(([k, label]) => `<button type="button" role="tab" data-at="${k}" class="${ALU.tab === k ? 'on' : ''}" aria-selected="${ALU.tab === k}">${label}${k === 'withdrawals' && ALU.withdrawals ? ` (${ALU.withdrawals})` : ''}</button>`).join('')}</div>
+      <div id="aluPane"></div>`;
+    ({ records: paintRecords, pending: paintPending, withdrawals: paintWithdrawals })[ALU.tab]();
+  }
+
+  /* — the records — */
+  function paintRecords() {
+    const f = ALU.f, map = window.DEPT_COURSES_MAP || {}, now = new Date().getFullYear(), yrs = [];
+    for (let y = now + 1; y >= 2007; y--) yrs.push(String(y));
+    const places = [...(window.KENYA_COUNTIES || []), ...(window.COUNTRIES || []).filter(c => c !== 'Kenya')];
+    $('aluPane').innerHTML = `
+      <div class="of-filters of-noprint">
+        <input type="search" id="alQ" class="form-input" placeholder="Search name, reg number, employer or job" value="${esc(f.q || '')}" autocomplete="off" aria-label="Search">
+        <select id="alYear" class="form-select" aria-label="Year of graduation">${options(yrs, f.graduation_year, 'All graduation years')}</select>
+        <select id="alProg" class="form-select" aria-label="Programme">${options([...new Set([].concat(...Object.values(map)))].sort(), f.programme, 'All programmes')}</select>
+        <select id="alPlace" class="form-select" aria-label="County or country">${options(places, f.residence, 'Anywhere')}</select>
+        <select id="alWork" class="form-select" aria-label="Employment status">${options(WORK, f.employment_status, 'Any employment status')}</select>
+      </div>
+      <div class="of-meta"><span id="alCount">Loading…</span><span style="flex:1"></span>
+        ${Object.keys(f).length ? '<button type="button" class="of-link" data-al="clear">Clear filters</button>' : ''}
+        <button type="button" class="of-btn" data-al="export">⬇ Export CSV</button></div>
+      <details class="of-box of-noprint of-contact"><summary><b>✉️ Contact these alumni</b></summary>
+        <p>Write your message once. By email it goes as BCC, so nobody sees anyone else’s address. WhatsApp opens one chat at a time, with your message ready.</p>
+        <input id="alSubj" class="form-input" maxlength="120" placeholder="Subject (for email)" value="${esc(ALU.subject)}" aria-label="Subject">
+        <textarea id="alMsg" class="form-input" rows="4" maxlength="1500" placeholder="Your message" aria-label="Message">${esc(ALU.msg)}</textarea>
+        <div class="of-acts"><button type="button" class="of-btn" data-al="bcc">📋 Copy the BCC email list</button><button type="button" class="of-btn" data-al="mail">✉️ Open in my email app</button></div>
+        <p class="of-note">The list is everyone matching the filters above. Each person below also has their own WhatsApp and email buttons.</p>
+      </details>
+      <div id="alList" class="of-list"></div><div id="alMore"></div>`;
+    loadRecords(true);
+  }
+  async function loadRecords(reset) {
+    const seq = ++_seq;
+    if (reset) { ALU.rows = []; $('alList').innerHTML = '<div class="of-empty">Loading…</div>'; $('alMore').innerHTML = ''; }
+    let r;
+    try { r = await window.gApi('alumni.list', { ...ALU.f, from: reset ? 0 : ALU.rows.length }); }
+    catch (e) { if (seq === _seq) $('alList').innerHTML = `<div class="of-empty">${esc((e && e.message) || 'Could not load the alumni records.')}</div>`; return; }
+    if (seq !== _seq || !$('alList')) return;
+    ALU.rows = ALU.rows.concat(r.rows || []); ALU.total = r.total || 0; ALU.more = !!r.more;
+    if (r.withdrawals !== ALU.withdrawals) { ALU.withdrawals = r.withdrawals || 0; const t = body.querySelector('[data-at="withdrawals"]'); if (t) t.textContent = '🗑 Withdrawal requests' + (ALU.withdrawals ? ` (${ALU.withdrawals})` : ''); }
+    $('alCount').textContent = nfmt(ALU.total) + ' alumni ' + plural(ALU.total, 'record', 'records');
+    $('alList').innerHTML = ALU.rows.length ? ALU.rows.map(recordRow).join('') : '<div class="of-empty">No alumni records match.</div>';
+    $('alMore').innerHTML = ALU.more ? `<button type="button" class="of-btn wide" data-al="more">Show more (${nfmt(ALU.total - ALU.rows.length)} left)</button>` : '';
+  }
+  const contactLinks = (i, phone, email) => [phone ? `<a href="tel:${esc(String(phone).replace(/[^\d+]/g, ''))}">${esc(phone)}</a>` : '', email ? `<a href="mailto:${esc(email)}">${esc(email)}</a>` : ''].filter(Boolean).join(' · ')
+    + `<span class="of-acts">${phone && window.waLink && window.waLink(phone) ? `<button type="button" class="of-btn sm" data-al="wa" data-i="${i}">💬 WhatsApp</button>` : ''}${okEmail(email) ? `<button type="button" class="of-btn sm" data-al="em" data-i="${i}">✉️ Email</button>` : ''}</span>`;
+  function recordRow(a, i) {
+    const work = [a.employment_status, a.job_title, a.employer && 'at ' + a.employer, a.work_location].filter(Boolean).join(' · ');
+    const likes = (a.interests || []).map(k => k === 'other' ? a.interest_other : INTEREST[k]).filter(Boolean);
+    return `<div class="of-row"><span class="of-av">${esc(initials(a.full_name))}</span>
+      <div class="of-row-main"><b>${esc(a.full_name)}</b>${a.withdraw_requested_at ? ' <span class="of-tag">asked to withdraw</span>' : ''}
+        <span>${esc([a.reg, a.programme, 'Class of ' + a.graduation_year, a.residence].filter(Boolean).join(' · '))}</span>
+        <span>${esc(work)}</span>
+        ${likes.length ? `<span>${likes.map(x => `<span class="of-tag">${esc(x)}</span>`).join(' ')}</span>` : ''}
+        <span>${contactLinks(i, a.phone, a.email)}</span></div></div>`;
+  }
+  async function exportRecords(btn) {
+    btn.disabled = true; btn.textContent = 'Preparing…';
+    try {
+      const r = await window.gApi('alumni.list', { ...ALU.f, export: true });
+      const idCell = v => /^\d+$/.test(String(v || '')) ? { raw: `="${v}"` } : (v || '');
+      const rows = (r.rows || []).map(a => [a.full_name, a.reg, idCell(a.national_id), a.gender, a.dob, phoneCell(a.phone), a.email, a.postal_address, a.residence,
+        a.school, a.programme, a.specialization, a.admission_intake, a.admission_year, a.graduation_year, a.study_mode, a.employment_status, a.employer, a.job_title,
+        a.work_location, a.further_studies, (a.interests || []).map(k => INTEREST[k]).join('; '), a.interest_other, a.signature_name, String(a.submitted_at || '').slice(0, 10),
+        a.withdraw_requested_at ? String(a.withdraw_requested_at).slice(0, 10) : '']);
+      download(`GLUK alumni ${today()}.csv`, ['Full name', 'Registration number', 'National ID / Passport No.', 'Gender', 'Date of birth', 'Mobile phone', 'Personal email', 'Postal address',
+        'County / country of residence', 'School / faculty', 'Programme of study', 'Specialization / option', 'Intake', 'Year of admission', 'Year of graduation', 'Mode of study',
+        'Employment status', 'Organization / employer', 'Job title / position', 'Work location', 'Further studies', 'Areas of interest', 'Other interest', 'Signed as', 'Sent on', 'Asked to withdraw on'], rows);
+      showToast('⬇ ' + nfmt(rows.length) + ' alumni ' + plural(rows.length, 'record', 'records') + ' exported');
+    } catch (e) { showToast('❌ ' + ((e && e.message) || 'Could not export.'), 3500); }
+    btn.disabled = false; btn.textContent = '⬇ Export CSV';
+  }
+  // Everyone matching the filters, as one BCC list (the api logs it as an email list)
+  async function bccList(btn) {
+    btn.disabled = true;
+    try {
+      const r = await window.gApi('alumni.list', { ...ALU.f, export: true, purpose: 'contact' });
+      return [...new Set((r.rows || []).map(a => String(a.email || '').trim().toLowerCase()).filter(okEmail))];
+    } catch (e) { showToast('❌ ' + ((e && e.message) || 'Could not get the list.'), 3500); return null; }
+    finally { btn.disabled = false; }
+  }
+
+  /* — not yet filled: a class's yearbook profiles without an alumni record — */
+  async function paintPending() {
+    if (!ALU.year) ALU.year = window.GRAD_YEAR || new Date().getFullYear();
+    const now = new Date().getFullYear(), yrs = [];
+    for (let y = now + 1; y >= 2007; y--) yrs.push(y);
+    $('aluPane').innerHTML = `<div class="of-meta of-noprint"><label class="of-label">Class of <select id="alPendYear" class="form-select" style="width:auto">${yrs.map(y => `<option${y === ALU.year ? ' selected' : ''}>${y}</option>`).join('')}</select></label>
+        <span style="flex:1"></span><button type="button" class="of-btn" data-al="pend-bcc">📋 Copy their emails (BCC)</button></div>
+      <div id="alPend"><div class="of-empty">Loading…</div></div>`;
+    let r;
+    try { r = await window.gApi('alumni.pending', { classyear: String(ALU.year) }); }
+    catch (e) { $('alPend').innerHTML = `<div class="of-empty">${esc((e && e.message) || 'Could not load the class.')}</div>`; return; }
+    if (!$('alPend')) return;
+    ALU.pending = r.rows || [];
+    $('alPend').innerHTML = `<div class="of-tiles">${tile(r.total, 'In the yearbook')}${tile(r.filled, 'Filled the form')}${tile(ALU.pending.length, 'Not yet')}</div>
+      <p class="of-note">Students of the Class of ${esc(String(r.classyear))} with a yearbook profile who have not sent the alumni form. The reminder buttons fill in a message with the form’s link: ${esc(formLink())}</p>
+      <div class="of-list">${ALU.pending.length ? ALU.pending.map((p, i) => `<div class="of-row">${window.safeUrl && window.safeUrl(p.photo_url) ? `<img src="${esc(window.safeUrl(p.photo_url))}" alt="" loading="lazy">` : `<span class="of-av">${esc(initials(p.name))}</span>`}
+        <div class="of-row-main"><b>${esc(p.name || 'Unnamed')}</b><span>${esc(p.course || '')}</span>
+          <span>${[p.whatsapp && window.waLink && window.waLink(p.whatsapp) ? `<button type="button" class="of-btn sm" data-al="pend-wa" data-i="${i}">💬 Remind on WhatsApp</button>` : '',
+            okEmail(p.email) ? `<button type="button" class="of-btn sm" data-al="pend-em" data-i="${i}">✉️ Remind by email</button>` : ''].join('') || 'No contact details on their profile'}</span></div></div>`).join('')
+        : '<div class="of-empty">🎉 Everyone in this class has filled the form.</div>'}</div>`;
+  }
+
+  /* — withdrawal requests — */
+  async function paintWithdrawals() {
+    $('aluPane').innerHTML = `<p class="of-note">These alumni asked for their record to be removed (Kenya Data Protection Act, 2019). Remove it once you have dealt with it; the removal is written in the audit log.</p><div id="alWd" class="of-list"><div class="of-empty">Loading…</div></div>`;
+    let r;
+    try { r = await window.gApi('alumni.list', { withdrawals: true }); }
+    catch (e) { $('alWd').innerHTML = `<div class="of-empty">${esc((e && e.message) || 'Could not load the requests.')}</div>`; return; }
+    if (!$('alWd')) return;
+    ALU.withdrawals = (r.rows || []).length;
+    $('alWd').innerHTML = (r.rows || []).length ? r.rows.map(a => `<div class="of-row"><span class="of-av">${esc(initials(a.full_name))}</span>
+      <div class="of-row-main"><b>${esc(a.full_name)}</b><span>${esc([a.reg, a.programme, 'Class of ' + a.graduation_year].join(' · '))}</span>
+        <span>Asked on ${esc(fmtDay(a.withdraw_requested_at))}${a.withdraw_reason ? ': “' + esc(a.withdraw_reason) + '”' : ''}</span>
+        <span><button type="button" class="of-btn sm" data-al="remove" data-id="${Number(a.id)}" data-name="${esc(a.full_name)}">🗑 Remove the record</button></span></div></div>`).join('')
+      : '<div class="of-empty">No requests. 👍</div>';
+  }
+
   // ══ The page: which office, and its dashboard ══
-  const SOON = { alumni: 'The online alumni registration form, the alumni database and private messages to alumni are coming in the next update.' };
   function paint() {
     seg.hidden = offices.length < 2;
     seg.innerHTML = offices.map(o => `<button type="button" role="tab" aria-selected="${o === cur}" class="${o === cur ? 'on' : ''}" data-o="${esc(o)}">${esc(NAMES[o] || o)}</button>`).join('');
     $('ofTitle').textContent = NAMES[cur] || 'Office dashboard';
     $('ofSub').textContent = 'Your office’s dashboard on the GLUK Yearbook. Every list you open and every export is recorded in an audit log the yearbook’s admin can read.';
-    if (cur === 'dos') paintDos();
-    else card(`<div class="of-ico">🏛</div><h2>Your dashboard is being built</h2><p>${esc(SOON[cur] || '')}</p>`);
+    if (cur === 'dos') paintDos(); else paintAlumni();
   }
   seg.addEventListener('click', e => {
     const b = e.target.closest('[data-o]'); if (!b) return;
     cur = b.dataset.o; try { sessionStorage.setItem('gluk-office-tab', cur); } catch (er) {}
     paint();
   });
-  body.addEventListener('click', e => {
-    const b = e.target.closest('[data-dt],[data-ds],[data-dc]'); if (!b) return;
+  body.addEventListener('click', async e => {
+    const b = e.target.closest('[data-dt],[data-ds],[data-dc],[data-at],[data-al]'); if (!b) return;
+    if (b.dataset.at) { ALU.tab = b.dataset.at; paintAlumni(); return; }
+    if (b.dataset.al) { alumniClick(b); return; }
     if (b.dataset.dt) { DOS.tab = b.dataset.dt; paintDos(); }
     else if (b.dataset.ds === 'more') loadStudents(false);
     else if (b.dataset.ds === 'export') exportStudents(b);
@@ -184,6 +319,38 @@
     else if (b.dataset.dc === 'print') window.print();
     else if (b.dataset.dc === 'export') exportClubs(b);
   });
+  async function alumniClick(b) {
+    const act = b.dataset.al, i = Number(b.dataset.i), a = ALU.rows[i], p = ALU.pending[i];
+    const first = n => String(n || '').trim().split(/\s+/)[0] || '';
+    const open = url => { if (url) window.open(url, '_blank', 'noopener'); };
+    if (act === 'clear') { ALU.f = {}; paintRecords(); }
+    else if (act === 'more') loadRecords(false);
+    else if (act === 'export') exportRecords(b);
+    else if (act === 'bcc' || act === 'mail') {
+      const list = await bccList(b); if (!list) return;
+      if (!list.length) { showToast('Nobody matching the filters has an email address.'); return; }
+      const url = mailto('', ALU.subject, ALU.msg, list.join(','));
+      if (act === 'mail' && url.length <= 1900) { location.href = url; return; }
+      const ok = await copy(list.join(', '));
+      showToast(ok ? `📋 ${list.length} ${plural(list.length, 'email', 'emails')} copied${act === 'mail' ? ' (too many for an email link)' : ''}. Paste them into the BCC box of a new email.` : 'Could not copy the list.', 5000);
+    }
+    else if (act === 'wa' && a) open(waHref(a.phone, ALU.msg || `Hello ${first(a.full_name)},`));
+    else if (act === 'em' && a) location.href = mailto(a.email, ALU.subject, ALU.msg);
+    else if (act === 'pend-wa' && p) open(waHref(p.whatsapp, reminder(p.name)));
+    else if (act === 'pend-em' && p) location.href = mailto(p.email, 'Your GLUK alumni registration form', reminder(p.name));
+    else if (act === 'pend-bcc') {
+      const list = [...new Set(ALU.pending.map(x => String(x.email || '').trim().toLowerCase()).filter(okEmail))];
+      if (!list.length) { showToast('Nobody in this list has an email address.'); return; }
+      showToast(await copy(list.join(', ')) ? `📋 ${list.length} ${plural(list.length, 'email', 'emails')} copied. Paste them into BCC, with the form’s link: ${formLink()}` : 'Could not copy the list.', 6000);
+    }
+    else if (act === 'remove') {
+      if (!confirm(`Remove the alumni record of ${b.dataset.name}? It cannot be undone.`)) return;
+      b.disabled = true;
+      try { await window.gApi('alumni.remove', { id: Number(b.dataset.id) }); showToast('🗑 Removed'); paintWithdrawals(); }
+      catch (er) { showToast('❌ ' + ((er && er.message) || 'Could not remove it.'), 3500); b.disabled = false; }
+    }
+  }
+  const ALU_FILTER = { alYear: 'graduation_year', alProg: 'programme', alPlace: 'residence', alWork: 'employment_status' };
   const FILTER = { dsDept: 'dept', dsCourse: 'course', dsYear: 'classyear', dsCounty: 'county', dsClub: 'club' };
   body.addEventListener('change', e => {
     const t = e.target;
@@ -192,11 +359,20 @@
       if (t.id === 'dsDept') delete DOS.f.course;              // the programmes follow the school
       paintStudents();
     } else if (t.id === 'dcYear') { DOS.year = Number(t.value); paintClubs(); }
+    else if (ALU_FILTER[t.id]) { if (t.value) ALU.f[ALU_FILTER[t.id]] = t.value; else delete ALU.f[ALU_FILTER[t.id]]; paintRecords(); }
+    else if (t.id === 'alPendYear') { ALU.year = Number(t.value); paintPending(); }
   });
   body.addEventListener('input', e => {
-    if (e.target.id !== 'dsQ') return;
+    const t = e.target;
+    if (t.id === 'alSubj') ALU.subject = t.value;
+    else if (t.id === 'alMsg') ALU.msg = t.value;
+    if (t.id !== 'dsQ' && t.id !== 'alQ') return;
     clearTimeout(_typing);
-    _typing = setTimeout(() => { const q = e.target.value.trim(); if (q) DOS.f.q = q; else delete DOS.f.q; loadStudents(true); }, 350);
+    _typing = setTimeout(() => {
+      const q = t.value.trim(), f = t.id === 'dsQ' ? DOS.f : ALU.f;
+      if (q) f.q = q; else delete f.q;
+      if (t.id === 'dsQ') loadStudents(true); else loadRecords(true);
+    }, 350);
   });
 
   auth.onAuthStateChanged(async u => {

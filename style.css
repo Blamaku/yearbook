@@ -1946,7 +1946,7 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 .del-acts .btn-secondary { width: auto; }
 .ghost-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 10px 16px 0; padding: 12px 14px;
   border-radius: var(--radius-md); background: var(--gold-pale); border: 1px solid #e8c766; color: #6b5200; font-size: .84rem; line-height: 1.5; }
-.ghost-banner button { padding: 8px 14px; border: 0; border-radius: var(--radius-full); background: var(--blue); color: #fff; font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer; }
+.ghost-banner button, .ghost-banner a { text-decoration: none; padding: 8px 14px; border: 0; border-radius: var(--radius-full); background: var(--blue); color: #fff; font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer; }
 
 /* Privacy questions and answers (about.html#privacy) */
 .ab-sec[id] { scroll-margin-top: 64px; }                 /* a link to #privacy or #anthem lands below the top bar */
@@ -2967,3 +2967,37 @@ html.grad-day .hm-hero h1::after { content: ' 🎓'; }
   .of-print-title { display: block; margin: 0 0 10px; font-size: 1.2rem; }
   .of-club, .of-box, .of-tile { border-color: #ccc; background: #fff; }
 }
+
+/* ══ The alumni registration form (alumni-form.html) and the alumni office (office.js) ══ */
+.af-intro { margin: 0 0 12px; font-size: .86rem; line-height: 1.65; color: var(--gray-600); }
+.af-note { margin: 0 0 12px; font-size: .78rem; line-height: 1.5; color: var(--gray-600); }
+.af-sec { min-width: 0; margin: 0 0 14px; padding: 12px 16px 4px; border: 1px solid var(--gray-100); border-radius: var(--radius-lg); background: var(--surface); }
+.af-sec legend { padding: 0 6px; font-size: .74rem; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; color: var(--blue); }
+.af-sec h2 { margin: 4px 0 8px; font-size: .95rem; font-weight: 900; color: var(--gray-800); }
+.af-consent p { margin: 0 0 10px; font-size: .8rem; line-height: 1.6; color: var(--gray-600); }
+.af-consent a { color: var(--blue); }
+.af-opt { font-weight: 400; color: var(--gray-400); }
+.af [hidden] { display: none !important; }
+.af-pair { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 6px; }
+.af-hint { margin: 0 0 6px; font-size: .8rem; font-style: italic; color: var(--gray-600); }
+.af-tick { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; font-size: .86rem; line-height: 1.5; color: var(--gray-800); cursor: pointer; }
+.af-tick input { width: 18px; height: 18px; margin: 1px 0 0; flex-shrink: 0; accent-color: var(--blue); }
+.af-decl { font-size: .82rem; }
+.af-date { padding: 11px 0; font-size: .9rem; font-weight: 700; color: var(--gray-800); }
+.af-err { margin: 0 0 12px; padding: 10px 14px; border-radius: var(--radius-md); background: #fef2f2; color: #b91c1c; font-size: .82rem; line-height: 1.5; }
+.af-acts { display: flex; gap: 10px; flex-wrap: wrap; }
+.af-acts .btn-primary, .af-acts .btn-secondary { flex: 1; margin: 0; }
+.af-done .af-acts { justify-content: center; }
+.af-sum { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; max-width: 460px; margin: 12px auto 16px; text-align: left; font-size: .84rem; }
+.af-sum dt { font-weight: 800; color: var(--gray-400); }
+.af-sum dd { margin: 0; color: var(--gray-800); overflow-wrap: anywhere; }
+.af-wd { margin-top: 14px; }
+.af-wd textarea { margin: 8px 0; }
+.gw-link { text-decoration: none; color: inherit; }
+.of-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.of-btn.sm { padding: 5px 10px; font-size: .72rem; }
+.of-row-main > .of-tag { align-self: flex-start; }
+.of-contact summary { cursor: pointer; }
+.of-contact .form-input { margin-top: 8px; }
+[data-theme="dark"] .af-err { background: #3b1212; color: #fca5a5; }
+@media (max-width: 380px) { .af .form-row { grid-template-columns: 1fr; gap: 0; } }

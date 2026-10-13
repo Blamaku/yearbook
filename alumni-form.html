@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="The GLUK alumni registration form, part of the graduation clearance process.">
+  <title>Alumni registration form — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="alumni">
+
+  <div class="user-bar" id="userBar"></div>
+
+  <!-- The Directorate of External Affairs' alumni registration form, online (alumni-form.js; api alumni.mine, alumni.save, alumni.withdraw).
+       Only the student, the alumni office and the super admin ever read what is sent. -->
+  <main class="of-main af">
+    <header class="of-hero">
+      <a class="ab-back" href="grad.html">‹ Graduation week</a>
+      <h1>Alumni registration form</h1>
+      <p>To be completed as part of the graduation clearance process · Directorate of External Affairs</p>
+    </header>
+
+    <section id="afGate" class="of-card"><p>Loading…</p></section>
+    <section id="afDone" hidden></section>
+
+    <form id="afForm" novalidate hidden>
+      <p class="af-intro">Congratulations on completing your studies at Great Lakes University of Kisumu (GLUK). As you complete your graduation clearance, kindly fill in this form to join the GLUK Alumni Association. Your details will be used solely for alumni engagement, mentorship, networking, and communication regarding University activities.</p>
+      <p class="af-note" id="afPre" hidden>✨ We filled in what your yearbook profile already says. Check it, then fill in the rest.</p>
+
+      <fieldset class="af-sec">
+        <legend>Section A: Personal details</legend>
+        <div class="form-group"><label class="form-label" for="af-full_name">Full name</label><input class="form-input" id="af-full_name" name="full_name" required maxlength="120" autocomplete="name"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" for="af-reg">Registration number</label><input class="form-input" id="af-reg" name="reg" required maxlength="60" placeholder="e.g. B11/GLUK/S133K/2022"></div>
+          <div class="form-group"><label class="form-label" for="af-national_id">National ID / Passport No.</label><input class="form-input" id="af-national_id" name="national_id" required maxlength="20" pattern="[A-Za-z0-9][A-Za-z0-9 \-]{3,19}"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" for="af-gender">Gender</label><select class="form-select" id="af-gender" name="gender" required><option value="">Choose…</option><option>Female</option><option>Male</option></select></div>
+          <div class="form-group"><label class="form-label" for="af-dob">Date of birth</label><input class="form-input" type="date" id="af-dob" name="dob" required></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" for="af-phone">Mobile phone number</label><input class="form-input" type="tel" id="af-phone" name="phone" required maxlength="30" autocomplete="tel" placeholder="+2547…"></div>
+          <div class="form-group"><label class="form-label" for="af-email">Personal email address</label><input class="form-input" type="email" id="af-email" name="email" required maxlength="120" autocomplete="email"></div>
+        </div>
+        <div class="form-group"><label class="form-label" for="af-postal_address">Postal address <span class="af-opt">(if you have one)</span></label><input class="form-input" id="af-postal_address" name="postal_address" maxlength="120" placeholder="e.g. P.O. Box 2224 – 40100, Kisumu"></div>
+        <div class="form-group"><label class="form-label" for="af-residence">County / country of residence</label><select class="form-select" id="af-residence" name="residence" required></select></div>
+      </fieldset>
+
+      <fieldset class="af-sec">
+        <legend>Section B: Academic details</legend>
+        <div class="form-group"><label class="form-label" for="af-school">School / faculty</label><select class="form-select" id="af-school" name="school" required></select></div>
+        <div class="form-group"><label class="form-label" for="af-programme">Programme of study</label><select class="form-select" id="af-programme" name="programme" required></select></div>
+        <div class="form-group"><label class="form-label" for="af-specialization">Specialization / option <span class="af-opt">(if any)</span></label><input class="form-input" id="af-specialization" name="specialization" maxlength="120"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" for="af-admission_intake">Year of admission</label>
+            <div class="af-pair"><select class="form-select" id="af-admission_intake" name="admission_intake" required aria-label="Intake"><option value="">Intake…</option><option>January</option><option>May</option><option>September</option></select>
+              <select class="form-select" id="af-admission_year" name="admission_year" required aria-label="Year of admission"></select></div></div>
+          <div class="form-group"><label class="form-label" for="af-graduation_year">Year of graduation</label><select class="form-select" id="af-graduation_year" name="graduation_year" required></select></div>
+        </div>
+        <div class="form-group"><label class="form-label" for="af-study_mode">Mode of study</label><select class="form-select" id="af-study_mode" name="study_mode" required><option value="">Choose…</option><option>Full-time</option><option>Part-time</option></select></div>
+      </fieldset>
+
+      <fieldset class="af-sec">
+        <legend>Section C: Employment / current engagement</legend>
+        <div class="form-group"><label class="form-label" for="af-employment_status">Current employment status</label><select class="form-select" id="af-employment_status" name="employment_status" required>
+          <option value="">Choose…</option><option>Employed</option><option>Self-employed</option><option>Unemployed</option><option>Further studies</option><option>Internship</option></select></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" for="af-employer">Organization / employer name</label><input class="form-input" id="af-employer" name="employer" maxlength="120"></div>
+          <div class="form-group"><label class="form-label" for="af-job_title">Job title / position</label><input class="form-input" id="af-job_title" name="job_title" maxlength="120"></div>
+        </div>
+        <div class="form-group"><label class="form-label" for="af-work_location">Work location</label><input class="form-input" id="af-work_location" name="work_location" maxlength="120"></div>
+        <div class="form-group"><label class="form-label" for="af-further_studies">Further studies pursued <span class="af-opt">(if any)</span></label><input class="form-input" id="af-further_studies" name="further_studies" maxlength="200"></div>
+      </fieldset>
+
+      <fieldset class="af-sec">
+        <legend>Section D: Alumni engagement preferences</legend>
+        <p class="af-hint">Please tick (✓) areas you would be willing to participate in as a GLUK alumnus/alumna:</p>
+        <label class="af-tick"><input type="checkbox" name="interests" value="mentorship"> Mentorship of current students</label>
+        <label class="af-tick"><input type="checkbox" name="interests" value="lectures"> Guest lectures / talks</label>
+        <label class="af-tick"><input type="checkbox" name="interests" value="internships"> Internship / job placement support</label>
+        <label class="af-tick"><input type="checkbox" name="interests" value="events"> Alumni events and reunions</label>
+        <label class="af-tick"><input type="checkbox" name="interests" value="fundraising"> Fundraising / resource mobilization</label>
+        <label class="af-tick"><input type="checkbox" name="interests" value="other"> Other (please specify below)</label>
+        <div class="form-group" id="afOtherBox" hidden><label class="form-label" for="af-interest_other">Other, specify</label><input class="form-input" id="af-interest_other" name="interest_other" maxlength="120"></div>
+      </fieldset>
+
+      <section class="af-sec af-consent" aria-labelledby="afConsentT">
+        <h2 id="afConsentT">🔐 Your information and your rights</h2>
+        <p><b>What it is for:</b> alumni engagement, mentorship, networking and communication about University activities, as the form says. It is never sold or used for advertising.</p>
+        <p><b>Who sees it:</b> only GLUK's Directorate of External Affairs and the yearbook's super admin. Other students never see it, and nothing from it appears on the yearbook's pages. Everything the office opens or exports is recorded in an audit log.</p>
+        <p><b>Your rights</b> (Kenya Data Protection Act, 2019): you can see your record here at any time and correct it yourself, and you can ask for it to be removed with <b>Withdraw my alumni record</b>. Deleting your yearbook profile does not delete this record: it is kept separately, because you agreed to it separately. Questions: <a href="mailto:bandadevelopers2026@gmail.com">bandadevelopers2026@gmail.com</a>.</p>
+      </section>
+
+      <fieldset class="af-sec">
+        <legend>Declaration</legend>
+        <label class="af-tick af-decl"><input type="checkbox" id="afAgree" required> I confirm that the information provided above is accurate to the best of my knowledge, and I consent to GLUK's Directorate of External Affairs holding and using this information for alumni engagement purposes in line with the University's data protection policy.</label>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label" for="afSign">Signature: type your full name</label><input class="form-input" id="afSign" required maxlength="120" autocomplete="off"></div>
+          <div class="form-group"><span class="form-label">Date</span><div class="af-date" id="afDate"></div></div>
+        </div>
+      </fieldset>
+
+      <p class="af-note" id="afDraft">💾 What you type is kept on this device until you send the form.</p>
+      <p class="af-err" id="afErr" role="alert" hidden></p>
+      <div class="af-acts"><button type="button" class="btn-secondary" id="afCancel" hidden>Cancel</button><button type="submit" class="btn-primary" id="afSend">Send my alumni form</button></div>
+    </form>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="alumni-form.js"></script>
+</body>
+</html>

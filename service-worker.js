@@ -1,6 +1,6 @@
 // =====================================================
 //  GLUK YEARBOOK 2026 — SERVICE WORKER
-//  Cache: gluk-v76  (bump this string on every deploy)
+//  Cache: gluk-v77  (bump this string on every deploy)
 //
 //  • Pages, scripts and styles: NETWORK-FIRST. When you are online you always get
 //    the newest version; the saved copy is only used when you are offline.
@@ -9,7 +9,7 @@
 //  • Phone notifications: shows pushes from the "api" function and keeps the
 //    number on the app icon (the page corrects it whenever the app is open).
 // =====================================================
-const CACHE = 'gluk-v76';
+const CACHE = 'gluk-v77';
 const STATE = 'gluk-state';          // tiny saved values (the app-icon number); kept across updates
 
 // App-shell files saved for offline use
@@ -26,6 +26,8 @@ const SHELL = [
   '/about.html',
   '/office.html',
   '/office.js',
+  '/alumni-form.html',
+  '/alumni-form.js',
   '/constitution.html',
   '/handbook.html',
   '/letters.html',

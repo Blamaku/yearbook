@@ -758,6 +758,74 @@ function dosQuery(q, f) {
 // The trimester of a date: 1 = January–April, 2 = May–August, 3 = September–December (GLUK's three intakes)
 const trimester = d => { const m = Number(String(d).slice(5, 7)); return m <= 4 ? 1 : m <= 8 ? 2 : 3; };
 
+// ── The alumni registration form (since 2026-11-02): the Directorate of External Affairs' paper form, online ──
+// One record per account, private: the student who sent it, admins with the alumni permission and the super admin read it.
+// Deleting a yearbook profile leaves it (purge_ghost never touches it): the student asks the office to remove it instead.
+const ALUMNI_GENDERS = ['Female', 'Male'];
+const ALUMNI_INTAKES = ['January', 'May', 'September'];                // GLUK's three intakes (the J, M or S in a reg number)
+const ALUMNI_MODES = ['Full-time', 'Part-time'];
+const ALUMNI_WORK = ['Employed', 'Self-employed', 'Unemployed', 'Further studies', 'Internship'];
+const ALUMNI_INTERESTS = ['mentorship', 'lectures', 'internships', 'events', 'fundraising', 'other'];   // Section D, in the form's order
+const ALUMNI_COLS = 'id,profile_id,full_name,reg,national_id,gender,dob,phone,email,postal_address,residence,school,programme,specialization,'
+  + 'admission_intake,admission_year,graduation_year,study_mode,employment_status,employer,job_title,work_location,further_studies,interests,interest_other,'
+  + 'signature_name,signed_at,submitted_at,updated_at,withdraw_requested_at,withdraw_reason';
+const alumniDbError = e => missingTable(e)
+  ? new ApiError(503, 'alumni_coming', 'The alumni form is being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+const sameName = (a, b) => lower(a).replace(/\s+/g, ' ') === lower(b).replace(/\s+/g, ' ');
+// The intake and year of admission in a GLUK reg number: B11/GLUK/S133K/2022 is the September 2022 intake
+function intakeFromReg(reg) {
+  const m = /\/([JMS])\d+[A-Z]*\/((?:19|20)\d{2})\s*$/i.exec(String(reg || ''));
+  return m ? { intake: { J: 'January', M: 'May', S: 'September' }[m[1].toUpperCase()], year: Number(m[2]) } : null;
+}
+// The form's fields, checked like the paper form: everything in Sections A and B except the postal address and the
+// specialization, and the employment status in Section C
+function alumniFields(ctx, p) {
+  const year = new Date(ctx.now()).getUTCFullYear();
+  const pick = (v, list, label) => { const x = txt(v == null ? '' : String(v), 40, label, { required: true }); if (!list.includes(x)) throw bad(`Choose the ${label.toLowerCase()} from the list.`); return x; };
+  const dob = txt(p.dob, 10, 'Date of birth', { required: true }), d = /^\d{4}-\d{2}-\d{2}$/.test(dob) ? new Date(dob + 'T12:00:00Z') : null;
+  if (!d || isNaN(d) || d.toISOString().slice(0, 10) !== dob) throw bad('Date of birth is not a real date.');
+  const age = (ctx.now() - d.getTime()) / (365.25 * 864e5);
+  if (age < 15 || age > 90) throw bad('Check the year of your date of birth.');
+  const nid = txt(p.national_id, 20, 'National ID / Passport No.', { required: true });
+  if (!/^[A-Za-z0-9][A-Za-z0-9 -]{3,19}$/.test(nid)) throw bad('National ID / Passport No. should be letters and numbers.');
+  const phone = phoneOrBlank(p.phone, 'Mobile phone number'), email = emailOrBlank(p.email, 'Personal email address');
+  if (!phone) throw bad('Mobile phone number is required.');
+  if (!email) throw bad('Personal email address is required.');
+  const adm = Number(p.admission_year), grad = Number(p.graduation_year);
+  if (!Number.isInteger(adm) || adm < 1990 || adm > year) throw bad('Choose your year of admission.');
+  if (!Number.isInteger(grad) || grad < adm || grad > year + 6) throw bad('Your year of graduation must be in or after your year of admission.');
+  const interests = strList(p.interests, 6, 20, 'Areas of interest');
+  if (interests.some(x => !ALUMNI_INTERESTS.includes(x))) throw bad('Unknown area of interest.');
+  const other = txt(p.interest_other, 120, 'Other area of interest');
+  if (interests.includes('other') && !other) throw bad('Say what the other area of interest is.');
+  return {
+    full_name: txt(p.full_name, 120, 'Full name', { required: true }), reg: txt(p.reg, 60, 'Registration number', { required: true }),
+    national_id: nid, gender: pick(p.gender, ALUMNI_GENDERS, 'Gender'), dob, phone, email,
+    postal_address: txt(p.postal_address, 120, 'Postal address') || null,
+    residence: txt(p.residence, 60, 'County / country of residence', { required: true }),
+    school: txt(p.school, 120, 'School / faculty', { required: true }), programme: txt(p.programme, 200, 'Programme of study', { required: true }),
+    specialization: txt(p.specialization, 120, 'Specialization / option') || null,
+    admission_intake: pick(p.admission_intake, ALUMNI_INTAKES, 'Intake'), admission_year: adm, graduation_year: grad,
+    study_mode: pick(p.study_mode, ALUMNI_MODES, 'Mode of study'),
+    employment_status: pick(p.employment_status, ALUMNI_WORK, 'Current employment status'),
+    employer: txt(p.employer, 120, 'Organization / employer name') || null, job_title: txt(p.job_title, 120, 'Job title / position') || null,
+    work_location: txt(p.work_location, 120, 'Work location') || null, further_studies: txt(p.further_studies, 200, 'Further studies pursued') || null,
+    interests: ALUMNI_INTERESTS.filter(x => interests.includes(x)), interest_other: interests.includes('other') ? other : null,
+  };
+}
+// One page of a list (100 rows from `from`), or all `total` rows, 1,000 per request (the Supabase API's cap)
+async function listRows(build, from, total, all, fail) {
+  const rows = [], end = all ? total : Math.min(total, from + 100);
+  for (let a = from; a < end; a += 1000) {
+    const r = await build().range(a, Math.min(a + 999, end - 1));
+    if (r.error) throw fail(r.error);
+    rows.push(...(r.data || []));
+    if ((r.data || []).length < 1000) break;
+  }
+  return rows;
+}
+
 // ── Who's who? leaderboard (since 2026-10-13) ──────────────────────────
 const kyuDbError = e => missingTable(e)
   ? new ApiError(503, 'kyu_coming', 'The leaderboard is being switched on. Please try again later.')
@@ -2648,6 +2716,114 @@ const ACTIONS = {
     return { year, firstYear: f ? Number(String(f.post_date).slice(0, 4)) : thisYear, posts: rows, members,
       officials: (officers.data || []).map(o => ({ club: o.club_name, name: o.officer_name || '', email: o.officer_email || '', role: o.role || '' })),
       info: info.error ? [] : (info.data || []).map(i => ({ club: i.club_name, about: i.about || '', days: i.meeting_days || '', place: i.meeting_place || '', email: i.contact_email || '', whatsapp: i.contact_whatsapp || '' })) };
+  },
+
+  // ── the alumni registration form (alumni-form.html) ──
+  // Your record if you sent one, what your yearbook profile fills in, and whether you are asked to fill it (the graduating class)
+  async 'alumni.mine'(ctx) {
+    const [r, p] = await Promise.all([
+      ctx.db.from('alumni_records').select(ALUMNI_COLS).eq('uid', ctx.user.uid).limit(1),
+      ctx.db.from('profiles').select('id,name,reg,email,whatsapp,dept,course,classyear,county,country,currentcounty').eq('uid', ctx.user.uid).limit(1),
+    ]);
+    if (r.error) throw alumniDbError(r.error);
+    const record = (r.data && r.data[0]) || null, prof = !p.error && p.data && p.data[0], intake = prof ? intakeFromReg(prof.reg) : null;
+    const prefill = prof ? { full_name: prof.name || '', reg: prof.reg || '', email: prof.email || '', phone: prof.whatsapp || '', school: prof.dept || '',
+      programme: prof.course || '', graduation_year: Number(prof.classyear) || null,
+      residence: prof.country && prof.country !== 'Kenya' ? prof.country : prof.currentcounty || prof.county || '',
+      admission_intake: intake ? intake.intake : '', admission_year: intake ? intake.year : null } : {};
+    return { record, prefill, profileId: prof ? prof.id : null, due: !record && !!prof && String(prof.classyear || '') === ctx.config.lettersClass };
+  },
+
+  // Send the form, or change what you sent ({ record, agree, signature }): signing is ticking the declaration and typing your full name
+  async 'alumni.save'(ctx, body) {
+    if (!isObj(body.record)) throw bad('Missing form.');
+    const rec = alumniFields(ctx, body.record);
+    if (body.agree !== true) throw bad('Tick the declaration to sign the form.');
+    const sig = txt(body.signature, 120, 'Signature', { required: true });
+    if (!sameName(sig, rec.full_name)) throw bad('To sign, type your full name exactly as in Section A.');
+    const at = new Date(ctx.now()).toISOString();
+    const [old, p] = await Promise.all([ctx.db.from('alumni_records').select('id').eq('uid', ctx.user.uid).limit(1),
+      ctx.db.from('profiles').select('id').eq('uid', ctx.user.uid).limit(1)]);
+    if (old.error) throw alumniDbError(old.error);
+    const was = old.data && old.data[0];
+    const row = { ...rec, profile_id: (!p.error && p.data && p.data[0] && p.data[0].id) || null, signature_name: sig, signed_at: at, updated_at: at };
+    const w = was ? await ctx.db.from('alumni_records').update(row).eq('id', was.id)
+      : await ctx.db.from('alumni_records').insert({ ...row, uid: ctx.user.uid, submitted_at: at });
+    if (w.error) throw alumniDbError(w.error);
+    const r = await ctx.db.from('alumni_records').select(ALUMNI_COLS).eq('uid', ctx.user.uid).limit(1);
+    return { record: (r.data && r.data[0]) || null };
+  },
+
+  // Ask the Directorate of External Affairs to remove your record ({ reason? }), or take the request back ({ cancel: true })
+  async 'alumni.withdraw'(ctx, body) {
+    const r = await ctx.db.from('alumni_records').select('id').eq('uid', ctx.user.uid).limit(1);
+    if (r.error) throw alumniDbError(r.error);
+    if (!r.data || !r.data[0]) throw notFound('You have not sent an alumni form.');
+    const patch = body.cancel === true ? { withdraw_requested_at: null, withdraw_reason: null }
+      : { withdraw_requested_at: new Date(ctx.now()).toISOString(), withdraw_reason: txt(body.reason, 300, 'Reason') || null };
+    const up = await ctx.db.from('alumni_records').update(patch).eq('id', r.data[0].id);
+    if (up.error) throw alumniDbError(up.error);
+    return patch;
+  },
+
+  // ── the Directorate of External Affairs (office.html) ──
+  // The alumni records, 100 at a time, A to Z ({ graduation_year?, programme?, residence?, employment_status?, q?, withdrawals?, from? }).
+  // { ...filters, export: true } gives every match (the CSV); purpose 'contact' marks it as the email list. Each is in the audit log first.
+  async 'alumni.list'(ctx, body) {
+    await requirePerm(ctx, 'alumni');
+    const f = {};
+    for (const [k, max] of [['programme', 200], ['residence', 60], ['employment_status', 40], ['q', 60]]) { const v = txt(body[k], max, 'Filter'); if (v) f[k] = v; }
+    if (body.graduation_year) { f.graduation_year = Number(body.graduation_year); if (!Number.isInteger(f.graduation_year) || f.graduation_year < 1990 || f.graduation_year > 2100) throw bad('Choose the year of graduation.'); }
+    if (f.q) { f.q = f.q.replace(/[%_*\\"(),]/g, ' ').replace(/\s+/g, ' ').trim(); if (!f.q) delete f.q; }       // searched as plain text
+    if (body.withdrawals === true) f.withdrawals = true;
+    const where = q => {
+      for (const k of ['programme', 'residence', 'employment_status', 'graduation_year']) if (f[k] != null) q = q.eq(k, f[k]);
+      if (f.withdrawals) q = q.not('withdraw_requested_at', 'is', null);
+      return f.q ? q.or(`full_name.ilike."%${f.q}%",reg.ilike."%${f.q}%",employer.ilike."%${f.q}%",job_title.ilike."%${f.q}%"`) : q;
+    };
+    const all = body.export === true, from = all ? 0 : Math.max(0, Math.min(50000, Number(body.from) || 0));
+    const [n, w] = await Promise.all([where(ctx.db.from('alumni_records').select('id', { count: 'exact', head: true })),
+      ctx.db.from('alumni_records').select('id', { count: 'exact', head: true }).not('withdraw_requested_at', 'is', null)]);
+    if (n.error) throw alumniDbError(n.error);
+    const total = n.count || 0;
+    await audit(ctx, 'alumni', all ? (body.purpose === 'contact' ? 'alumni_contact_list' : 'alumni_exported') : 'alumni_viewed',
+      { filters: f, rows: all ? total : Math.max(0, Math.min(100, total - from)), from });
+    const rows = await listRows(() => where(ctx.db.from('alumni_records').select(ALUMNI_COLS)).order('full_name', { ascending: true }).order('id', { ascending: true }),
+      from, total, all, alumniDbError);
+    return { rows, total, more: !all && from + rows.length < total, withdrawals: w.error ? 0 : (w.count || 0) };
+  },
+
+  // The yearbook profiles of one class that have not sent the form yet ({ classyear }), with their contacts, so the office can remind them
+  async 'alumni.pending'(ctx, body) {
+    await requirePerm(ctx, 'alumni');
+    const year = classYear(body.classyear), people = [];
+    for (let a = 0; a < 50000; a += 1000) {
+      const r = await ctx.db.from('profiles').select('id,uid,name,course,whatsapp,email,photo_url,isanonymous').eq('classyear', year)
+        .order('name', { ascending: true }).order('id', { ascending: true }).range(a, a + 999);
+      if (r.error) throw new ApiError(500, 'db', 'Could not load the class.');
+      people.push(...(r.data || []));
+      if ((r.data || []).length < 1000) break;
+    }
+    const done = new Set();
+    for (let i = 0; i < people.length; i += 200) {
+      const r = await ctx.db.from('alumni_records').select('uid').in('uid', people.slice(i, i + 200).map(x => x.uid));
+      if (r.error) throw alumniDbError(r.error);
+      (r.data || []).forEach(x => done.add(x.uid));
+    }
+    const rows = people.filter(x => !done.has(x.uid)).map(({ uid, ...x }) => x);
+    await audit(ctx, 'alumni', 'alumni_pending_viewed', { classyear: year, rows: rows.length });
+    return { classyear: year, total: people.length, filled: people.length - rows.length, rows };
+  },
+
+  // Remove a record whose owner asked to withdraw it ({ id }). Written in the audit log first.
+  async 'alumni.remove'(ctx, body) {
+    await requirePerm(ctx, 'alumni');
+    const row = await getRow(ctx, 'alumni_records', body.id);
+    if (!row.withdraw_requested_at) throw conflict('Only a record whose owner asked to withdraw it can be removed.', 'not_requested');
+    await audit(ctx, 'alumni', 'alumni_removed', { name: snip(row.full_name, 80), reg: row.reg, graduation_year: row.graduation_year });
+    const del = await ctx.db.from('alumni_records').delete().eq('id', row.id);
+    if (del.error) throw alumniDbError(del.error);
+    return {};
   },
 
   async 'admin.officer.add'(ctx, body) {
