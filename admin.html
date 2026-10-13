@@ -258,7 +258,7 @@
 
     <!-- ── Moderation ── -->
     <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button><button type="button" id="seg-mgd" data-act="mod-tab" data-v="graddays">Grad days</button><button type="button" id="seg-mwl" data-act="mod-tab" data-v="wall">Class wall</button></div>
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button><button type="button" id="seg-mgd" data-act="mod-tab" data-v="graddays">Grad days</button><button type="button" id="seg-mwl" data-act="mod-tab" data-v="wall">Class wall</button><button type="button" id="seg-mnw" data-act="mod-tab" data-v="news">What's new</button></div>
       <div id="mod-comments"><div id="cList"></div></div>
       <div id="mod-posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
@@ -269,6 +269,17 @@
       <div id="mod-letters" style="display:none"><div id="ltList"></div></div>
       <div id="mod-glow" style="display:none"><div id="guList"></div></div>
       <div id="mod-wall" style="display:none"><div id="wlList"></div></div>
+      <div id="mod-news" style="display:none">
+        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Tell everyone about an app update and why it is exciting. It shows in everyone's Alerts, and (if ticked) every phone with notifications on gets it.</div>
+        <div class="a-item" style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:8px"><input id="nwEmoji" class="form-input" maxlength="8" value="✨" style="width:64px;text-align:center"><input id="nwTitle" class="form-input" maxlength="120" placeholder="Title, e.g. Graduation week is here 🎓"></div>
+          <textarea id="nwBody" class="form-input" rows="3" maxlength="600" placeholder="What is new and why it is exciting"></textarea>
+          <input id="nwUrl" class="form-input" maxlength="300" placeholder="Link inside the yearbook (optional), e.g. /grad.html">
+          <label class="a-sub" style="display:flex;gap:8px;align-items:center;white-space:normal"><input type="checkbox" id="nwPush" checked> Also send a phone notification to everyone</label>
+          <button type="button" class="a-mini" data-act="nw-save" style="align-self:flex-start">Post it</button>
+        </div>
+        <div id="nwList"></div>
+      </div>
       <div id="mod-graddays" style="display:none">
         <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Each class's graduation day. Students' time capsules open at 00:00 (Kisumu) on their class's day; students with sealed notes get a phone notification when you post it.</div>
         <div class="a-item" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -972,6 +983,8 @@
       $('seg-mgd').classList.toggle('on', M.tab === 'graddays');
       $('mod-wall').style.display = M.tab === 'wall' ? 'block' : 'none';
       $('seg-mwl').classList.toggle('on', M.tab === 'wall');
+      $('mod-news').style.display = M.tab === 'news' ? 'block' : 'none';
+      $('seg-mnw').classList.toggle('on', M.tab === 'news');
       $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
       $('seg-ms').classList.toggle('on', M.tab === 'staff'); $('seg-ml').classList.toggle('on', M.tab === 'letters');
       if (M.tab === 'comments' && !M.loadedC) loadComments();
@@ -983,6 +996,7 @@
       if (M.tab === 'glow') loadGlow();
       if (M.tab === 'graddays') loadGradDays();
       if (M.tab === 'wall') loadWall();
+      if (M.tab === 'news') loadNews();
     }
 
     /* ══ Letters: the class wall and anything someone reported. Private letters nobody reported never come here. ══ */
@@ -1063,6 +1077,31 @@
         const g = GU.rows.find(x => Number(x.profile_id) === id); if (g) { g.hidden = hidden; g.reported = false; }
         renderGlow(); toast(hidden ? 'Hidden from the gallery' : 'Done ✅');
       } catch (e) { console.error('[glow review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
+    }
+
+    /* ══ What's new: announcements of app updates (Alerts for everyone, and a phone push) ══ */
+    async function loadNews() {
+      $('nwList').innerHTML = '<div class="a-empty">Loading…</div>';
+      let rows;
+      try { rows = (await window.gApi('admin.news.list', {})).rows || []; }
+      catch (e) { $('nwList').innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' || e.code === 'friends_coming' ? "What's new is not switched on yet." : e.message || 'Could not load.')}</div>`; return; }
+      $('nwList').innerHTML = rows.length ? rows.map(n => `<div class="a-item"><div class="a-item-top"><div class="grow">
+          <span class="a-name" style="display:inline">${E(n.emoji)} ${E(n.title)}</span>${n.hidden ? '<span class="a-badge">Hidden</span>' : ''}
+          ${n.body ? `<div class="a-text" style="white-space:pre-wrap">${E(n.body)}</div>` : ''}
+          <div class="a-sub">${n.url ? E(n.url) + ' · ' : ''}${E(ago(n.created_at))}</div></div></div>
+          <div class="a-item-acts"><button type="button" class="a-mini${n.hidden ? '' : ' danger'}" data-act="nw-hide" data-id="${Number(n.id)}" data-v="${n.hidden ? 0 : 1}">${n.hidden ? 'Show again' : 'Hide'}</button></div></div>`).join('')
+        : '<div class="a-empty">Nothing posted yet.</div>';
+    }
+    async function saveNews() {
+      const push = $('nwPush').checked;
+      if (push && !confirm('Post this and send a phone notification to everyone?')) return;
+      try {
+        await window.gApi('admin.news.save', { emoji: $('nwEmoji').value.trim(), title: $('nwTitle').value.trim(), body: $('nwBody').value.trim(), url: $('nwUrl').value.trim(), push });
+        toast(push ? 'Posted and sent 📣' : 'Posted ✅'); $('nwTitle').value = ''; $('nwBody').value = ''; $('nwUrl').value = ''; loadNews();
+      } catch (e) { toast('❌ ' + (e.message || 'Could not post it.')); }
+    }
+    async function hideNews(id, hidden) {
+      try { await window.gApi('admin.news.hide', { id, hidden }); loadNews(); } catch (e) { toast('❌ ' + (e.message || 'Could not update.')); }
     }
 
     /* ══ The class wall (graduation week days 3–6): every post, reported ones first ══ */
@@ -1893,6 +1932,8 @@ let _ocSearchT = null;
         case 'gu-review': reviewGlow(id, b.dataset.v === '1'); break;
         case 'gd-save': saveGradDay(); break;
         case 'wl-review': reviewWall(id, b.dataset.v === '1'); break;
+        case 'nw-save': saveNews(); break;
+        case 'nw-hide': hideNews(id, b.dataset.v === '1'); break;
         case 'gd-del': deleteGradDay(b.dataset.v); break;
         case 'sup-add':    supAdd(); break;
         case 'sup-rename': supRename(id); break;

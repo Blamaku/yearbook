@@ -52,6 +52,7 @@ const CONFIG = {
   lettersOpenAt: '2026-11-20T21:00:00Z',            // letters open on graduation day, Saturday 21 November 2026, 00:00 in Kisumu (also in letters.js and the SQL)
   lettersClass: '2026',                             // the graduating class letters are written to
   lettersPerPerson: 30,                             // at most this many new letters by one person per 24 hours
+  friendRequestsPerDay: 40,                         // friend requests one person may send per 24 hours
   capsulesPerPerson: 20,                            // time capsule notes one student may seal
   errorsPerMinute: 60,                              // app error reports kept per minute, from everyone together
   // The class wall (wall.html): each kind opens on its graduation-week day, 00:00 in Kisumu (also in wall.js and the SQL)
@@ -301,7 +302,8 @@ async function pushToUids(ctx, uids, payload) {
 }
 
 // A line in the developer diary (ops_events). Never lets a diary problem break the real work.
-const PUSH_WHAT = { c: 'comment', r: 'reply', p: 'club post', l: 'like', s: 'staff approved', t: 'letter', ld: 'leader approved', test: 'test' };
+const PUSH_WHAT = { c: 'comment', r: 'reply', p: 'club post', l: 'like', s: 'staff approved', t: 'letter', ld: 'leader approved', test: 'test',
+  fr: 'friend request', fa: 'friend accepted', fp: 'friend photos', fu: 'friend update', fl: 'friend likes', n: "what's new", wt: 'wall tag', gd: 'graduation day' };
 async function logEvent(ctx, kind, ok, details) {
   try { await ctx.db.from('ops_events').insert({ kind, ok, details, created_at: new Date(ctx.now()).toISOString() }); }
   catch (e) { /* the dashboard just misses one line */ }
@@ -563,6 +565,53 @@ async function wallRow(ctx, id) {
   return r.data[0];
 }
 
+// ── Friends (since 2026-10-27) ─────────────────────────────────────────
+// A request waits until the other person accepts; only friends hear about each other's new photos, profile
+// updates (once a day) and likes (once a day). Friendships are private: only the api reads friend_links.
+const friendDbError = e => missingTable(e)
+  ? new ApiError(503, 'friends_coming', 'Friends are being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not save that. Please try again.');
+const kisumuDay = ctx => new Date(ctx.now() + 3 * 3600e3).toISOString().slice(0, 10);
+const safeUid = u => /^[A-Za-z0-9_-]{1,128}$/.test(String(u || '')) ? String(u) : '';
+// What on a profile counts as "an update" for friends, and how it reads ("Ann updated her best memory")
+const FRIEND_FIELDS = [['bio', 'bio'], ['bestmemory', 'best memory'], ['biggestlesson', 'biggest lesson'], ['mostlikelyto', '"most likely to"'],
+  ['hobbies', 'hobbies'], ['whatareyouto', 'what they are up to'], ['clubs', 'clubs']];
+async function myLinks(ctx, uid) {
+  const r = await ctx.db.from('friend_links').select('*').or(`from_uid.eq.${safeUid(uid)},to_uid.eq.${safeUid(uid)}`).limit(3000);
+  if (r.error) throw friendDbError(r.error);
+  return r.data || [];
+}
+async function friendUids(ctx, uid) {
+  const links = await myLinks(ctx, uid);
+  return links.filter(l => l.status === 'accepted').map(l => l.from_uid === uid ? l.to_uid : l.from_uid);
+}
+// Tell someone's friends (in the background; a missing table or a push problem never breaks the real work)
+async function tellFriends(ctx, uid, key, payload) {
+  try {
+    const f = await friendUids(ctx, uid);
+    if (!f.length || await claimEvent(ctx, key) !== 'ok') return;
+    await pushToUids(ctx, f, payload);
+  } catch (e) { console.warn('[friends push]', e && e.message); }
+}
+// After a profile change: new photos (pushed every time) or an updated field (pushed at most once a day)
+async function friendNews(ctx, row, patch) {
+  if (row.isanonymous) return;
+  const had = new Set([...(Array.isArray(row.photos) ? row.photos : []), row.photo_url].filter(Boolean));
+  const fresh = new Set([...(patch.photos || []), patch.photo_url].filter(u => u && !had.has(u)));
+  const norm = v => JSON.stringify(v == null ? '' : v);
+  const changed = FRIEND_FIELDS.filter(([k]) => k in patch && (Array.isArray(patch[k]) ? patch[k].length : patch[k]) && norm(patch[k]) !== norm(row[k]));
+  const name = snip(row.name, 60), url = `/profile.html?id=${row.id}`, at = new Date(ctx.now()).toISOString();
+  if (fresh.size) {
+    await ctx.db.from('friend_events').insert({ uid: row.uid, profile_id: row.id, kind: 'photo', n: fresh.size, created_at: at });
+    await tellFriends(ctx, row.uid, `fp:${row.id}:${Math.floor(ctx.now() / 600000)}`, { title: `📸 ${name} added ${fresh.size === 1 ? 'a new photo' : fresh.size + ' new photos'}`,
+      body: 'Open the yearbook to see them.', url, tag: 'fp-' + row.id });
+  } else if (changed.length) {
+    await ctx.db.from('friend_events').insert({ uid: row.uid, profile_id: row.id, kind: 'update', detail: changed.map(c => c[1]).join(', '), created_at: at });
+    await tellFriends(ctx, row.uid, `fu:${row.id}:${kisumuDay(ctx)}`, { title: `✏️ ${name} updated their profile`,
+      body: snip(`New ${changed.map(c => c[1]).join(', ')}. Have a look!`, 140), url, tag: 'fu-' + row.id });
+  }
+}
+
 // A short, safe copy of an error's stack (no query strings)
 const errStack = v => snip(String(v || '').replace(/\?[^\s):]*/g, ''), 1500);
 
@@ -707,8 +756,10 @@ const ACTIONS = {
     if (ctx.isAdmin) adminFields(body.patch, patch);
     if (!Object.keys(patch).length) throw bad('Nothing to change.');
     patch.updated_at = new Date(ctx.now()).toISOString();
+    const before = { ...row };                                          // what it was, for the friends' news
     const up = await ctx.db.from('profiles').update(patch).eq('id', row.id);
     if (up.error) throw new ApiError(500, 'db', 'Could not save the changes: ' + up.error.message);
+    if (owner) ctx.background(friendNews(ctx, before, patch).catch(e => console.warn('[friend news]', e && e.message)));
     return {};
   },
 
@@ -964,7 +1015,16 @@ const ACTIONS = {
     const r = await ctx.db.rpc('profile_set_like', { p_profile: pid, p_uid: ctx.user.uid, p_like: body.like });
     if (r.error) throw likeDbError(r.error);
     const owner = p.data[0].uid;
-    if (body.like && r.data && r.data.changed === true && owner && owner !== ctx.user.uid) ctx.background(notifyLike(ctx, pid, owner));
+    if (body.like && r.data && r.data.changed === true && owner && owner !== ctx.user.uid) {
+      ctx.background(notifyLike(ctx, pid, owner));
+      ctx.background((async () => {
+        const o = await ctx.db.from('profiles').select('name,isanonymous').eq('id', pid).limit(1);
+        const who = o.data && o.data[0];
+        if (!who || who.isanonymous) return;
+        await tellFriends(ctx, owner, `fl:${pid}:${kisumuDay(ctx)}`, { title: `❤️ ${snip(who.name, 60)}'s profile is getting likes today`,
+          body: 'Show your friend some love too.', url: `/profile.html?id=${pid}`, tag: 'fl-' + pid });
+      })().catch(e => console.warn('[friend likes push]', e && e.message)));
+    }
     return { likes: Number(r.data && r.data.likes) || 0, liked: body.like };
   },
 
@@ -1377,6 +1437,115 @@ const ACTIONS = {
     if (up.error) throw wallDbError(up.error);
     await logEvent(ctx, 'wall_report', true, { id: row.id, kind: row.kind });
     return {};
+  },
+
+  // ── Friends ──
+  // Your friend requests and friendships, as the other person's profile and where it stands
+  async 'friend.mine'(ctx) {
+    const uid = ctx.user.uid;
+    const links = await myLinks(ctx, uid);
+    return { links: links.map(l => ({ id: l.id, profile_id: l.from_uid === uid ? l.to_profile : l.from_profile, status: l.status, dir: l.from_uid === uid ? 'out' : 'in' })) };
+  },
+
+  // Ask someone to be your friend ({ profileId }). If they already asked you, this accepts their request.
+  async 'friend.request'(ctx, body) {
+    const cfg = ctx.config, uid = ctx.user.uid, nowIso = new Date(ctx.now()).toISOString();
+    const me = await myProfile(ctx);
+    if (!me) throw conflict('Create your yearbook profile first, then add friends.', 'no_profile');
+    const pid = Number(body.profileId);
+    if (!Number.isInteger(pid) || pid <= 0) throw bad('Missing or invalid profile.');
+    const p = await ctx.db.from('profiles').select('id,uid,name,isanonymous').eq('id', pid).limit(1);
+    if (p.error) throw friendDbError(p.error);
+    const them = p.data && p.data[0];
+    if (!them || !them.uid) throw notFound('That profile could not be found.');
+    if (them.uid === uid) throw bad('That is your own profile!');
+    if (them.isanonymous) throw bad('This profile is anonymous, so it cannot be added as a friend.');
+    const ex = (await myLinks(ctx, uid)).find(l => l.from_uid === them.uid || l.to_uid === them.uid);
+    if (ex && ex.status === 'accepted') return { status: 'accepted', id: ex.id };
+    if (ex && ex.from_uid === uid) return { status: 'pending', id: ex.id };
+    if (ex) {                                                   // they asked first: accept
+      const up = await ctx.db.from('friend_links').update({ status: 'accepted', accepted_at: nowIso }).eq('id', ex.id);
+      if (up.error) throw friendDbError(up.error);
+      ctx.background(pushToUids(ctx, [them.uid], { title: `🤝 ${snip(me.name, 60)} accepted your friend request`, body: 'You will now hear when they add photos or update their profile.',
+        url: `/profile.html?id=${me.id}`, tag: 'fa-' + ex.id }).catch(() => {}));
+      return { status: 'accepted', id: ex.id };
+    }
+    const since = new Date(ctx.now() - 24 * 3600e3).toISOString();
+    const n = await ctx.db.from('friend_links').select('id', { count: 'exact', head: true }).eq('from_uid', uid).gte('created_at', since);
+    if (n.error) throw friendDbError(n.error);
+    if ((n.count || 0) >= cfg.friendRequestsPerDay) throw new ApiError(429, 'slow_down', 'You have sent a lot of friend requests today. Please try again tomorrow.');
+    const ins = await ctx.db.from('friend_links').insert({ from_uid: uid, to_uid: them.uid, from_profile: me.id, to_profile: them.id, status: 'pending', created_at: nowIso }).select('id');
+    if (ins.error) throw ins.error.code === '23505' ? conflict('You are already connected.', 'exists') : friendDbError(ins.error);
+    const id = (Array.isArray(ins.data) ? ins.data[0] : ins.data).id;
+    ctx.background((async () => {
+      if (await claimEvent(ctx, `fr:${uid}:${them.uid}`) !== 'ok') return;   // one push per pair, even after a re-request
+      await pushToUids(ctx, [them.uid], { title: `🤝 ${snip(me.name, 60)} wants to be your friend`, body: 'Open the yearbook to accept.', url: `/profile.html?id=${me.id}`, tag: 'fr-' + id });
+    })().catch(e => console.warn('[friend request push]', e && e.message)));
+    return { status: 'pending', id };
+  },
+
+  // Accept or decline a request someone sent you ({ id, accept })
+  async 'friend.respond'(ctx, body) {
+    const uid = ctx.user.uid, id = Number(body.id);
+    if (!Number.isInteger(id) || id <= 0) throw bad('Missing or invalid request.');
+    const r = await ctx.db.from('friend_links').select('*').eq('id', id).limit(1);
+    if (r.error) throw friendDbError(r.error);
+    const row = r.data && r.data[0];
+    if (!row || row.to_uid !== uid || row.status !== 'pending') throw notFound('That friend request is no longer there.');
+    if (!body.accept) {
+      const del = await ctx.db.from('friend_links').delete().eq('id', id);
+      if (del.error) throw friendDbError(del.error);
+      return { status: null };
+    }
+    const up = await ctx.db.from('friend_links').update({ status: 'accepted', accepted_at: new Date(ctx.now()).toISOString() }).eq('id', id);
+    if (up.error) throw friendDbError(up.error);
+    const me = await myProfile(ctx);
+    if (me) ctx.background(pushToUids(ctx, [row.from_uid], { title: `🤝 ${snip(me.name, 60)} accepted your friend request`, body: 'You will now hear when they add photos or update their profile.',
+      url: `/profile.html?id=${me.id}`, tag: 'fa-' + id }).catch(() => {}));
+    return { status: 'accepted' };
+  },
+
+  // Cancel your request, decline theirs, or unfriend ({ profileId })
+  async 'friend.remove'(ctx, body) {
+    const uid = ctx.user.uid, pid = Number(body.profileId);
+    if (!Number.isInteger(pid) || pid <= 0) throw bad('Missing or invalid profile.');
+    const link = (await myLinks(ctx, uid)).find(l => (l.from_uid === uid ? l.to_profile : l.from_profile) === pid);
+    if (!link) return {};
+    const del = await ctx.db.from('friend_links').delete().eq('id', link.id);
+    if (del.error) throw friendDbError(del.error);
+    return {};
+  },
+
+  // For the Alerts tab: requests waiting for you, requests of yours that were accepted, and your friends' news
+  // (new photos, profile updates, likes per day) from the last 14 days
+  async 'friend.activity'(ctx) {
+    const uid = ctx.user.uid, since = new Date(ctx.now() - 14 * 864e5).toISOString();
+    const links = await myLinks(ctx, uid);
+    const items = [];
+    for (const l of links) {
+      if (l.status === 'pending' && l.to_uid === uid) items.push({ type: 'freq', id: l.id, profile_id: l.from_profile, at: l.created_at });
+      if (l.status === 'accepted' && l.from_uid === uid && l.accepted_at && l.accepted_at >= since) items.push({ type: 'faccept', profile_id: l.to_profile, at: l.accepted_at });
+    }
+    const friends = links.filter(l => l.status === 'accepted').map(l => l.from_uid === uid ? { uid: l.to_uid, pid: l.to_profile } : { uid: l.from_uid, pid: l.from_profile });
+    if (friends.length) {
+      const fu = friends.map(x => x.uid), fp = friends.map(x => x.pid);
+      const [ev, lk] = await Promise.all([
+        ctx.db.from('friend_events').select('profile_id,kind,n,detail,created_at').in('uid', fu.slice(0, 500)).gte('created_at', since).order('created_at', { ascending: false }).limit(200),
+        ctx.db.from('profile_likes').select('profile_id,created_at').in('profile_id', fp.slice(0, 500)).gte('created_at', since).limit(5000),
+      ]);
+      (ev.data || []).forEach(e => items.push({ type: e.kind === 'photo' ? 'fphoto' : 'fupdate', profile_id: e.profile_id, n: e.n, detail: e.detail, at: e.created_at }));
+      const days = {};
+      (lk.data || []).forEach(x => { const k = x.profile_id + '|' + new Date(Date.parse(x.created_at) + 3 * 3600e3).toISOString().slice(0, 10);
+        const d = days[k] = days[k] || { type: 'flikes', profile_id: x.profile_id, n: 0, at: x.created_at }; d.n++; if (x.created_at > d.at) d.at = x.created_at; });
+      items.push(...Object.values(days));
+    }
+    const ids = [...new Set(items.map(x => x.profile_id))], people = {};
+    if (ids.length) {
+      const p = await ctx.db.from('profiles').select('id,name,photo_url,isanonymous').in('id', ids);
+      (p.data || []).forEach(x => { people[x.id] = x; });
+    }
+    return { items: items.filter(x => people[x.profile_id] && !people[x.profile_id].isanonymous)
+      .map(x => ({ ...x, name: snip(people[x.profile_id].name, 60), photo_url: people[x.profile_id].photo_url || null })) };
   },
 
   // ── app errors (no sign-in needed): kept for the Developer tab ──
@@ -1818,6 +1987,48 @@ const ACTIONS = {
     const row = await wallRow(ctx, body.id);
     const up = await ctx.db.from('grad_posts').update({ hidden: !!body.hidden, reported: false }).eq('id', row.id);
     if (up.error) throw wallDbError(up.error);
+    return {};
+  },
+
+  // What's new: the admin's announcements of app updates (the newest first)
+  async 'admin.news.list'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.from('announcements').select('*').order('created_at', { ascending: false }).limit(100);
+    if (r.error) throw friendDbError(r.error);
+    return { rows: r.data || [] };
+  },
+
+  // Post one ({ emoji?, title, body?, url?, push? }): everyone sees it in Alerts; push (default) also tells every phone
+  async 'admin.news.save'(ctx, body) {
+    requireAdmin(ctx);
+    const title = txt(body.title, 120, 'The title', { required: true });
+    if (title.length < 3) throw bad('The title needs a few more letters.');
+    const text = txt(body.body, 600, 'The text'), emoji = txt(body.emoji, 16, 'The emoji') || '✨';
+    const url = txt(body.url, 300, 'The link');
+    if (url && !/^\/[A-Za-z0-9._~\/?#=&%+-]*$/.test(url)) throw bad('The link must be a page of the yearbook, like /grad.html.');
+    const at = new Date(ctx.now()).toISOString();
+    const ins = await ctx.db.from('announcements').insert({ emoji, title, body: text, url: url || null, hidden: false, created_at: at }).select('id');
+    if (ins.error) throw friendDbError(ins.error);
+    const id = (Array.isArray(ins.data) ? ins.data[0] : ins.data).id;
+    if (body.push !== false) ctx.background((async () => {
+      const all = [];
+      for (let from = 0; from < 50000; from += 1000) {
+        const r = await ctx.db.from('push_subscriptions').select('uid').order('id', { ascending: true }).range(from, from + 999);
+        if (r.error) break;
+        all.push(...(r.data || []).map(x => x.uid));
+        if ((r.data || []).length < 1000) break;
+      }
+      await pushToUids(ctx, [...new Set(all)], { title: `${emoji} ${title}`, body: snip(text, 140) || 'Open the yearbook to see what is new.', url: url || '/index.html', tag: 'n-' + id });
+    })().catch(e => console.warn('[news push]', e && e.message)));
+    return { row: { id, emoji, title, body: text, url: url || null, hidden: false, created_at: at } };
+  },
+
+  async 'admin.news.hide'(ctx, body) {
+    requireAdmin(ctx);
+    const id = Number(body.id);
+    if (!Number.isInteger(id) || id <= 0) throw bad('Missing or invalid announcement.');
+    const up = await ctx.db.from('announcements').update({ hidden: !!body.hidden }).eq('id', id);
+    if (up.error) throw friendDbError(up.error);
     return {};
   },
 

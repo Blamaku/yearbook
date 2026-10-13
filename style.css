@@ -2843,3 +2843,13 @@ html.grad-day .hm-hero h1::after { content: ' 🎓'; }
 @keyframes rlIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes rlZoom { from { transform: scale(1); } to { transform: scale(1.08); } }
 @media (prefers-reduced-motion: reduce) { .rl-card, .rl-face { animation: none; } }
+
+/* ══ Friends ══ */
+.fd-friend[data-state="friends"] svg { stroke: #4ade80; }
+.fd-friend[data-state="sent"] { opacity: .75; }
+.fd-friend[data-state="received"] svg { stroke: var(--gold-bright); }
+.notif-fr { display: flex; gap: 8px; margin-top: 6px; }
+.notif-fr button { padding: 6px 14px; border-radius: var(--radius-full); font: inherit; font-size: .76rem; font-weight: 800; cursor: pointer; }
+.notif-fr-yes { border: 0; background: var(--blue); color: #fff; }
+.notif-fr-no { border: 1px solid var(--gray-200); background: var(--surface); color: var(--gray-600); }
+.notif-t a { color: inherit; }

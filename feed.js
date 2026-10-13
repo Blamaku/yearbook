@@ -49,6 +49,8 @@
     heart: '<path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.4 4.5 6.9 4.5c2.1 0 3.6 1.2 5.1 3 1.5-1.8 3-3 5.1-3 3.5 0 5.5 3.5 4.2 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/>',
     talk:  '<path d="M20.5 11.6c0 4.4-3.8 7.9-8.5 7.9-1.2 0-2.4-.2-3.4-.6L3.5 20.5l1.4-4.1a7.5 7.5 0 0 1-1.4-4.8c0-4.4 3.8-7.9 8.5-7.9s8.5 3.5 8.5 7.9z"/>',
     share: '<path d="M14 4.5 21 11l-7 6.5V14c-5 0-8.5 1.6-11 5.5 1-5.3 4-9.7 11-10.5z"/>',
+    friend: '<circle cx="9.5" cy="8" r="3.6"/><path d="M3 20c.7-3.6 3.3-5.6 6.5-5.6s5.8 2 6.5 5.6"/><path d="M18.5 8v6M15.5 11h6"/>',
+    friends: '<circle cx="9.5" cy="8" r="3.6"/><path d="M3 20c.7-3.6 3.3-5.6 6.5-5.6s5.8 2 6.5 5.6"/><path d="m15.5 11 2 2 4-4"/>',
   };
 
   // ── remembering the order and place for this visit ──
@@ -97,6 +99,7 @@
         <div class="fd-rail">
           <a class="fd-av" href="${link}" aria-label="Open ${name}'s profile"><img src="${esc(photos[0])}" alt="" loading="lazy" decoding="async"></a>
           <button type="button" class="fd-act fd-like" data-act="like" aria-pressed="false" aria-label="Like">${svg(ICON.heart)}<span class="fd-n"></span></button>
+          <button type="button" class="fd-act fd-friend" data-act="friend" data-state="none" aria-label="Add friend"${me() && s.uid === me() ? ' hidden' : ''}>${svg(ICON.friend)}<span class="fd-n">Add</span></button>
           <button type="button" class="fd-act" data-act="comments" aria-label="Comments">${svg(ICON.talk)}<span class="fd-n"></span></button>
           <button type="button" class="fd-act" data-act="share" aria-label="Share">${svg(ICON.share)}<span class="fd-n">Share</span></button>
         </div>
@@ -112,7 +115,19 @@
     lb.setAttribute('aria-label', L.mine ? 'Unlike' : 'Like');
     lb.querySelector('.fd-n').textContent = likesOn ? fmt(L.n) : 'Like';
     slide.querySelector('[data-act="comments"] .fd-n').textContent = fmt(talk.get(id) || 0);
+    paintFriend(slide);
   }
+  // The friend button: Add / Sent / Accept / Friends (from gFriends in app.js); hidden on your own slide
+  const FR = { none: ['friend', 'Add', 'Add friend'], sent: ['friend', 'Sent', 'Friend request sent'], received: ['friend', 'Accept', 'Accept friend request'], friends: ['friends', 'Friends', 'Friends'] };
+  function paintFriend(slide) {
+    const b = slide.querySelector('.fd-friend'); if (!b || !window.gFriends) return;
+    const s = people.get(Number(slide.dataset.id)), st = window.gFriends.state(slide.dataset.id), [ic, label, aria] = FR[st];
+    b.hidden = !!(s && me() && s.uid === me());
+    if (b.dataset.state !== st) { b.dataset.state = st; b.innerHTML = svg(ICON[ic]) + `<span class="fd-n">${label}</span>`; }
+    b.setAttribute('aria-label', aria);
+  }
+  document.addEventListener('gluk-friends', () => feed.querySelectorAll('.fd-slide[data-id]').forEach(paintFriend));
+  if (window.gFriends) window.gFriends.load();
 
   // ── loading ──
   // Every student with a photo, as ids only (cheap even for thousands), then shuffled
@@ -327,6 +342,7 @@
     if (btn) {
       const act = btn.dataset.act, slide = btn.closest('.fd-slide'), id = slide ? Number(slide.dataset.id) : 0;
       if (act === 'like') setLike(id, !(likes.get(id) || {}).mine);
+      else if (act === 'friend' && window.gFriends) { const p = people.get(id); window.gFriends.act(id, p ? String(p.name || '').trim().split(/\s+/)[0] : 'them'); }
       else if (act === 'comments') openSheet(id);
       else if (act === 'share') share(id);
       else if (act === 'retry') start(true);

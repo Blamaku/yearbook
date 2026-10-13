@@ -1476,7 +1476,7 @@ window.gNotif = (function () {
   const ms = t => {
     try {
       if (!t) return 0;
-      if (typeof t.toMillis === 'function') return t.toMillis();
+      if (typeof t.toMillis === 'function') { const v = Number(t.toMillis()); return Number.isFinite(v) ? v : 0; }   // a stand-in Firestore (offline) gives no real time
       const v = new Date(t).getTime();
       return Number.isFinite(v) ? v : 0;
     } catch (e) { return 0; }
@@ -1574,6 +1574,20 @@ window.gNotif = (function () {
               year: p.classyear, course: p.course || '', dept: p.dept || '' }];
   }
 
+  // Friend requests, accepted requests and friends' news (the api knows who your friends are)
+  async function friendItems() {
+    if (!window.gApi) return [];
+    const r = await window.gApi('friend.activity', {});
+    return (r.items || []).map(x => ({ ...x, key: x.type + (x.id || '') + ':' + x.profile_id + ':' + x.at, at: ms(x.at) }));
+  }
+  // What's new: the admin's announcements of app updates, for everyone
+  async function newsItems(since) {
+    const { data, error } = await supabase.from('announcements_public').select('id,emoji,title,body,url,created_at')
+      .gte('created_at', iso(since)).order('created_at', { ascending: false }).limit(10);
+    if (error) return [];
+    return (data || []).map(a => ({ type: 'news', key: 'n' + a.id, at: ms(a.created_at), emoji: a.emoji, title: a.title, text: a.body, url: a.url }));
+  }
+
   async function nameTargets(list, p) {
     const own = p ? String(p.id) : '';
     const ids = [...new Set(list.map(x => x.studentId).filter(id => /^\d+$/.test(id) && id !== own))].map(Number);
@@ -1589,11 +1603,13 @@ window.gNotif = (function () {
     const since = Date.now() - DAYS * 864e5;
     const [seenAt, profile] = await Promise.all([loadSeenAt(), myProfile().catch(() => null)]);
     const safe = pr => Promise.resolve(pr).catch(e => { console.warn('[notif]', e); return []; });
-    const [c, r, k, m] = await Promise.all([
+    const [c, r, k, m, f, n] = await Promise.all([
       profile ? safe(commentsOnMe(profile, since)) : [],
       safe(repliesToMe(since)),
       profile ? safe(clubPosts(profile, since)) : [],
       profile ? safe(classmates(profile, since, seenAt)) : [],
+      profile ? safe(friendItems()) : [],
+      safe(newsItems(since)),
     ]);
     try { await nameTargets(r, profile); } catch (e) { r.forEach(x => { x.target = 'a profile'; }); }
     _seenAt = seenAt;
@@ -1602,7 +1618,7 @@ window.gNotif = (function () {
     // until the birthday is actually added, however long that takes.
     const bday = (profile && !profile.has_birthday)
       ? [{ type: 'birthday', key: 'bday-' + profile.id, at: Date.now() + 100 * 365 * 864e5 }] : [];
-    _items = [].concat(c, r, k, m, bday).sort((a, b) => b.at - a.at).slice(0, MAX);
+    _items = [].concat(c, r, k, m, f, n, bday).sort((a, b) => b.at - a.at).slice(0, MAX);
     _loaded = true;
     recount(); writeCache();
   }
@@ -1659,6 +1675,22 @@ window.gNotif = (function () {
       ico = meta ? meta.icon : '🏛'; title = `<b>${esc(it.club)}</b> · ${esc(KIND[it.kind] || 'New post')}`;
       sub = esc(snip(it.title || it.text, 90));
       href = 'club.html?club=' + encodeURIComponent(it.club) + (it.id ? '&post=' + Number(it.id) : '') + '#feed';
+    } else if (it.type === 'freq') {             // a friend request: answer it right here
+      const unread = it.at > _seenAt;
+      return `<div class="notif-item${unread ? ' unread' : ''}"><span class="notif-ico">🤝</span>
+        <span class="notif-main"><span class="notif-t"><a href="profile.html?id=${Number(it.profile_id)}"><b>${esc(it.name)}</b></a> wants to be your friend</span>
+        <span class="notif-fr"><button type="button" class="notif-fr-yes" data-fr="accept" data-id="${Number(it.id)}">Accept</button><button type="button" class="notif-fr-no" data-fr="decline" data-id="${Number(it.id)}">Decline</button></span></span>
+        <span class="notif-when">${esc(ago(it.at))}</span></div>`;
+    } else if (it.type === 'faccept' || it.type === 'fphoto' || it.type === 'fupdate' || it.type === 'flikes') {
+      ico = { faccept: '🤝', fphoto: '📸', fupdate: '✏️', flikes: '❤️' }[it.type];
+      const who = `<b>${esc(it.name)}</b>`;
+      title = it.type === 'faccept' ? `${who} accepted your friend request`
+        : it.type === 'fphoto' ? `${who} added ${it.n === 1 ? 'a new photo' : Number(it.n) + ' new photos'}`
+        : it.type === 'fupdate' ? `${who} updated their profile` : `${who}’s profile got ${Number(it.n)} ${it.n === 1 ? 'like' : 'likes'}`;
+      sub = it.type === 'faccept' ? 'You’ll hear when they add photos or update their profile.' : it.type === 'fupdate' && it.detail ? 'New ' + esc(it.detail) : it.type === 'flikes' ? 'Show your friend some love too' : '';
+      href = 'profile.html?id=' + encodeURIComponent(it.profile_id);
+    } else if (it.type === 'news') {
+      ico = esc(it.emoji || '✨'); title = `<b>${esc(it.title)}</b>`; sub = esc(snip(it.text, 110)); href = it.url || 'index.html';
     } else if (it.type === 'birthday') {
       ico = '🎂'; title = `Add your birthday`; sub = 'Let classmates celebrate with you — it only takes a second.';
       href = 'profile.html?id=' + encodeURIComponent(it.key.replace('bday-', '')) + '#edit';
@@ -1677,7 +1709,7 @@ window.gNotif = (function () {
     if (!_items.length) {
       return _noProfile
         ? `<div class="notif-empty"><div class="notif-empty-ico">🔔</div><b>Create your profile to get notifications</b>Comments, club posts and new classmates show up here once you have a yearbook profile.<br><a class="btn-primary" href="profiles.html?action=add" style="display:block;max-width:220px;margin:14px auto 0;text-decoration:none;text-align:center">Create my profile</a></div>`
-        : `<div class="notif-empty"><div class="notif-empty-ico">🎉</div><b>You’re all caught up</b>Comments, replies, club posts and new classmates will appear here.</div>`;
+        : `<div class="notif-empty"><div class="notif-empty-ico">🎉</div><b>You’re all caught up</b>Comments, replies, club posts, friends’ news and new classmates will appear here.</div>`;
     }
     return `<div class="notif-list">${_items.map(itemHTML).join('')}</div>`;
   }
@@ -1697,6 +1729,12 @@ window.gNotif = (function () {
       if (e.target === ov || (e.target.closest && e.target.closest('#notifClose'))) close();
       const pb = e.target.closest && e.target.closest('[data-push]');
       if (pb) onPushButton(pb);                      // called right in the tap: the permission question needs that
+      const fb = e.target.closest && e.target.closest('[data-fr]');
+      if (fb && window.gFriends) {
+        fb.disabled = true;
+        window.gFriends.respond(Number(fb.dataset.id), fb.dataset.fr === 'accept')
+          .then(() => refresh(true)).then(() => { const b = document.getElementById('notifBody'); if (b) b.innerHTML = panelHTML(); });
+      }
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
     return ov;
@@ -1787,6 +1825,60 @@ window.gNotif = (function () {
   return { start, stop, refresh, open, close, paintBadge };
 })();
 window.openNotifications = () => window.gNotif.open();
+
+// ── Friends: a request the other person accepts; friends hear each other's news (api: friend.*) ──
+// gFriends.state(profileId) is 'none' | 'sent' | 'received' | 'friends'; a 'gluk-friends' event fires when it changes.
+window.gFriends = (function () {
+  let map = null, uid = null, busy = null, off = false;
+  const changed = () => document.dispatchEvent(new CustomEvent('gluk-friends'));
+  const soon = () => { off = true; showToast('🤝 Friends are switching on soon'); };
+  function load() {
+    const u = typeof currentUser !== 'undefined' ? currentUser : null;
+    if (!u) { map = new Map(); uid = null; return Promise.resolve(map); }
+    if (map && uid === u.uid) return Promise.resolve(map);
+    if (busy) return busy;
+    busy = window.gApi('friend.mine', {})
+      .then(r => { map = new Map((r.links || []).map(l => [Number(l.profile_id), l])); })
+      .catch(e => { if (e && (e.code === 'friends_coming' || e.code === 'unknown_action')) off = true; map = new Map(); })
+      .then(() => { uid = u.uid; busy = null; changed(); return map; });
+    return busy;
+  }
+  const state = pid => { const l = map && map.get(Number(pid)); return !l ? 'none' : l.status === 'accepted' ? 'friends' : l.dir === 'out' ? 'sent' : 'received'; };
+  async function act(pid, name) {
+    if (!currentUser) { requireAuth(() => act(pid, name), 'login'); return; }
+    if (off) return soon();
+    await load();
+    const st = state(pid);
+    try {
+      if (st === 'none' || st === 'received') {
+        const r = await window.gApi('friend.request', { profileId: pid });
+        map.set(Number(pid), { id: r.id, profile_id: pid, status: r.status, dir: st === 'received' ? 'in' : 'out' });
+        showToast(r.status === 'accepted' ? `🤝 You and ${name} are now friends` : `🤝 Friend request sent to ${name}`);
+      } else {
+        if (!confirm(st === 'sent' ? `Cancel your friend request to ${name}?` : `Remove ${name} from your friends?`)) return;
+        await window.gApi('friend.remove', { profileId: pid });
+        map.delete(Number(pid));
+        showToast(st === 'sent' ? 'Request cancelled' : 'Removed from your friends');
+      }
+    } catch (e) {
+      if (e && e.code === 'no_profile') showToast('Create your yearbook profile first, then add friends.', 3500);
+      else if (e && (e.code === 'friends_coming' || e.code === 'unknown_action')) soon();
+      else showToast('❌ ' + ((e && e.message) || 'Could not do that. Please try again.'), 3500);
+    }
+    changed();
+  }
+  async function respond(id, accept) {
+    try {
+      const r = await window.gApi('friend.respond', { id, accept });
+      if (map) for (const [pid, l] of map) if (Number(l.id) === Number(id)) { if (r.status === 'accepted') l.status = 'accepted'; else map.delete(pid); }
+      showToast(accept ? '🤝 You are now friends' : 'Request declined');
+    } catch (e) { showToast('❌ ' + ((e && e.message) || 'Could not do that.'), 3500); }
+    changed();
+  }
+  const LABEL = { none: ['➕', 'Add friend'], sent: ['⏳', 'Requested'], received: ['🤝', 'Accept'], friends: ['✅', 'Friends'] };
+  if (typeof auth !== 'undefined') auth.onAuthStateChanged(() => { map = null; load(); });
+  return { load, state, act, respond, LABEL };
+})();
 
 // ── My Profile shortcut (top-bar icon on the students page) ───
 // Signed out  -> opens the sign-in box, then continues automatically
@@ -2145,6 +2237,19 @@ function initProfilePage(){
       }
       _refreshLetterBtn(currentUser);
       auth.onAuthStateChanged(_refreshLetterBtn);
+      // Add friend / Requested / Accept / Friends (not on your own or an anonymous profile)
+      const _fb = document.getElementById('friendBtn');
+      if (_fb && window.gFriends && !data.isanonymous) {
+        const paintFriend = () => {
+          const mine = currentUser && currentUser.uid === data.uid;
+          _fb.hidden = !!mine;
+          const [ic, label] = window.gFriends.LABEL[window.gFriends.state(data.id)];
+          _fb.querySelector('.cb-icon').textContent = ic; _fb.querySelector('.cb-label').textContent = label;
+        };
+        _fb.onclick = () => window.gFriends.act(data.id, String(data.name || '').trim().split(/\s+/)[0] || 'them');
+        document.addEventListener('gluk-friends', paintFriend);
+        paintFriend(); window.gFriends.load();
+      }
       // A notification (e.g. "add your birthday") can link straight to the edit form — opens once only
       if (location.hash === '#edit') {
         let _editOpened = false;
