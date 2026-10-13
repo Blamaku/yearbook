@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#061020">
+  <meta name="description" content="The final reel of the GLUK Class of 2026: every graduate, one last time. We came as students. We leave as graduates.">
+  <title>The final reel — GLUK Yearbook 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GLUK Yearbook 2026">
+  <meta property="og:title" content="The final reel 🎓 Class of 2026">
+  <meta property="og:description" content="We came as students. We leave as graduates.">
+  <meta property="og:image" content="https://yearbook-d3f4f.web.app/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="reel" class="rl-body">
+
+  <!-- The final reel (reel.js): every Class of 2026 graduate with a photo, one after another, then the last line.
+       It plays from graduation day, Saturday 21 November (reel.html?preview=1 plays it before then). -->
+  <main class="rl" id="rl">
+    <a class="rl-x" href="grad.html" aria-label="Back to graduation week">✕</a>
+    <div class="rl-stage" id="rlStage" aria-live="polite"></div>
+    <div class="rl-bar" aria-hidden="true"><i id="rlBar"></i></div>
+    <div class="rl-ctl" id="rlCtl" hidden>
+      <button type="button" id="rlPause" aria-label="Pause">❚❚</button>
+      <button type="button" id="rlSkip">Skip to the end ›</button>
+    </div>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+  <script src="reel.js"></script>
+</body>
+</html>

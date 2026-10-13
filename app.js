@@ -48,6 +48,37 @@
   };
 })();
 
+// ── Graduation Day mode (Saturday 21 November 2026, all day in Kisumu; ?gradday=1 to see it early) ──
+// The whole site turns gold, a banner leads to the final reel, and confetti falls once per visit.
+(function () {
+  const on = /[?&]gradday=1/.test(location.search) || (Date.now() >= Date.parse('2026-11-20T21:00:00Z') && Date.now() < Date.parse('2026-11-21T21:00:00Z'));
+  if (!on) return;
+  document.documentElement.classList.add('grad-day');
+  const start = () => {
+    if (document.body.dataset.page !== 'reel' && !document.querySelector('.gd-banner')) {
+      const a = document.createElement('a');
+      a.className = 'gd-banner'; a.href = 'reel.html';
+      a.innerHTML = '<span>🎓</span><b>Today we graduate! Congratulations, Class of 2026</b><em>Play the final reel ›</em>';
+      const bar = document.getElementById('userBar');
+      if (bar && bar.parentNode) bar.parentNode.insertBefore(a, bar.nextSibling); else document.body.prepend(a);
+    }
+    let seen = false; try { seen = sessionStorage.getItem('gluk-confetti') === '1'; sessionStorage.setItem('gluk-confetti', '1'); } catch (e) {}
+    if (seen || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const c = document.createElement('canvas'), x = c.getContext('2d'), W = innerWidth, H = innerHeight, dpr = devicePixelRatio || 1;
+    c.className = 'gd-confetti'; c.width = W * dpr; c.height = H * dpr; x.scale(dpr, dpr); document.body.appendChild(c);
+    const col = ['#f5c518', '#ffd700', '#1e9ad6', '#3baa34', '#ffffff', '#d4a017'];
+    const bits = Array.from({ length: 140 }, () => ({ x: Math.random() * W, y: -20 - Math.random() * H * .6, w: 6 + Math.random() * 6, h: 8 + Math.random() * 8,
+      vy: 2 + Math.random() * 3, vx: -1 + Math.random() * 2, r: Math.random() * 6, vr: -.2 + Math.random() * .4, c: col[Math.floor(Math.random() * col.length)] }));
+    const t0 = performance.now();
+    (function frame(t) {
+      x.clearRect(0, 0, W, H);
+      for (const b of bits) { b.x += b.vx; b.y += b.vy; b.r += b.vr; x.save(); x.translate(b.x, b.y); x.rotate(b.r); x.fillStyle = b.c; x.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); x.restore(); }
+      if (t - t0 < 5000) requestAnimationFrame(frame); else c.remove();
+    })(t0);
+  };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+
 // ── Dark Mode Toggle ──────────────────────────────────
 window.toggleTheme = function() {
   const curr = document.documentElement.getAttribute('data-theme') || 'light';

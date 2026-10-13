@@ -70,7 +70,7 @@ const CONFIG = {
   // Pages whose visits are counted for the Developer tab (each page's <body data-page>)
   trackPages: ['home', 'feed', 'profiles', 'profile', 'clubs', 'club', 'department', 'course', 'class', 'staff',
     'about', 'constitution', 'letters', 'university', 'superlatives', 'challenge',
-    'grad', 'glowup', 'capsule', 'wall'],
+    'grad', 'glowup', 'capsule', 'wall', 'handbook', 'reel'],
 };
 
 const KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';

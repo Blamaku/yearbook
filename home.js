@@ -113,6 +113,34 @@
     show('hmClassSec', true);
   }
 
+  // ── Faces of 2026 (graduation week, 15–21 Nov): "GLUK Yearbook congratulates …" ──
+  // Everyone gets the same fixed order, split into 7 days, so every graduate with a photo has a day in the
+  // spotlight; Home turns through today's group, starting at a random face. ?faces=1 shows it before the week.
+  const seeded = (a, seed) => { let x = seed >>> 0; const r = () => { x = (x + 0x6D2B79F5) >>> 0; let t = Math.imul(x ^ (x >>> 15), 1 | x); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  async function loadFaces() {
+    const G = window.GLUK_GRADWEEK, t = G ? G.today() : -1;
+    if (!/[?&]faces=1/.test(location.search) && (t < 0 || t > 6)) return;
+    const { data, error } = await withPhoto(supabase.from('profiles_public').select(COLS)).eq('classyear', '2026').order('id').limit(1000);
+    const all = seeded((data || []).filter(photoOf), 2026);
+    if (error || !all.length) return;
+    const per = Math.ceil(all.length / 7), day = Math.max(0, t);
+    const list = all.slice(day * per, day * per + per).length ? all.slice(day * per, day * per + per) : all;
+    let i = Math.floor(Math.random() * list.length), timer = null, rest = 0;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function paint() {
+      const p = list[i];
+      $('hmFaces').innerHTML = `<a class="hm-face-big" href="${esc(profileLink(p))}"><img src="${esc(photoOf(p))}" alt="" loading="lazy">
+        <span class="hm-face-t"><small>GLUK Yearbook congratulates</small><b>${esc(p.name)}</b><span>${esc(p.course || p.dept || '')}</span></span></a>
+        ${list.length > 1 ? `<button type="button" class="hm-face-nav prev" data-step="-1" aria-label="Previous graduate">‹</button><button type="button" class="hm-face-nav next" data-step="1" aria-label="Next graduate">›</button>` : ''}`;
+      $('hmFacesN').textContent = `${i + 1} of ${list.length} today`;
+    }
+    const step = d => { i = (i + d + list.length) % list.length; paint(); };
+    $('hmFaces').addEventListener('click', e => { const b = e.target.closest('[data-step]'); if (!b) return; e.preventDefault(); rest = Date.now() + 8000; step(Number(b.dataset.step)); });
+    paint(); show('hmFacesSec', true);
+    if (!still && list.length > 1) timer = setInterval(() => { if (!document.hidden && Date.now() > rest) step(1); }, 4500);
+  }
+
   // ── lecturers and staff: approved ones in a random order (staff add theirs through "Create") ──
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const staffLabel = s => s.title ? `${s.title} ${String(s.name).trim().split(/\s+/).pop()}` : first(s.name);   // "Dr Achieng"
@@ -213,6 +241,7 @@
   // Class superlatives: from the reveal, the card invites people to see the winners
   if ($('hmSupSub') && Date.now() >= Date.parse(window.SUP_REVEAL_AT || '2026-11-14T21:00:00Z')) $('hmSupSub').textContent = 'The winners are out! See who the Class of 2026 voted for.';
   loadNew().catch(() => show('hmNewSec', false));
+  loadFaces().catch(() => show('hmFacesSec', false));
   loadStaff().catch(() => {});
   loadMessages().catch(() => show('hmMsgsSec', false));
   loadCount().catch(() => {});

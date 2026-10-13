@@ -36,8 +36,8 @@
       links: [['🔥 Advice for freshers', 'wall.html?d=torch'], ['🏆 Course battle', 'challenge.html#battle']] },
     { key: 'bigday', emoji: '🎓', title: 'The Big Day',
       line: 'Graduation Day. Every sealed letter opens and the whole yearbook turns gold. We came as students. We leave as graduates.',
-      prep: 'Write your letters now: they all open on graduation day.',
-      links: [['💌 Letters', 'letters.html']] },
+      prep: 'Write your letters now: they all open on graduation day. Add a photo to your profile so you are in the final reel.',
+      links: [['💌 Letters', 'letters.html'], ['🎬 The final reel', 'reel.html']] },
   ];
   const dayStart = i => START + i * DAY;
   // -1 before the week, 0–6 during it, 7 after it
