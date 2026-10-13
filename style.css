@@ -1933,6 +1933,22 @@ body[data-page="feed"] { background: #000; color: #fff; overflow: hidden; animat
 .ab-facts span { display: block; font-size: .68rem; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: .05em; }
 .ab-facts b { display: block; margin-top: 2px; font-size: .86rem; color: var(--gray-800); }
 .ab-facts a { color: var(--blue); }
+/* Privacy questions and answers (about.html#privacy) */
+.ab-sec[id] { scroll-margin-top: 64px; }                 /* a link to #privacy or #anthem lands below the top bar */
+.ab-faq { border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--gray-100); }
+.ab-faq details { border-bottom: 1px solid var(--gray-100); }
+.ab-faq details:last-child { border-bottom: 0; }
+.ab-faq summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 14px; font-size: .88rem; font-weight: 800; color: var(--gray-800); cursor: pointer; list-style: none; }
+.ab-faq summary::-webkit-details-marker { display: none; }
+.ab-faq summary::after { content: '+'; flex: none; font-size: 1.1rem; font-weight: 900; color: var(--blue); }
+.ab-faq details[open] summary::after { content: '\2212'; }
+.ab-faq summary:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.ab-faq details > div { padding: 0 14px 4px; }
+.ab-faq ul { margin: 0 0 10px; padding-left: 18px; }
+.ab-faq li { margin-bottom: 6px; font-size: .88rem; line-height: 1.65; color: var(--gray-600); }
+.ab-faq a, .ab-faq-note a, .consent-faq a { color: var(--blue); font-weight: 700; }
+.ab-faq-note { margin-top: 10px; font-size: .8rem !important; }
+.consent-faq { margin: 4px 0 0; font-size: .74rem; color: var(--gray-500); }
 .ab-soon { padding: 14px 16px; border-radius: var(--radius-md); background: var(--gold-pale); border: 1px dashed #e8c766; }
 .ab-soon h2 { color: #7a5600; }
 .ab-soon p { margin: 0; color: #6b5200; }
