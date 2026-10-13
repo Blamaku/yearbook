@@ -177,6 +177,13 @@
       <div id="commentsContainer"></div>
     </div>
 
+    <!-- DELETE MY PROFILE: only on your own -->
+    <div class="info-card del-card" id="deleteCard" style="display:none">
+      <div class="info-card-title">🗑️ Delete my profile</div>
+      <p class="del-text">Your profile disappears from the yearbook straight away. You then have 90 days to change your mind: sign in and tap <b>Restore my profile</b>. After 90 days it is removed for good.</p>
+      <button type="button" class="del-btn" onclick="openDeleteProfile()">Delete my profile…</button>
+    </div>
+
   </div><!-- /profile-body -->
 
   <!-- Edit profile button (only shown to profile owner) -->
@@ -186,6 +193,25 @@
   <div class="share-bar">
     <a id="waShareBtn" href="#" target="_blank" class="share-btn wa" rel="noopener">💬 &nbsp; Chat on WhatsApp</a>
     <button class="share-btn cp" onclick="copyProfileLink()">🔗 &nbsp; Copy Link</button>
+  </div>
+
+  <!-- ══ DELETE MY PROFILE: type DELETE to confirm ══ -->
+  <div class="edit-own-modal hidden" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="delTitle">
+    <div class="edit-own-sheet del-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="delTitle">🗑️ Delete my profile?</div>
+      <ul class="del-list">
+        <li><b>Straight away:</b> your profile, photos, comments, likes and friends disappear from the yearbook for everyone.</li>
+        <li><b>For 90 days:</b> sign in and tap <b>Restore my profile</b> to bring everything back just as it was.</li>
+        <li><b>After 90 days:</b> it is removed for good, with everything you added: photos, comments, likes, friends, letters, time capsule notes and class wall posts.</li>
+      </ul>
+      <label class="form-label" for="delConfirm">Type <b>DELETE</b> to confirm</label>
+      <input class="form-input" id="delConfirm" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <div class="del-acts">
+        <button type="button" class="btn-secondary" onclick="closeDeleteProfile()">Keep my profile</button>
+        <button type="button" class="del-btn" id="delGo" disabled onclick="confirmDeleteProfile()">Delete my profile</button>
+      </div>
+    </div>
   </div>
 
   <!-- ══ EDIT OWN PROFILE MODAL ══ -->

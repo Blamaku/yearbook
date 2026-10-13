@@ -1886,6 +1886,76 @@ window.gFriends = (function () {
   return { load, state, act, respond, list, setPublic, isPublic: () => pub, LABEL };
 })();
 
+// ── A profile its owner deleted: while its 90 days last, offer to bring it back (api: profile.ghost / profile.restore) ──
+// Checked once per session, and only for someone signed in without a live profile.
+window.gGhost = (function () {
+  const KEY = 'gluk-ghost:';
+  const day = iso => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const save = (uid, v) => { try { sessionStorage.setItem(KEY + uid, v); } catch (e) {} };
+  const hide = () => { const b = document.getElementById('ghostBanner'); if (b) b.remove(); };
+  function show(g) {
+    const bar = document.getElementById('userBar'); if (!bar || !g) return;
+    hide();
+    const el = document.createElement('div');
+    el.id = 'ghostBanner'; el.className = 'ghost-banner'; el.setAttribute('role', 'status');
+    el.innerHTML = `<span>🕊️ You deleted your profile on <b>${esc(day(g.deleted_at))}</b>. It will be removed for good on <b>${esc(day(g.purge_after))}</b> (${Number(g.days_left)} day${Number(g.days_left) === 1 ? '' : 's'} left).</span>
+      <button type="button" id="ghostRestore">Restore my profile</button>`;
+    bar.insertAdjacentElement('afterend', el);
+    el.querySelector('#ghostRestore').onclick = restore;
+  }
+  async function check(u) {
+    if (!u || !window.gApi || !document.getElementById('userBar')) { hide(); return; }
+    let v = null; try { v = sessionStorage.getItem(KEY + u.uid); } catch (e) {}
+    if (v === null) {
+      const { data } = await supabase.from('profiles_public').select('id').eq('uid', u.uid).limit(1);
+      if (data && data.length) v = 'none';
+      else { try { const r = await window.gApi('profile.ghost', {}); v = r.ghost ? JSON.stringify(r.ghost) : 'none'; } catch (e) { return; } }
+      save(u.uid, v);
+    }
+    if (v === 'none') hide(); else { try { show(JSON.parse(v)); } catch (e) {} }
+  }
+  async function restore() {
+    const btn = document.getElementById('ghostRestore'); if (btn) { btn.disabled = true; btn.textContent = 'Restoring…'; }
+    try {
+      const r = await window.gApi('profile.restore', {});
+      if (currentUser) save(currentUser.uid, 'none');
+      showToast('🎉 Your profile is back');
+      setTimeout(() => { location.href = 'profile.html?id=' + Number(r.profile.id); }, 700);
+    } catch (e) {
+      showToast('❌ ' + ((e && e.message) || 'Could not restore it.'), 4000);
+      if (btn) { btn.disabled = false; btn.textContent = 'Restore my profile'; }
+    }
+  }
+  if (typeof auth !== 'undefined') auth.onAuthStateChanged(u => { check(u); });
+  return { check, save };
+})();
+
+// Delete my profile (profile page): type DELETE, then it is hidden at once and removed for good after 90 days
+window.openDeleteProfile = function () {
+  const m = document.getElementById('deleteModal'), inp = document.getElementById('delConfirm'), go = document.getElementById('delGo');
+  if (!m || !inp || !go) return;
+  inp.value = ''; go.disabled = true; go.textContent = 'Delete my profile';
+  inp.oninput = () => { go.disabled = inp.value.trim().toUpperCase() !== 'DELETE'; };
+  m.classList.remove('hidden');
+  setTimeout(() => inp.focus(), 50);
+};
+window.closeDeleteProfile = () => { const m = document.getElementById('deleteModal'); if (m) m.classList.add('hidden'); };
+window.confirmDeleteProfile = async function () {
+  const inp = document.getElementById('delConfirm'), go = document.getElementById('delGo');
+  if (!inp || inp.value.trim().toUpperCase() !== 'DELETE') return;
+  go.disabled = true; go.textContent = 'Deleting…';
+  try {
+    const r = await window.gApi('profile.delete', { confirm: 'DELETE' });
+    if (currentUser && window.gGhost) window.gGhost.save(currentUser.uid, JSON.stringify(r.ghost));
+    window.closeDeleteProfile();
+    showToast('Your profile is deleted. You have 90 days to restore it.', 3500);
+    setTimeout(() => { location.href = 'index.html'; }, 1600);
+  } catch (e) {
+    showToast('❌ ' + ((e && e.message) || 'Could not delete it. Please try again.'), 4000);
+    go.disabled = false; go.textContent = 'Delete my profile';
+  }
+};
+
 // ── My Profile shortcut (top-bar icon on the students page) ───
 // Signed out  -> opens the sign-in box, then continues automatically
 // Has profile -> jumps straight to it
@@ -2301,6 +2371,11 @@ function initProfilePage(){
         document.addEventListener('gluk-friends', paintList);
         auth.onAuthStateChanged(() => paintList());
         window.gFriends.load().then(paintList);
+      }
+      const _dc = document.getElementById('deleteCard');
+      if (_dc) {
+        const paintDel = u => { _dc.style.display = u && u.uid === data.uid ? '' : 'none'; };
+        paintDel(currentUser); auth.onAuthStateChanged(paintDel);
       }
       // A notification (e.g. "add your birthday") can link straight to the edit form — opens once only
       if (location.hash === '#edit') {

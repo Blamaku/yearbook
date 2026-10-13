@@ -54,6 +54,7 @@ const CONFIG = {
   lettersPerPerson: 30,                             // at most this many new letters by one person per 24 hours
   friendRequestsPerDay: 40,                         // friend requests one person may send per 24 hours
   capsulesPerPerson: 20,                            // time capsule notes one student may seal
+  ghostDays: 90,                                    // a profile its owner deletes can be restored for this long, then it is removed for good
   errorsPerMinute: 60,                              // app error reports kept per minute, from everyone together
   // The class wall (wall.html): each kind opens on its graduation-week day, 00:00 in Kisumu (also in wall.js and the SQL)
   wallOpens: { memory: '2026-11-16T21:00:00Z', tag: '2026-11-17T21:00:00Z', song: '2026-11-18T21:00:00Z', joke: '2026-11-18T21:00:00Z', advice: '2026-11-19T21:00:00Z' },
@@ -565,6 +566,74 @@ async function wallRow(ctx, id) {
   return r.data[0];
 }
 
+// ── Deleting your own profile (since 2026-10-30) ──────────────────────────────
+// The profile moves to profiles_archive as a "ghost": hidden from everyone at once, and its owner can restore it
+// for ghostDays. Then it is removed for good with everything tied to it (purge_ghost in the database, photos here).
+const ARCHIVE_ONLY = ['archived_at', 'archived_by', 'deleted_by_owner', 'deleted_at', 'purge_after'];
+const ghostDbError = e => missingTable(e) || missingColumn(e)
+  ? new ApiError(503, 'delete_coming', 'Deleting profiles is being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not do that. Please try again.');
+const ghostInfo = (ctx, g) => ({ id: g.id, name: g.name, course: g.course || '', classyear: g.classyear || '', email: g.email || '',
+  deleted_at: g.deleted_at, purge_after: g.purge_after, days_left: Math.max(0, Math.ceil((Date.parse(g.purge_after) - ctx.now()) / 864e5)) });
+// The logins of every ghost (before the SQL, nobody is one)
+async function ghostUids(ctx) {
+  const r = await ctx.db.from('profiles_archive').select('uid').eq('deleted_by_owner', true).limit(5000);
+  return new Set(r.error ? [] : (r.data || []).map(x => x.uid));
+}
+// One ghost, by { uid } or { id }
+async function ghostRow(ctx, q) {
+  if (!q.uid && !(Number.isInteger(Number(q.id)) && Number(q.id) > 0)) throw bad('Missing or invalid profile.');
+  const base = ctx.db.from('profiles_archive').select('*').eq('deleted_by_owner', true);
+  const r = await (q.uid ? base.eq('uid', q.uid) : base.eq('id', Number(q.id))).limit(1);
+  if (r.error) { if (missingColumn(r.error)) return null; throw ghostDbError(r.error); }
+  return (r.data && r.data[0]) || null;
+}
+// Bring a ghost back just as it was
+async function unGhost(ctx, g) {
+  const ex = await ctx.db.from('profiles').select('id').eq('uid', g.uid).limit(1);
+  if (ex.error) throw ghostDbError(ex.error);
+  if (ex.data && ex.data.length) throw conflict('This account already has a live profile.', 'exists');
+  const ins = await ctx.db.from('profiles').insert(Object.fromEntries(Object.entries(g).filter(([k]) => !ARCHIVE_ONLY.includes(k))));
+  if (ins.error) throw ghostDbError(ins.error);
+  const del = await ctx.db.from('profiles_archive').delete().eq('id', g.id);
+  if (del.error) { await ctx.db.from('profiles').delete().eq('id', g.id); throw ghostDbError(del.error); }
+  await logEvent(ctx, 'profile_restored', true, { id: g.id });
+}
+// Remove a ghost for good: its photos first (if that fails, nothing else goes and the next run tries again), then the rest
+async function purgeGhost(ctx, g) {
+  const uid = safeUid(g.uid);
+  if (uid && ctx.storage) {
+    const bucket = ctx.storage.from(ctx.config.profileBucket);
+    for (let round = 0; round < 20; round++) {
+      const l = await bucket.list(uid, { limit: 1000 });
+      if (l.error) throw new ApiError(500, 'storage', 'Could not remove the photos.');
+      const files = (l.data || []).filter(f => f && f.id && f.name).map(f => `${uid}/${f.name}`);
+      if (!files.length) break;
+      const rm = await bucket.remove(files);
+      if (rm.error) throw new ApiError(500, 'storage', 'Could not remove the photos.');
+    }
+  }
+  const r = await ctx.db.rpc('purge_ghost', { p_id: g.id });
+  if (r.error) throw ghostDbError(r.error);
+  await logEvent(ctx, 'profile_purged', true, { id: g.id, removed: r.data || {} });
+  return r.data || {};
+}
+// Every ghost whose days are over (the nightly run, and the admin's Deleted profiles tab)
+async function purgeDue(ctx) {
+  const r = await ctx.db.from('profiles_archive').select('id,uid').eq('deleted_by_owner', true)
+    .lte('purge_after', new Date(ctx.now()).toISOString()).limit(50);
+  if (r.error) { if (missingColumn(r.error)) return 0; throw ghostDbError(r.error); }
+  let n = 0;
+  for (const g of r.data || []) {
+    try { await purgeGhost(ctx, g); n++; }
+    catch (e) { await logEvent(ctx, 'profile_purged', false, { id: g.id, msg: snip(e && e.message, 200) }); }
+  }
+  return n;
+}
+// The nightly run's secret, compared without giving away how much of it matched
+const sameSecret = (a, b) => { a = String(a || ''); b = String(b || ''); if (!b || a.length !== b.length) return false;
+  let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };
+
 // ── Friends (since 2026-10-27) ─────────────────────────────────────────
 // A request waits until the other person accepts; only friends hear about each other's new photos, profile
 // updates (once a day) and likes (once a day). Only the api reads friend_links; a person's friends show on
@@ -689,7 +758,8 @@ async function supAllVotes(ctx) {
     all.push(...(v.data || []));
     if ((v.data || []).length < 1000) break;
   }
-  return all;
+  const ghosts = await ghostUids(ctx);                     // votes by someone who deleted their profile don't count
+  return ghosts.size ? all.filter(v => !ghosts.has(v.voter_uid)) : all;
 }
 // Each category's leaders, most votes first (a tie goes to the lower profile id, so it never flickers).
 // Someone who has since become anonymous, left the class or been deleted is skipped.
@@ -746,8 +816,10 @@ const ACTIONS = {
     const ex = await ctx.db.from('profiles').select('id').eq('uid', uid).limit(1);
     if (ex.error) throw new ApiError(500, 'db', 'Could not check your profile.');
     if (ex.data && ex.data.length) throw conflict('You already have a profile.', 'exists', { id: ex.data[0].id });
-    const ar = await ctx.db.from('profiles_archive').select('id').eq('uid', uid).limit(1);
-    if (!ar.error && ar.data && ar.data.length) throw conflict('Your profile is archived. Please contact the admin.', 'archived');
+    const ar = await ctx.db.from('profiles_archive').select('id,deleted_by_owner').eq('uid', uid).limit(1);
+    const old = !ar.error && ar.data && ar.data[0];
+    if (old && old.deleted_by_owner) throw conflict('You deleted your profile. Tap "Restore my profile" at the top of the page to bring it back.', 'ghost');
+    if (old) throw conflict('Your profile is archived. Please contact the admin.', 'archived');
     const ins = await ctx.db.from('profiles').insert([rec]).select();
     if (ins.error) throw new ApiError(500, 'db', 'Could not save your profile: ' + ins.error.message);
     return { profile: ins.data[0] };
@@ -767,6 +839,37 @@ const ACTIONS = {
     if (up.error) throw new ApiError(500, 'db', 'Could not save the changes: ' + up.error.message);
     if (owner) ctx.background(friendNews(ctx, before, patch).catch(e => console.warn('[friend news]', e && e.message)));
     return {};
+  },
+
+  // Delete your own profile ({ confirm: 'DELETE' }): hidden from everyone at once, yours to restore for ghostDays
+  async 'profile.delete'(ctx, body) {
+    if (body.confirm !== 'DELETE') throw bad('Type DELETE to confirm.');
+    const r = await ctx.db.from('profiles').select('*').eq('uid', ctx.user.uid).limit(1);
+    if (r.error) throw ghostDbError(r.error);
+    const row = r.data && r.data[0];
+    if (!row) throw notFound('You have no profile to delete.');
+    const now = ctx.now(), at = new Date(now).toISOString(), purge = new Date(now + ctx.config.ghostDays * 864e5).toISOString();
+    const ghost = { ...row, archived_at: at, archived_by: ctx.user.email || ctx.user.uid, deleted_by_owner: true, deleted_at: at, purge_after: purge };
+    const ins = await ctx.db.from('profiles_archive').insert(ghost);
+    if (ins.error) throw ghostDbError(ins.error);
+    const del = await ctx.db.from('profiles').delete().eq('id', row.id);
+    if (del.error) { await ctx.db.from('profiles_archive').delete().eq('id', row.id); throw ghostDbError(del.error); }
+    await ctx.db.from('push_subscriptions').delete().eq('uid', ctx.user.uid);      // a deleted profile gets no notifications
+    await logEvent(ctx, 'profile_deleted', true, { id: row.id, purge_after: purge });
+    return { ghost: ghostInfo(ctx, ghost) };
+  },
+
+  // Did you delete your profile? (asked when you are signed in without one, for the "Restore my profile" banner)
+  async 'profile.ghost'(ctx) {
+    const g = await ghostRow(ctx, { uid: ctx.user.uid });
+    return { ghost: g ? ghostInfo(ctx, g) : null };
+  },
+
+  async 'profile.restore'(ctx) {
+    const g = await ghostRow(ctx, { uid: ctx.user.uid });
+    if (!g) throw notFound('There is no deleted profile to restore.');
+    await unGhost(ctx, g);
+    return { profile: { id: g.id } };
   },
 
   // Contact details and birthday are not in the public view (profiles_public).
@@ -1117,13 +1220,14 @@ const ACTIONS = {
     const uid = ctx.user.uid, open = lettersOpen(ctx), countOnly = !!body.countOnly;
     const [mine, forMe, wall] = await Promise.all([
       countOnly ? { data: [] } : ctx.db.from('letters').select(LETTER_MINE).eq('author_uid', uid).order('created_at', { ascending: false }).limit(200),
-      ctx.db.from('letters').select(open ? 'id,to_kind,author_name,body,created_at' : 'id').eq('to_uid', uid)
+      ctx.db.from('letters').select(open ? 'id,to_kind,author_name,author_uid,body,created_at' : 'id,author_uid').eq('to_uid', uid)
         .eq('removed', false).eq('hidden', false).order('created_at', { ascending: false }).limit(500),
       countOnly ? { count: 0 } : ctx.db.from('letters').select('id', { count: 'exact', head: true }).eq('on_wall', true).eq('hidden', false),
     ]);
     const err = mine.error || forMe.error || wall.error;
     if (err) throw letterDbError(err);
-    const got = forMe.data || [];
+    const ghosts = await ghostUids(ctx);                     // a letter from someone who deleted their profile waits with them
+    const got = (forMe.data || []).filter(l => !ghosts.has(l.author_uid)).map(({ author_uid, ...l }) => l);
     return { openAt: ctx.config.lettersOpenAt, open, written: (mine.data || []).map(ownLetter),
       forMe: { count: got.length, letters: open ? got : [] }, wallCount: wall.count || 0 };
   },
@@ -2176,7 +2280,7 @@ const ACTIONS = {
   async 'admin.archive.list'(ctx, body) {
     requireAdmin(ctx);
     const from = Math.max(0, Math.min(50000, Number(body.from) || 0));
-    const r = await ctx.db.from('profiles_archive').select('*')
+    const r = await ctx.db.from('profiles_archive').select('*').eq('deleted_by_owner', false)
       .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + 999);
     if (r.error) throw new ApiError(500, missingTable(r.error) ? 'archive_missing' : 'db', missingTable(r.error) ? 'The archive is not set up yet (run admin-upgrade.sql).' : 'Could not load the archive.');
     return { rows: r.data || [] };
@@ -2200,7 +2304,7 @@ const ACTIONS = {
       const ex = await ctx.db.from('profiles').select('id').eq('uid', row.uid).limit(1);
       if (ex.data && ex.data.length) throw conflict('This person already has a new profile, so this one can\u2019t be restored.', 'exists');
     }
-    const { archived_at, archived_by, ...rest } = row;
+    const rest = Object.fromEntries(Object.entries(row).filter(([k]) => !ARCHIVE_ONLY.includes(k)));
     const ins = await ctx.db.from('profiles').insert(rest);          // same id, so comments and club membership come back
     if (ins.error) throw new ApiError(500, 'db', 'Could not restore: ' + ins.error.message);
     await ctx.db.from('profiles_archive').delete().eq('id', row.id);
@@ -2214,6 +2318,32 @@ const ACTIONS = {
     const del = await ctx.db.from(table).delete().eq('id', row.id);
     if (del.error) throw new ApiError(500, 'db', 'Could not delete the profile.');
     return {};
+  },
+
+  // Profiles their owners deleted, soonest to go first. Overdue ones are removed first, in case the nightly run missed them.
+  async 'admin.ghosts.list'(ctx) {
+    requireAdmin(ctx);
+    const purged = await purgeDue(ctx);
+    const r = await ctx.db.from('profiles_archive').select('id,uid,name,course,classyear,email,photo_url,deleted_at,purge_after')
+      .eq('deleted_by_owner', true).order('purge_after', { ascending: true }).limit(1000);
+    if (r.error) throw ghostDbError(r.error);
+    return { rows: (r.data || []).map(g => ({ ...ghostInfo(ctx, g), photo_url: g.photo_url || null })), purged };
+  },
+
+  async 'admin.ghost.restore'(ctx, body) {
+    requireAdmin(ctx);
+    const g = await ghostRow(ctx, { id: body.id });
+    if (!g) throw notFound('That deleted profile is not there any more.');
+    await unGhost(ctx, g);
+    return {};
+  },
+
+  // Remove one for good now, without waiting for its days to run out
+  async 'admin.ghost.purge'(ctx, body) {
+    requireAdmin(ctx);
+    const g = await ghostRow(ctx, { id: body.id });
+    if (!g) throw notFound('That deleted profile is not there any more.');
+    return { removed: await purgeGhost(ctx, g) };
   },
 
   async 'admin.officer.add'(ctx, body) {
@@ -2245,7 +2375,7 @@ const PUBLIC_ACTIONS = ['hit', 'sup.board', 'err'];
 
 // ── The request handler ────────────────────────────────────────────────
 export function createApi({ config, db, storage, getKeys, now = () => Date.now(), rand = () => Math.random().toString(36).slice(2, 8),
-  push = null, firestore = null, firestoreStats = null, newId = () => randomId(20),
+  push = null, firestore = null, firestoreStats = null, newId = () => randomId(20), purgeSecret = '',
   background = p => { Promise.resolve(p).catch(e => console.error('[api] background task failed', e)); } }) {
   const cors = origin => {
     const h = { 'Vary': 'Origin', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Max-Age': '86400',
@@ -2272,6 +2402,10 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       if (!isObj(body)) throw bad('The request could not be read.');
       action = String(body.action || '');
       if (action === 'ping') return ping();
+      if (action === 'purge.run') {                         // the nightly clean-up (pg_cron + pg_net): only with the secret
+        if (!sameSecret(req.headers.get('x-purge-secret'), purgeSecret)) throw forbidden();
+        return json({ ok: true, purged: await purgeDue({ db, storage, config, now }) }, 200, headers);
+      }
       const fn = Object.prototype.hasOwnProperty.call(ACTIONS, action) ? ACTIONS[action] : null;
       if (!fn) throw new ApiError(404, 'unknown_action', 'Unknown action.');
       if (PUBLIC_ACTIONS.includes(action)) {                // counted without a sign-in
@@ -2408,6 +2542,7 @@ const api = createApi({ config: { ...CONFIG, supabaseUrl: SUPABASE_URL }, db: ad
   push: VAPID_PRIVATE_KEY ? createPushSender({ publicKey: CONFIG.vapidPublicKey, privateKey: VAPID_PRIVATE_KEY, subject: CONFIG.vapidSubject }) : null,
   firestore: firestoreReader(CONFIG.projectId),
   firestoreStats: firestoreStats(CONFIG.projectId),
+  purgeSecret: Deno.env.get('PURGE_SECRET') || '',
   background: p => { const t = Promise.resolve(p).catch(e => console.error('[api] background task failed', e)); globalThis.EdgeRuntime?.waitUntil?.(t); } });
 Deno.serve(req => api.handle(req));
 // ==DENO-WIRING-END==

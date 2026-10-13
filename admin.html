@@ -258,7 +258,7 @@
 
     <!-- ── Moderation ── -->
     <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button><button type="button" id="seg-mgd" data-act="mod-tab" data-v="graddays">Grad days</button><button type="button" id="seg-mwl" data-act="mod-tab" data-v="wall">Class wall</button><button type="button" id="seg-mnw" data-act="mod-tab" data-v="news">What's new</button></div>
+      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button><button type="button" id="seg-mgd" data-act="mod-tab" data-v="graddays">Grad days</button><button type="button" id="seg-mwl" data-act="mod-tab" data-v="wall">Class wall</button><button type="button" id="seg-mnw" data-act="mod-tab" data-v="news">What's new</button><button type="button" id="seg-mdl" data-act="mod-tab" data-v="deleted">Deleted profiles</button></div>
       <div id="mod-comments"><div id="cList"></div></div>
       <div id="mod-posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
@@ -279,6 +279,10 @@
           <button type="button" class="a-mini" data-act="nw-save" style="align-self:flex-start">Post it</button>
         </div>
         <div id="nwList"></div>
+      </div>
+      <div id="mod-deleted" style="display:none">
+        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Profiles their owners deleted. They are hidden from everyone; the owner can restore theirs until its days run out, then it is removed for good with everything tied to it (every night, and whenever this list opens).</div>
+        <div id="dlList"></div>
       </div>
       <div id="mod-graddays" style="display:none">
         <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Each class's graduation day. Students' time capsules open at 00:00 (Kisumu) on their class's day; students with sealed notes get a phone notification when you post it.</div>
@@ -985,6 +989,8 @@
       $('seg-mwl').classList.toggle('on', M.tab === 'wall');
       $('mod-news').style.display = M.tab === 'news' ? 'block' : 'none';
       $('seg-mnw').classList.toggle('on', M.tab === 'news');
+      $('mod-deleted').style.display = M.tab === 'deleted' ? 'block' : 'none';
+      $('seg-mdl').classList.toggle('on', M.tab === 'deleted');
       $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
       $('seg-ms').classList.toggle('on', M.tab === 'staff'); $('seg-ml').classList.toggle('on', M.tab === 'letters');
       if (M.tab === 'comments' && !M.loadedC) loadComments();
@@ -997,6 +1003,7 @@
       if (M.tab === 'graddays') loadGradDays();
       if (M.tab === 'wall') loadWall();
       if (M.tab === 'news') loadNews();
+      if (M.tab === 'deleted') loadGhosts();
     }
 
     /* ══ Letters: the class wall and anything someone reported. Private letters nobody reported never come here. ══ */
@@ -1077,6 +1084,29 @@
         const g = GU.rows.find(x => Number(x.profile_id) === id); if (g) { g.hidden = hidden; g.reported = false; }
         renderGlow(); toast(hidden ? 'Hidden from the gallery' : 'Done ✅');
       } catch (e) { console.error('[glow review]', e); toast('❌ ' + (e.message || 'Could not update.')); }
+    }
+
+    /* ══ Deleted profiles: hidden ghosts, restorable for 90 days, then removed for good ══ */
+    async function loadGhosts() {
+      $('dlList').innerHTML = '<div class="a-empty">Loading…</div>';
+      let r;
+      try { r = await window.gApi('admin.ghosts.list', {}); }
+      catch (e) { $('dlList').innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' || e.code === 'delete_coming' ? 'Deleting profiles is not switched on yet.' : e.message || 'Could not load.')}</div>`; return; }
+      if (r.purged) toast(`🗑️ ${r.purged} profile${r.purged === 1 ? '' : 's'} past ${r.purged === 1 ? 'its' : 'their'} 90 days removed for good`, 3500);
+      const d = iso => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      const rows = r.rows || [];
+      $('dlList').innerHTML = rows.length ? rows.map(g => `<div class="a-item"><div class="a-item-top"><div class="grow">
+          <span class="a-name" style="display:inline">${E(g.name || 'Unnamed')}</span> <span class="a-badge">${Number(g.days_left)} day${Number(g.days_left) === 1 ? '' : 's'} left</span>
+          <div class="a-sub">${E(g.course || '')}${g.classyear ? ' · Class of ' + E(g.classyear) : ''}${g.email ? ' · ' + E(g.email) : ''}</div>
+          <div class="a-sub">Deleted ${E(d(g.deleted_at))} · removed for good ${E(d(g.purge_after))}</div></div></div>
+          <div class="a-item-acts"><button type="button" class="a-mini" data-act="dl-restore" data-id="${Number(g.id)}">Restore</button><button type="button" class="a-mini danger" data-act="dl-purge" data-id="${Number(g.id)}">Remove for good now</button></div></div>`).join('')
+        : '<div class="a-empty">Nobody has deleted their profile.</div>';
+    }
+    async function ghostAct(id, purge) {
+      if (!confirm(purge ? 'Remove this profile for good now?\n\nIts photos, comments, likes, friends, letters, time capsule notes and class wall posts are deleted. This cannot be undone.'
+        : 'Restore this profile? It shows in the yearbook again straight away.')) return;
+      try { await window.gApi(purge ? 'admin.ghost.purge' : 'admin.ghost.restore', { id }); toast(purge ? '🗑️ Removed for good' : 'Restored ✅'); loadGhosts(); }
+      catch (e) { toast('❌ ' + (e.message || 'Could not do that.')); }
     }
 
     /* ══ What's new: announcements of app updates (Alerts for everyone, and a phone push) ══ */
@@ -1934,6 +1964,8 @@ let _ocSearchT = null;
         case 'wl-review': reviewWall(id, b.dataset.v === '1'); break;
         case 'nw-save': saveNews(); break;
         case 'nw-hide': hideNews(id, b.dataset.v === '1'); break;
+        case 'dl-restore': ghostAct(id, false); break;
+        case 'dl-purge': ghostAct(id, true); break;
         case 'gd-del': deleteGradDay(b.dataset.v); break;
         case 'sup-add':    supAdd(); break;
         case 'sup-rename': supRename(id); break;
