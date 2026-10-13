@@ -119,6 +119,10 @@ window.GRAD_DATE = GRAD_DATE;
 // Every page reads its class list from here, so it updates itself each year.
 const INTAKE_MONTH = 8;   // 0 = January … 8 = September (change if your intake month differs)
 
+// Alumni classes for the profile form: last year back to the first graduating class (2007: the 18th ceremony was in 2024)
+const FIRST_CLASS = 2007;
+window.alumniClassYears = () => Array.from({ length: GRAD_YEAR - FIRST_CLASS }, (_, i) => GRAD_YEAR - 1 - i);
+
 window.studentClassYears = function () {
   const years = [GRAD_YEAR, GRAD_YEAR + 1, GRAD_YEAR + 2, GRAD_YEAR + 3];
   if (new Date().getMonth() >= INTAKE_MONTH) years.push(GRAD_YEAR + 4);

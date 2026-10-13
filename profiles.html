@@ -445,7 +445,7 @@
     if (sel) {
       sel.innerHTML = '';
       const years = type === 'alumni'
-        ? [GY-1,GY-2,GY-3,GY-4,GY-5,GY-6,GY-7,GY-8,GY-9,GY-10]
+        ? window.alumniClassYears()
         : window.studentClassYears();
       years.forEach(y => {
         const o = document.createElement('option');
@@ -468,7 +468,7 @@
     // Populate year select
     const sel   = document.getElementById('f-classYear');
     const years = isAlumniCtx
-      ? [GY-1,GY-2,GY-3,GY-4,GY-5,GY-6,GY-7,GY-8,GY-9,GY-10]
+      ? window.alumniClassYears()
       : window.studentClassYears();
     years.forEach(y => {
       const o = document.createElement('option');
