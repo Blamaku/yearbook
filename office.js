@@ -210,8 +210,7 @@
       card(`<div class="of-ico">✉️</div><h2>Verify your email first</h2><p>For your office’s safety, the dashboard opens only for a verified email. Open the link we sent to ${esc(u.email || 'your email')}, then come back here.</p>`);
       return;
     }
-    try { const me = await window.gApi('office.me', {}); offices = me.offices || [];
-      perms = me.perms || ['dos.students', 'dos.clubs', 'alumni']; }   // shortcut: an api before 2026-11-01 sends no permissions (it still checks each list); drop once api v29 is live
+    try { const me = await window.gApi('office.me', {}); offices = me.offices || []; perms = me.perms || []; }
     catch (e) { card(`<p>${esc((e && e.message) || 'Could not check your office. Please try again.')}</p>`); return; }
     if (!offices.length) {
       card(`<div class="of-ico">🏛</div><h2>No office dashboard for this account</h2><p>This page is for the university’s offices. If your office should have one, ask the yearbook’s admin to add ${esc(u.email || 'your email')}.</p>`);
