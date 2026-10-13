@@ -722,6 +722,31 @@ const pushDevice = host => /apple\.com$/.test(host) ? 'iPhone or Mac (Safari)' :
 const DIARY_KINDS = ['client_error', 'api_error', 'push', 'backup', 'purge', 'contact_limit', 'letter_report', 'wall_report', 'glow_report',
   'profile_deleted', 'profile_restored', 'profile_purged'];
 
+// ── The Dean of Students' dashboard (since 2026-11-01): the students database and club records ──
+// Only the 'dos' office (and the super admin) reads these, and every list view and export goes in office_audit.
+const DOS_COLS = 'id,name,reg,dept,course,classyear,county,country,currentcounty,whatsapp,email,clubs,isanonymous,photo_url,created_at';
+// The filters the yearbook uses (school, programme, class year, county, club) and a name or reg number to search for
+function dosFilters(b) {
+  const f = {};
+  for (const [k, max, label] of [['dept', 120, 'School'], ['course', 200, 'Programme'], ['county', 60, 'County'], ['club', 80, 'Club'], ['q', 60, 'Search']]) {
+    const v = txt(b[k], max, label); if (v) f[k] = v;
+  }
+  if (b.classyear) f.classyear = classYear(b.classyear);
+  if (f.q) { f.q = f.q.replace(/[%_*\\"(),]/g, ' ').replace(/\s+/g, ' ').trim(); if (!f.q) delete f.q; }   // searched as plain text
+  return f;
+}
+function dosQuery(q, f) {
+  if (f.dept) q = q.eq('dept', f.dept);
+  if (f.course) q = q.eq('course', f.course);
+  if (f.classyear) q = q.eq('classyear', f.classyear);
+  if (f.county) q = q.eq('county', f.county);
+  if (f.club) q = q.contains('clubs', [f.club]);
+  if (f.q) q = q.or(`name.ilike."%${f.q}%",reg.ilike."%${f.q}%"`);
+  return q;
+}
+// The trimester of a date: 1 = January–April, 2 = May–August, 3 = September–December (GLUK's three intakes)
+const trimester = d => { const m = Number(String(d).slice(5, 7)); return m <= 4 ? 1 : m <= 8 ? 2 : 3; };
+
 // ── Who's who? leaderboard (since 2026-10-13) ──────────────────────────
 const kyuDbError = e => missingTable(e)
   ? new ApiError(503, 'kyu_coming', 'The leaderboard is being switched on. Please try again later.')
@@ -2548,6 +2573,58 @@ const ACTIONS = {
       topLiked: top(likeTop, 'likes'), topCommented: top(commentTop, 'comments'),
       features: { likes, comments, replies, friends, friendRequests, letters, capsules, glow, wall, votes, kyu, chal, staff, leaders, news },
     };
+  },
+
+  // ── the Office of the Dean of Students (office.html) ──
+  // The students database, 100 at a time, A to Z ({ dept?, course?, classyear?, county?, club?, q?, from? }).
+  // { ...filters, export: true } gives every match at once, for the CSV. Both are written in the audit log first.
+  async 'dos.students'(ctx, body) {
+    await requireOffice(ctx, 'dos');
+    const f = dosFilters(body), all = body.export === true;
+    const from = all ? 0 : Math.max(0, Math.min(50000, Number(body.from) || 0));
+    const page = (a, b) => dosQuery(ctx.db.from('profiles').select(DOS_COLS), f).order('name', { ascending: true }).order('id', { ascending: true }).range(a, b);
+    const n = await dosQuery(ctx.db.from('profiles').select('id', { count: 'exact', head: true }), f);
+    if (n.error) throw new ApiError(500, 'db', 'Could not load the students.');
+    const total = n.count || 0;
+    await audit(ctx, 'dos', all ? 'students_exported' : 'students_viewed', { filters: f, rows: all ? total : Math.max(0, Math.min(100, total - from)), from });
+    const rows = [];
+    for (let a = from; a < (all ? total : from + 100); a += 1000) {
+      const r = await page(a, Math.min(a + 999, all ? total - 1 : from + 99));
+      if (r.error) throw new ApiError(500, 'db', 'Could not load the students.');
+      rows.push(...(r.data || []));
+      if ((r.data || []).length < 1000) break;
+    }
+    return { rows, total, more: !all && from + rows.length < total };
+  },
+
+  // Club activity records for one year ({ year, export? }): every post with its date, type and trimester; the clubs'
+  // officials, members and meeting details. Officials and members are as they are today (the yearbook keeps no history).
+  async 'dos.clubs'(ctx, body) {
+    await requireOffice(ctx, 'dos');
+    const year = Number(body.year), thisYear = new Date(ctx.now()).getUTCFullYear();
+    if (!Number.isInteger(year) || year < 2000 || year > thisYear + 1) throw bad('Choose the year.');
+    const [posts, officers, info, first] = await Promise.all([
+      ctx.db.from('club_posts').select('id,club_name,type,title,post_date,attendees,file_urls,author_name')
+        .gte('post_date', `${year}-01-01`).lte('post_date', `${year}-12-31`).order('post_date', { ascending: true }).limit(5000),
+      ctx.db.from('club_officers').select('club_name,officer_name,officer_email,role').limit(5000),
+      ctx.db.from('club_info').select('club_name,about,meeting_days,meeting_place,contact_email,contact_whatsapp').limit(1000),
+      ctx.db.from('club_posts').select('post_date').order('post_date', { ascending: true }).limit(1),
+    ]);
+    if (posts.error || officers.error) throw new ApiError(500, missingTable(posts.error || officers.error) ? 'club_tables_missing' : 'db', 'Could not load the club records.');
+    const members = {};
+    for (let a = 0; a < 50000; a += 1000) {
+      const r = await ctx.db.from('profiles').select('clubs').order('id', { ascending: true }).range(a, a + 999);
+      if (r.error) throw new ApiError(500, 'db', 'Could not count the members.');
+      (r.data || []).forEach(x => (Array.isArray(x.clubs) ? x.clubs : []).forEach(c => { members[c] = (members[c] || 0) + 1; }));
+      if ((r.data || []).length < 1000) break;
+    }
+    const rows = (posts.data || []).map(x => ({ id: x.id, club: x.club_name, type: x.type, title: x.title || '', date: x.post_date, trimester: trimester(x.post_date),
+      attendees: Array.isArray(x.attendees) ? x.attendees.length : 0, files: Array.isArray(x.file_urls) ? x.file_urls.length : 0, by: x.author_name || '' }));
+    await audit(ctx, 'dos', body.export === true ? 'club_records_exported' : 'club_records_viewed', { year, rows: rows.length });
+    const f = first.data && first.data[0];
+    return { year, firstYear: f ? Number(String(f.post_date).slice(0, 4)) : thisYear, posts: rows, members,
+      officials: (officers.data || []).map(o => ({ club: o.club_name, name: o.officer_name || '', email: o.officer_email || '', role: o.role || '' })),
+      info: info.error ? [] : (info.data || []).map(i => ({ club: i.club_name, about: i.about || '', days: i.meeting_days || '', place: i.meeting_place || '', email: i.contact_email || '', whatsapp: i.contact_whatsapp || '' })) };
   },
 
   async 'admin.officer.add'(ctx, body) {

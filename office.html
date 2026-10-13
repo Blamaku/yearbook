@@ -37,51 +37,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
   <script src="supabase.js"></script>
   <script src="app.js"></script>
-  <script>
-  (function () {
-    const NAMES = (typeof OFFICE_NAMES !== 'undefined' && OFFICE_NAMES) || {};
-    // What each office's dashboard will hold (they are built in the next updates)
-    const SOON = {
-      dos: 'Your students database (every profile, with filters, search and a CSV export) and the yearly club activity records are coming in the next update.',
-      alumni: 'The online alumni registration form, the alumni database and private messages to alumni are coming in an update after that.',
-    };
-    const body = document.getElementById('ofBody'), seg = document.getElementById('ofSeg');
-    const card = html => { body.innerHTML = `<div class="of-card">${html}</div>`; };
-    let offices = [], cur = '';
-    function paint() {
-      seg.hidden = offices.length < 2;
-      seg.innerHTML = offices.map(o => `<button type="button" role="tab" aria-selected="${o === cur}" class="${o === cur ? 'on' : ''}" data-o="${esc(o)}">${esc(NAMES[o] || o)}</button>`).join('');
-      document.getElementById('ofTitle').textContent = NAMES[cur] || 'Office dashboard';
-      document.getElementById('ofSub').textContent = 'Your office’s dashboard on the GLUK Yearbook. Every list you open and every export is recorded in an audit log the yearbook’s admin can read.';
-      card(`<div class="of-ico">🏛</div><h2>Your dashboard is being built</h2><p>${esc(SOON[cur] || '')}</p>`);
-    }
-    seg.addEventListener('click', e => {
-      const b = e.target.closest('[data-o]'); if (!b) return;
-      cur = b.dataset.o; try { sessionStorage.setItem('gluk-office-tab', cur); } catch (er) {}
-      paint();
-    });
-    auth.onAuthStateChanged(async u => {
-      if (!u) {
-        seg.hidden = true;
-        card(`<div class="of-ico">🔐</div><h2>Sign in</h2><p>This page is for the university offices that use the yearbook. Sign in with the email the yearbook’s admin added for your office.</p>
-          <button type="button" class="btn-primary" onclick="openAuthModal(null,'login')">Sign in</button>`);
-        return;
-      }
-      if (!u.emailVerified) {
-        card(`<div class="of-ico">✉️</div><h2>Verify your email first</h2><p>For your office’s safety, the dashboard opens only for a verified email. Open the link we sent to ${esc(u.email || 'your email')}, then come back here.</p>`);
-        return;
-      }
-      try { offices = (await window.gApi('office.me', {})).offices || []; }
-      catch (e) { card(`<p>${esc((e && e.message) || 'Could not check your office. Please try again.')}</p>`); return; }
-      if (!offices.length) {
-        card(`<div class="of-ico">🏛</div><h2>No office dashboard for this account</h2><p>This page is for the university’s offices. If your office should have one, ask the yearbook’s admin to add ${esc(u.email || 'your email')}.</p>`);
-        return;
-      }
-      let saved = ''; try { saved = sessionStorage.getItem('gluk-office-tab') || ''; } catch (e) {}
-      cur = offices.includes(saved) ? saved : offices[0];
-      paint();
-    });
-  })();
-  </script>
+  <script src="office.js"></script>
 </body>
 </html>
