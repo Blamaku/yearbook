@@ -257,12 +257,12 @@ function updateUserBar(user) {
         <img class="ub-logo ub-logo-auth" src="logo-64.png" alt="GLUK" width="29" height="26">
         <div class="ub-avatar" data-me-face>${initial}</div>
         <span class="ub-name">${safeName}</span>
-        ${isAdmin ? '<span class="ub-admin-badge">Admin</span>' : ''}
+        ${isAdmin ? '<span class="ub-admin-badge">Super admin</span>' : ''}
       </div>
       <div class="ub-right">
         ${bellBtn}
         ${themeBtn}
-        ${isAdmin ? '<a href="admin.html" class="ub-btn ub-admin-btn">🛠 Admin</a>' : ''}
+        ${isAdmin ? '<a href="admin.html" class="ub-btn ub-admin-btn">🛠 Admin</a>' : '<a href="office.html" class="ub-btn ub-admin-btn" id="ubOffice" hidden>🏛 Office</a>'}
         <button class="ub-btn ub-logout" onclick="logOut()">Sign Out</button>
       </div>`;
     paintMe();

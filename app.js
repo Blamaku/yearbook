@@ -20,6 +20,8 @@
   };
   function report(kind, msg, where, stack) {
     msg = String(msg || 'Error').slice(0, 300);
+    // not the yearbook's code: cross-origin "Script error.", code phone browsers and wallet apps inject, broken service-worker updates
+    if (/^Script error\.?$|__firefox__|ethereum|webkit\.messageHandlers|Failed to update a ServiceWorker|reading 'M_ID'/i.test(msg)) return;
     where = where || frame(stack) || {};
     const key = msg + '|' + where.file + ':' + where.line;
     if (sent >= 5 || seen.has(key) || typeof SUPABASE_KEY === 'undefined') return;
@@ -1884,6 +1886,22 @@ window.gFriends = (function () {
     changed();
   }
   return { load, state, act, respond, list, setPublic, isPublic: () => pub, LABEL };
+})();
+
+// ── Office admins: the 🏛 Office link in the top bar (api office.me, asked once a session; the super admin has the Admin page) ──
+(function () {
+  if (typeof auth === 'undefined') return;
+  auth.onAuthStateChanged(async u => {
+    if (!u || !u.emailVerified || !window.gApi) return;
+    if (typeof ADMIN_EMAIL !== 'undefined' && String(u.email || '').toLowerCase() === String(ADMIN_EMAIL).toLowerCase()) return;
+    const key = 'gluk-office:' + u.uid;
+    let v = null; try { v = sessionStorage.getItem(key); } catch (e) {}
+    if (v === null) {
+      try { v = ((await window.gApi('office.me', {})).offices || []).length ? '1' : '0'; } catch (e) { return; }
+      try { sessionStorage.setItem(key, v); } catch (e) {}
+    }
+    const a = document.getElementById('ubOffice'); if (a) a.hidden = v !== '1';
+  });
 })();
 
 // ── A profile its owner deleted: while its 90 days last, offer to bring it back (api: profile.ghost / profile.restore) ──

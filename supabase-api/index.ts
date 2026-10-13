@@ -55,6 +55,7 @@ const CONFIG = {
   friendRequestsPerDay: 40,                         // friend requests one person may send per 24 hours
   capsulesPerPerson: 20,                            // time capsule notes one student may seal
   ghostDays: 90,                                    // a profile its owner deletes can be restored for this long, then it is removed for good
+  offices: ['dos', 'alumni'],                       // office dashboards (office.html); their names are OFFICE_NAMES in firebase-config.js
   errorsPerMinute: 60,                              // app error reports kept per minute, from everyone together
   // The class wall (wall.html): each kind opens on its graduation-week day, 00:00 in Kisumu (also in wall.js and the SQL)
   wallOpens: { memory: '2026-11-16T21:00:00Z', tag: '2026-11-17T21:00:00Z', song: '2026-11-18T21:00:00Z', joke: '2026-11-18T21:00:00Z', advice: '2026-11-19T21:00:00Z' },
@@ -224,7 +225,28 @@ async function requireClubManager(ctx, club) {
   if (ctx.isAdmin) return;
   if (!(await isClubOfficer(ctx, club))) throw forbidden('Only this club\u2019s officials can do that.');
 }
-const requireAdmin = ctx => { if (!ctx.isAdmin) throw forbidden('Only the admin can do that.'); };
+const requireAdmin = ctx => { if (!ctx.isAdmin) throw forbidden('Only the super admin can do that.'); };
+// ── Offices (since 2026-10-31): each office admin sees only their own office's dashboard (office.html) ──
+// The super admin (the adminEmail account) passes every office check. An office admin needs a verified email.
+const officeDbError = e => missingTable(e)
+  ? new ApiError(503, 'offices_coming', 'Office dashboards are being switched on. Please try again later.')
+  : new ApiError(500, 'db', 'Could not do that. Please try again.');
+async function loadOffices(ctx) {
+  if (ctx.offices) return ctx.offices;
+  if (ctx.isSuperAdmin || ctx.isAdmin) return (ctx.offices = [...ctx.config.offices]);
+  if (!ctx.user || !ctx.user.emailVerified || !ctx.user.email) return (ctx.offices = []);
+  const r = await ctx.db.from('office_admins').select('office').eq('email', lower(ctx.user.email)).limit(10);
+  return (ctx.offices = r.error ? [] : [...new Set((r.data || []).map(x => x.office))].filter(o => ctx.config.offices.includes(o)));
+}
+async function requireOffice(ctx, office) {
+  if (!(await loadOffices(ctx)).includes(office)) throw forbidden('Only this office can do that.');
+}
+// Who did what (the super admin reads it in Developer > Audit). If it cannot be written, the action does not happen.
+async function audit(ctx, office, action, detail) {
+  const r = await ctx.db.from('office_audit').insert({ email: lower(ctx.user.email) || ctx.user.uid, office: office || null, action,
+    detail: detail || {}, created_at: new Date(ctx.now()).toISOString() });
+  if (r.error) throw officeDbError(r.error);
+}
 async function getRow(ctx, table, id) {
   const n = Number(id);
   if (!Number.isInteger(n) || n <= 0) throw bad('Missing or invalid id.');
@@ -689,6 +711,16 @@ async function friendNews(ctx, row, patch) {
 
 // A short, safe copy of an error's stack (no query strings)
 const errStack = v => snip(String(v || '').replace(/\?[^\s):]*/g, ''), 1500);
+// Errors that are not the yearbook's: cross-origin "Script error.", code that phone browsers and wallet apps inject
+// into pages, and service-worker updates a bad connection broke (also in app.js and admin.html)
+const ERROR_NOISE = /^Script error\.?$|__firefox__|ethereum|webkit\.messageHandlers|Failed to update a ServiceWorker|reading 'M_ID'/i;
+const isNoise = d => ERROR_NOISE.test(String((d && d.msg) || ''));
+// What kind of device a phone-notification address belongs to, from its push service
+const pushDevice = host => /apple\.com$/.test(host) ? 'iPhone or Mac (Safari)' : /mozilla\.com$/.test(host) ? 'Firefox'
+  : /windows\.com$/.test(host) ? 'Windows (Edge)' : /googleapis\.com$/.test(host) ? 'Android or Chrome' : 'Other';
+// The kinds of line in the developer diary (ops_events), for the Activity page's filters
+const DIARY_KINDS = ['client_error', 'api_error', 'push', 'backup', 'purge', 'contact_limit', 'letter_report', 'wall_report', 'glow_report',
+  'profile_deleted', 'profile_restored', 'profile_purged'];
 
 // ── Who's who? leaderboard (since 2026-10-13) ──────────────────────────
 const kyuDbError = e => missingTable(e)
@@ -800,6 +832,11 @@ const ACTIONS = {
   // Who am I? (used by the admin page to show the connection status)
   async whoami(ctx) {
     return { uid: ctx.user.uid, email: ctx.user.email, emailVerified: ctx.user.emailVerified, isAdmin: ctx.isAdmin };
+  },
+
+  // Which office dashboards may I open? (office.html, and the 🏛 Office link in the top bar)
+  async 'office.me'(ctx) {
+    return { superAdmin: !!ctx.isSuperAdmin, offices: await loadOffices(ctx) };
   },
 
   // ── profiles ──
@@ -1691,6 +1728,7 @@ const ACTIONS = {
     const since = new Date(ctx.now() - 60e3).toISOString();
     const recent = await ctx.db.from('ops_events').select('kind', { count: 'exact', head: true }).eq('kind', 'client_error').gte('created_at', since);
     if (recent.error || (recent.count || 0) >= ctx.config.errorsPerMinute) return { kept: false };
+    if (ERROR_NOISE.test(String(body.msg || ''))) return { kept: false };      // not the yearbook's own code
     const line = Number(body.line) || 0, col = Number(body.col) || 0;
     await logEvent(ctx, 'client_error', false, { msg: snip(body.msg, 300) || 'Error', page: snip(body.page, 120), file: snip(body.file, 200),
       line: line > 0 && line < 1e6 ? Math.floor(line) : 0, col: col > 0 && col < 1e6 ? Math.floor(col) : 0,
@@ -2216,12 +2254,13 @@ const ACTIONS = {
     requireAdmin(ctx);
     const weekAgo = new Date(ctx.now() - 7 * 864e5).toISOString();
     const ev = () => ctx.db.from('ops_events');
-    const [stats, backup, pushes, recent, keys] = await Promise.all([
+    const [stats, backup, pushes, recent, keys, purge] = await Promise.all([
       ctx.db.rpc('dev_stats'),
       ev().select('ok,details,created_at').eq('kind', 'backup').order('created_at', { ascending: false }).limit(1),
       ev().select('ok,details').eq('kind', 'push').gte('created_at', weekAgo).limit(5000),
       ev().select('kind,ok,details,created_at').order('created_at', { ascending: false }).limit(15),
       ctx.keysStatus(),
+      ev().select('ok,details,created_at').eq('kind', 'purge').order('created_at', { ascending: false }).limit(1),
     ]);
     if (stats.error) {
       throw missingTable(stats.error) || /dev_stats/.test(stats.error.message || '')
@@ -2241,6 +2280,7 @@ const ACTIONS = {
       comments: comments && !comments.error ? comments : null,
       pushWeek: { batches: p.length, sent: sum('sent'), failed: sum('failed'), removed: sum('removed') },
       lastBackup: backup.error ? null : ((backup.data || [])[0] || null),
+      lastPurge: purge.error ? null : ((purge.data || [])[0] || null),
       recent: recent.error ? [] : (recent.data || []),
     };
   },
@@ -2346,6 +2386,170 @@ const ACTIONS = {
     return { removed: await purgeGhost(ctx, g) };
   },
 
+  // ── super admin: the to-do list, office admins, the audit log and the Developer tab's pages ──
+  // Home's to-do list and the badges on the menu: everything waiting for the super admin, in one call
+  async 'admin.todo'(ctx) {
+    requireAdmin(ctx);
+    const count = (t, f) => f(ctx.db.from(t).select('*', { count: 'exact', head: true })).then(r => r.error ? null : (r.count || 0));
+    const day = new Date(ctx.now() - 864e5).toISOString();
+    const [staff, leaders, letters, wall, glow, ghosts, errs, backup] = await Promise.all([
+      count('staff_profiles', q => q.eq('status', 'pending')),
+      count('student_leaders', q => q.eq('status', 'pending')),
+      count('letters', q => q.eq('reported', true)),
+      count('grad_posts', q => q.eq('reported', true)),
+      count('glowups', q => q.eq('reported', true)),
+      count('profiles_archive', q => q.eq('deleted_by_owner', true)),
+      ctx.db.from('ops_events').select('details').in('kind', ['client_error', 'api_error']).gte('created_at', day).limit(1000),
+      ctx.db.from('ops_events').select('ok,created_at').eq('kind', 'backup').order('created_at', { ascending: false }).limit(1),
+    ]);
+    return { staff, leaders, reported: { letters, wall, glow }, ghosts,
+      errors24h: errs.error ? null : (errs.data || []).filter(e => !isNoise(e.details)).length,
+      lastBackup: backup.error ? null : ((backup.data || [])[0] || null) };
+  },
+
+  async 'admin.offices.list'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.from('office_admins').select('id,email,office,granted_by,created_at').order('created_at', { ascending: true }).limit(500);
+    if (r.error) throw officeDbError(r.error);
+    return { rows: r.data || [] };
+  },
+
+  // Make someone an office admin ({ email, office }). They sign in with that email (verified) and open office.html.
+  async 'admin.office.add'(ctx, body) {
+    requireAdmin(ctx);
+    const email = lower(emailOrBlank(body.email, 'Email'));
+    if (!email) throw bad('Write their email.');
+    const office = String(body.office || '');
+    if (!ctx.config.offices.includes(office)) throw bad('Choose the office.');
+    if (email === lower(ctx.config.adminEmail)) throw bad('The super admin already sees every office.');
+    const ins = await ctx.db.from('office_admins').insert({ email, office, granted_by: lower(ctx.user.email), created_at: new Date(ctx.now()).toISOString() }).select('id');
+    if (ins.error) throw ins.error.code === '23505' ? conflict('They are already an admin of that office.', 'exists') : officeDbError(ins.error);
+    await audit(ctx, null, 'office_admin_added', { email, office });
+    return { id: (Array.isArray(ins.data) ? ins.data[0] : ins.data).id };
+  },
+
+  async 'admin.office.remove'(ctx, body) {
+    requireAdmin(ctx);
+    const row = await getRow(ctx, 'office_admins', body.id);
+    const del = await ctx.db.from('office_admins').delete().eq('id', row.id);
+    if (del.error) throw officeDbError(del.error);
+    await audit(ctx, null, 'office_admin_removed', { email: row.email, office: row.office });
+    return {};
+  },
+
+  // Every list view, export and office-admin change, newest first
+  async 'admin.audit.list'(ctx) {
+    requireAdmin(ctx);
+    const r = await ctx.db.from('office_audit').select('id,email,office,action,detail,created_at').order('created_at', { ascending: false }).limit(500);
+    if (r.error) throw officeDbError(r.error);
+    return { rows: r.data || [] };
+  },
+
+  // Who has phone notifications on (each person, their devices, since when) and what was sent in the last 7 days
+  async 'admin.dev.push'(ctx) {
+    requireAdmin(ctx);
+    const weekAgo = new Date(ctx.now() - 7 * 864e5).toISOString();
+    const [subs, ev] = await Promise.all([
+      ctx.db.from('push_subscriptions').select('uid,endpoint,created_at,last_seen_at').limit(5000),
+      ctx.db.from('ops_events').select('ok,details').eq('kind', 'push').gte('created_at', weekAgo).limit(5000),
+    ]);
+    if (subs.error) throw pushDbError(subs.error);
+    const byUid = new Map();
+    for (const x of subs.data || []) {
+      let host = ''; try { host = new URL(x.endpoint).hostname; } catch (e) { /* not a web address */ }
+      const d = byUid.get(x.uid) || { uid: x.uid, devices: [], since: x.created_at, seen: x.last_seen_at };
+      d.devices.push({ kind: pushDevice(host), since: x.created_at, seen: x.last_seen_at });
+      if (x.created_at && (!d.since || x.created_at < d.since)) d.since = x.created_at;
+      if (x.last_seen_at && (!d.seen || x.last_seen_at > d.seen)) d.seen = x.last_seen_at;
+      byUid.set(x.uid, d);
+    }
+    const uids = [...byUid.keys()], prof = {}, staff = {};
+    for (let i = 0; i < uids.length; i += 200) {
+      const part = uids.slice(i, i + 200);
+      const [pr, st] = await Promise.all([
+        ctx.db.from('profiles').select('id,uid,name,email,course,classyear,photo_url').in('uid', part),
+        ctx.db.from('staff_profiles').select('id,uid,name,title,position').in('uid', part)]);
+      (pr.data || []).forEach(x => { prof[x.uid] = x; });
+      (st.data || []).forEach(x => { staff[x.uid] = x; });
+    }
+    const people = [...byUid.values()].map(d => {
+      const pr = prof[d.uid], st = staff[d.uid];
+      return { name: pr ? pr.name : st ? [st.title, st.name].filter(Boolean).join(' ') : '', profile_id: pr ? pr.id : null, staff_id: !pr && st ? st.id : null,
+        email: pr ? pr.email || '' : '', course: pr ? pr.course || '' : st ? st.position || '' : '', classyear: pr ? pr.classyear || '' : '',
+        photo_url: pr ? pr.photo_url || null : null, devices: d.devices, since: d.since, seen: d.seen };
+    }).sort((a, b) => String(b.seen || '').localeCompare(String(a.seen || '')));
+    const e = ev.error ? [] : (ev.data || []), what = {};
+    for (const x of e) {
+      const d = x.details || {}, k = d.what || 'other', w = what[k] = what[k] || { what: k, batches: 0, sent: 0, failed: 0 };
+      w.batches++; w.sent += Number(d.sent) || 0; w.failed += Number(d.failed) || 0;
+    }
+    const sum = k => e.reduce((n, x) => n + (Number(x.details && x.details[k]) || 0), 0);
+    return { people, devices: (subs.data || []).length,
+      week: { batches: e.length, sent: sum('sent'), failed: sum('failed'), removed: sum('removed'), byWhat: Object.values(what).sort((a, b) => b.sent - a.sent) } };
+  },
+
+  // The developer diary, newest first, 100 at a time ({ kind?, before? }), and how many of each kind in 30 days
+  async 'admin.dev.activity'(ctx, body) {
+    requireAdmin(ctx);
+    const kind = String(body.kind || ''), before = body.before ? String(body.before) : '';
+    if (kind && !DIARY_KINDS.includes(kind)) throw bad('Unknown kind of event.');
+    if (before && isNaN(Date.parse(before))) throw bad('Invalid date.');
+    let q = ctx.db.from('ops_events').select('id,kind,ok,details,created_at').order('created_at', { ascending: false }).limit(100);
+    if (kind) q = q.eq('kind', kind);
+    if (before) q = q.lt('created_at', before);
+    const month = new Date(ctx.now() - 30 * 864e5).toISOString();
+    const [r, ...n] = await Promise.all([q, ...DIARY_KINDS.map(k => ctx.db.from('ops_events').select('id', { count: 'exact', head: true }).eq('kind', k).gte('created_at', month))]);
+    if (r.error) throw new ApiError(500, 'db', 'Could not load the activity.');
+    const kinds = {};
+    DIARY_KINDS.forEach((k, i) => { if (!n[i].error && n[i].count) kinds[k] = n[i].count; });
+    return { rows: r.data || [], kinds, more: (r.data || []).length === 100 };
+  },
+
+  // The Developer tab's People page: who is in the yearbook, how complete their profiles are, and what gets used
+  async 'admin.dev.insights'(ctx) {
+    requireAdmin(ctx);
+    const all = [];
+    for (let from = 0; from < 50000; from += 1000) {
+      const r = await ctx.db.from('profiles').select('id,name,dept,course,classyear,county,country,photo_url,bio,whatsapp,email,birthday,clubs,isanonymous,created_at')
+        .order('id', { ascending: true }).range(from, from + 999);
+      if (r.error) throw new ApiError(500, 'db', 'Could not load the profiles.');
+      all.push(...(r.data || []));
+      if ((r.data || []).length < 1000) break;
+    }
+    const tally = f => { const m = {}; all.forEach(x => { const k = f(x); if (k) m[k] = (m[k] || 0) + 1; }); return Object.entries(m).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n); };
+    const named = all.filter(x => !x.isanonymous);
+    const filled = v => Array.isArray(v) ? v.length > 0 : !!String(v || '').trim();
+    const share = f => named.length ? Math.round(named.filter(f).length / named.length * 100) : 0;
+    const since = ctx.now() - 30 * 864e5, kday = iso => new Date(Date.parse(iso) + 3 * 3600e3).toISOString().slice(0, 10);
+    const clubs = {};
+    all.forEach(x => (Array.isArray(x.clubs) ? x.clubs : []).forEach(c => { clubs[c] = (clubs[c] || 0) + 1; }));
+    const count = (t, f) => (f ? f(ctx.db.from(t).select('*', { count: 'exact', head: true })) : ctx.db.from(t).select('*', { count: 'exact', head: true }))
+      .then(r => r.error ? null : (r.count || 0));
+    const [likes, comments, replies, friends, friendRequests, letters, capsules, glow, wall, votes, kyu, chal, staff, leaders, news, likeTop, commentTop] = await Promise.all([
+      count('profile_likes'), count('comments'), count('comment_replies'),
+      count('friend_links', q => q.eq('status', 'accepted')), count('friend_links', q => q.eq('status', 'pending')),
+      count('letters'), count('capsules'), count('glowups'), count('grad_posts'), count('sup_votes'), count('kyu_board'), count('chal_best'),
+      count('staff_profiles', q => q.eq('status', 'approved')), count('student_leaders', q => q.eq('status', 'approved')), count('announcements'),
+      ctx.db.from('profile_like_counts').select('profile_id,likes').order('likes', { ascending: false }).limit(5),
+      ctx.db.from('profile_comment_counts').select('profile_id,comments').order('comments', { ascending: false }).limit(5),
+    ]);
+    const byId = Object.fromEntries(all.map(x => [x.id, x]));
+    const top = (r, key) => (r.error ? [] : r.data || []).filter(x => byId[x.profile_id]).map(x => ({ id: x.profile_id, name: byId[x.profile_id].name, n: Number(x[key]) || 0 }));
+    return {
+      total: all.length, anonymous: all.length - named.length,
+      byClass: tally(x => String(x.classyear || '')).sort((a, b) => b.k.localeCompare(a.k)),
+      bySchool: tally(x => x.dept),
+      byCounty: tally(x => x.country && x.country !== 'Kenya' ? '' : x.county).slice(0, 10),
+      countries: tally(x => x.country && x.country !== 'Kenya' ? x.country : ''),
+      complete: { photo: share(x => filled(x.photo_url)), bio: share(x => filled(x.bio)), whatsapp: share(x => filled(x.whatsapp)),
+        email: share(x => filled(x.email)), birthday: share(x => filled(x.birthday)), clubs: share(x => filled(x.clubs)) },
+      joined: tally(x => Date.parse(x.created_at) >= since ? kday(x.created_at) : '').sort((a, b) => a.k.localeCompare(b.k)),
+      clubs: Object.entries(clubs).map(([k, n]) => ({ k, n })).sort((a, b) => b.n - a.n).slice(0, 10),
+      topLiked: top(likeTop, 'likes'), topCommented: top(commentTop, 'comments'),
+      features: { likes, comments, replies, friends, friendRequests, letters, capsules, glow, wall, votes, kyu, chal, staff, leaders, news },
+    };
+  },
+
   async 'admin.officer.add'(ctx, body) {
     requireAdmin(ctx);
     const club = txt(body.club, 80, 'Club', { required: true });
@@ -2404,7 +2608,9 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       if (action === 'ping') return ping();
       if (action === 'purge.run') {                         // the nightly clean-up (pg_cron + pg_net): only with the secret
         if (!sameSecret(req.headers.get('x-purge-secret'), purgeSecret)) throw forbidden();
-        return json({ ok: true, purged: await purgeDue({ db, storage, config, now }) }, 200, headers);
+        const purged = await purgeDue({ db, storage, config, now });
+        await logEvent({ db, now }, 'purge', true, { purged });      // Developer > Health shows when it last ran
+        return json({ ok: true, purged }, 200, headers);
       }
       const fn = Object.prototype.hasOwnProperty.call(ACTIONS, action) ? ACTIONS[action] : null;
       if (!fn) throw new ApiError(404, 'unknown_action', 'Unknown action.');
@@ -2416,7 +2622,7 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       if (!token) throw new ApiError(401, 'auth', 'Please sign in first.');
       const user = await verifyFirebaseToken(token, { projectId: config.projectId, getKeys, nowSec: () => Math.floor(now() / 1000) });
       const isAdmin = user.emailVerified && !!user.email && lower(user.email) === lower(config.adminEmail);
-      const result = await fn({ user, isAdmin, db, storage, config, now, rand, push, firestore, firestoreStats, newId, background, keysStatus }, body);
+      const result = await fn({ user, isAdmin, isSuperAdmin: isAdmin, db, storage, config, now, rand, push, firestore, firestoreStats, newId, background, keysStatus }, body);
       return json({ ok: true, ...result }, 200, headers);
     } catch (e) {
       if (e instanceof ApiError && e.status >= 500 && e.code !== 'too_large') await logEvent({ db, now }, 'api_error', false, { msg: snip(e.message, 300), code: e.code, action, stack: errStack(e.stack) });

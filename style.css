@@ -2897,3 +2897,18 @@ html.grad-day .hm-hero h1::after { content: ' 🎓'; }
 .fl-pub { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 700; color: var(--gray-600); margin: 0 0 10px; cursor: pointer; }
 .fl-pub[hidden] { display: none; }
 .fl-pub input { width: 18px; height: 18px; accent-color: var(--blue); }
+
+/* ══ Copyright line (about.html) and the office dashboards (office.html) ══ */
+.ab-copy { margin: 26px 16px 8px; font-size: .72rem; color: var(--gray-400); text-align: center; }
+.of-main { max-width: 760px; margin: 0 auto; padding: 14px 16px 110px; }
+.of-hero { margin: 4px 0 14px; }
+.of-hero h1 { margin: 8px 0 4px; font-size: 1.35rem; font-weight: 900; color: var(--gray-800); }
+.of-hero p { margin: 0; font-size: .86rem; line-height: 1.6; color: var(--gray-600); }
+.of-seg { display: flex; gap: 2px; margin: 0 0 14px; padding: 3px; border-radius: var(--radius-md); background: var(--gray-100); overflow-x: auto; }
+.of-seg button { flex: 1 0 auto; padding: 9px 12px; border: 0; border-radius: 8px; background: none; color: var(--gray-600); font: inherit; font-size: .8rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.of-seg button.on { background: var(--white); color: var(--navy); box-shadow: var(--shadow-sm); }
+.of-card { padding: 22px 18px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--gray-100); text-align: center; }
+.of-card h2 { margin: 6px 0; font-size: 1.05rem; font-weight: 900; color: var(--gray-800); }
+.of-card p { margin: 0 auto 12px; max-width: 460px; font-size: .86rem; line-height: 1.6; color: var(--gray-600); }
+.of-card .btn-primary { max-width: 240px; margin: 4px auto 0; }
+.of-ico { font-size: 2.2rem; }

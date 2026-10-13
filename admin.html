@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#061020">
-  <title>Admin — GLUK Yearbook 2026</title>
+  <title>Super admin — GLUK Yearbook 2026</title>
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -104,10 +104,21 @@
     .tr-share span { font-size:.66rem; color:var(--gray-600); }
     .tr-live { display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.25); vertical-align:middle; }
 
-    .a-nav { position:fixed; left:0; right:0; bottom:0; z-index:200; display:grid; grid-template-columns:repeat(5,1fr); background:var(--white); border-top:1px solid var(--gray-100); padding-bottom:env(safe-area-inset-bottom,0px); box-shadow:0 -4px 16px rgba(0,0,0,.06); }
+    .a-nav { position:fixed; left:0; right:0; bottom:0; z-index:200; display:grid; grid-template-columns:repeat(6,1fr); background:var(--white); border-top:1px solid var(--gray-100); padding-bottom:env(safe-area-inset-bottom,0px); box-shadow:0 -4px 16px rgba(0,0,0,.06); }
     .a-nav button { display:flex; flex-direction:column; align-items:center; gap:2px; padding:9px 0 8px; border:none; background:none; font-family:inherit; font-size:.66rem; font-weight:700; color:var(--gray-400); cursor:pointer; }
     .a-nav button i { font-style:normal; font-size:1.15rem; }
     .a-nav button.on { color:var(--blue); }
+    .a-nav button { position:relative; }
+    .a-nav-dot { position:absolute; top:4px; left:calc(50% + 7px); min-width:16px; padding:0 4px; border-radius:99px; background:#e11d48; color:#fff; font-size:.58rem; font-style:normal; font-weight:800; line-height:16px; }
+    .a-seg.scroll { display:flex; gap:2px; overflow-x:auto; scrollbar-width:none; }
+    .a-seg.scroll::-webkit-scrollbar { display:none; }
+    .a-seg.scroll button { flex:1 0 auto; padding:8px 12px; white-space:nowrap; }
+    .a-cnt { display:inline-block; min-width:16px; margin-left:5px; padding:0 5px; border-radius:99px; background:#e11d48; color:#fff; font-size:.6rem; font-style:normal; font-weight:800; line-height:16px; vertical-align:1px; }
+    .a-see { float:right; padding:0; border:0; background:none; color:var(--blue); font:inherit; font-size:.68rem; font-weight:800; letter-spacing:0; text-transform:none; cursor:pointer; }
+    .a-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+    .a-qa-link { grid-column:1 / -1; padding:12px; border-radius:var(--radius-md); border:1.5px dashed var(--gray-200); color:var(--blue); font-weight:700; font-size:.78rem; text-align:center; text-decoration:none; }
+    .d-noise { margin:0; padding:10px 14px; border-top:1px solid var(--gray-100); }
+    .d-noise summary { cursor:pointer; font-size:.74rem; color:var(--gray-400); font-weight:700; }
 
     .a-ov { position:fixed; inset:0; z-index:5000; display:none; align-items:flex-end; background:rgba(4,13,30,.78); }
     .a-ov.open { display:flex; }
@@ -159,12 +170,12 @@
 
   <div class="admin-gate" id="adminGate">
     <div style="font-size:3.5rem">🔐</div>
-    <h2 style="color:var(--navy);font-size:1.3rem">Admin Access</h2>
-    <p style="color:var(--gray-600);font-size:.875rem;max-width:280px">Sign in with the admin account to manage the GLUK Yearbook.</p>
-    <button class="btn-primary" style="max-width:240px;width:100%" onclick="openAuthModal(null,'login')">Sign In as Admin</button>
+    <h2 style="color:var(--navy);font-size:1.3rem">Super admin</h2>
+    <p style="color:var(--gray-600);font-size:.875rem;max-width:280px">Sign in with the super admin account to manage the GLUK Yearbook.</p>
+    <button class="btn-primary" style="max-width:240px;width:100%" onclick="openAuthModal(null,'login')">Sign in as super admin</button>
     <p id="gateMsg" style="color:#dc2626;font-size:.78rem;max-width:300px;line-height:1.5;margin:0"></p>
     <p id="gateInfo" style="color:var(--gray-400);font-size:.72rem;max-width:300px;line-height:1.5;margin:0">Loading scripts…</p>
-    <p style="color:var(--gray-400);font-size:.6rem;margin:0;opacity:.7">Admin page build 20</p>
+    <p style="color:var(--gray-400);font-size:.6rem;margin:0;opacity:.7">Admin page build 21</p>
     <a href="index.html" style="font-size:.8rem;color:var(--gray-400);margin-top:8px">← Back to Yearbook</a>
   </div>
 
@@ -223,14 +234,14 @@
     <section class="a-view active" id="v-home">
       <div class="a-sec">Overview</div>
       <div class="a-stats">
-        <button type="button" class="a-stat" data-act="stat" data-v="students"><b id="stProfiles">–</b><span>Profiles</span></button>
-        <button type="button" class="a-stat" data-act="stat" data-v="students"><b id="stNew">–</b><span>New this week</span></button>
-        <button type="button" class="a-stat" data-act="stat" data-v="students"><b id="stStudents">–</b><span>Students</span></button>
-        <button type="button" class="a-stat" data-act="stat" data-v="students"><b id="stAlumni">–</b><span>Alumni</span></button>
-        <button type="button" class="a-stat" data-act="stat" data-v="comments"><b id="stComments">–</b><span>Comments</span></button>
-        <button type="button" class="a-stat" data-act="stat" data-v="clubs"><b id="stClubs">–</b><span>Clubs with officials</span></button>
+        <button type="button" class="a-stat" data-act="goto" data-v="people/students"><b id="stProfiles">–</b><span>Profiles</span></button>
+        <button type="button" class="a-stat" data-act="goto" data-v="people/students"><b id="stNew">–</b><span>New this week</span></button>
+        <button type="button" class="a-stat" data-act="goto" data-v="people/students"><b id="stStudents">–</b><span>Students</span></button>
+        <button type="button" class="a-stat" data-act="goto" data-v="people/students"><b id="stAlumni">–</b><span>Alumni</span></button>
+        <button type="button" class="a-stat" data-act="goto" data-v="content/comments"><b id="stComments">–</b><span>Comments</span></button>
+        <button type="button" class="a-stat" data-act="goto" data-v="clubs/all"><b id="stClubs">–</b><span>Clubs with officials</span></button>
       </div>
-      <div class="a-sec">Needs attention</div>
+      <div class="a-sec">To do</div>
       <div class="a-card" id="attnBox"><div class="a-empty" style="padding:22px 16px">Checking…</div></div>
       <div class="a-sec">Security</div>
       <div class="a-card" id="secBox"><div class="a-empty" style="padding:22px 16px">Checking the secure service…</div></div>
@@ -238,38 +249,54 @@
       <div class="a-qa">
         <button type="button" data-act="qa-export">📊 Export to Excel</button>
         <button type="button" data-act="go" data-v="clubs">➕ Add official</button>
+        <button type="button" data-act="goto" data-v="content/news">📣 Post an update</button>
+        <button type="button" data-act="goto" data-v="people/admins">🏛 Office admins</button>
+        <a class="a-qa-link" href="office.html" target="_blank" rel="noopener">🏛 Office dashboards ›</a>
       </div>
     </section>
 
-    <!-- ── Students ── -->
-    <section class="a-view" id="v-students">
-      <div class="a-seg"><button type="button" id="seg-active" class="on" data-act="view" data-v="active">Active</button><button type="button" id="seg-archived" data-act="view" data-v="archived">Archived</button></div>
-      <div class="a-tools">
+    <!-- ── People: students (active, archived, deleted), staff, student leaders, office admins ── -->
+    <section class="a-view" id="v-people">
+      <div class="a-seg tabs scroll" role="tablist"><button type="button" data-act="tab" data-v="students" role="tab">Students</button><button type="button" data-act="tab" data-v="staff" role="tab">Staff<em class="a-cnt" id="cnt-staff" hidden></em></button><button type="button" data-act="tab" data-v="leaders" role="tab">Leaders<em class="a-cnt" id="cnt-leaders" hidden></em></button><button type="button" data-act="tab" data-v="admins" role="tab">Office admins</button></div>
+      <div data-pane="students">
+      <div class="a-seg"><button type="button" id="seg-active" class="on" data-act="view" data-v="active">Active</button><button type="button" id="seg-archived" data-act="view" data-v="archived">Archived</button><button type="button" id="seg-deleted" data-act="view" data-v="deleted">Deleted</button></div>
+      <div class="a-tools" id="sTools">
         <input type="search" id="sSearch" placeholder="Search name, reg or email" autocomplete="off">
         <button type="button" class="a-fbtn" data-act="open-filters">⚙ Filters <em id="filtersBadge" style="display:none"></em></button>
       </div>
       <div id="activeChips"></div>
-      <div class="a-meta"><span id="sCount"></span><span style="flex:1"></span>
+      <div class="a-meta" id="sMeta"><span id="sCount"></span><span style="flex:1"></span>
         <select id="sSort" aria-label="Sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="name">Name A–Z</option><option value="year">Class year</option></select>
         <button type="button" class="a-mini" data-act="export">⬇ Excel</button>
       </div>
       <div id="sList"></div>
+      <div id="dlBox" style="display:none">
+        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Profiles their owners deleted. They are hidden from everyone; the owner can restore theirs until its days run out, then it is removed for good with everything tied to it (every night, and whenever this list opens).</div>
+        <div id="dlList"></div>
+      </div>
+      </div>
+      <div data-pane="staff" style="display:none"><div id="stList"></div></div>
+      <div data-pane="leaders" style="display:none"><div id="ldList"></div></div>
+      <div data-pane="admins" style="display:none">
+        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Office admins see only their own office's dashboard, at <a href="office.html" target="_blank" rel="noopener">office.html</a> (the 🏛 Office link in their top bar). They sign in with this email, verified. As the super admin you see every office, and everything an office opens or exports is written in Developer › Audit.</div>
+        <div class="a-item" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input id="oaEmail" class="form-input" type="email" placeholder="Their email" style="flex:1;min-width:200px" autocomplete="off" aria-label="Email">
+          <select id="oaOffice" class="form-select" style="width:auto" aria-label="Office"></select>
+          <button type="button" class="a-mini" data-act="oa-add">Add</button>
+        </div>
+        <div id="oaList"></div>
+      </div>
     </section>
 
-    <!-- ── Moderation ── -->
-    <section class="a-view" id="v-mod">
-      <div class="a-seg"><button type="button" id="seg-mc" class="on" data-act="mod-tab" data-v="comments">Comments</button><button type="button" id="seg-mp" data-act="mod-tab" data-v="posts">Club posts</button><button type="button" id="seg-ms" data-act="mod-tab" data-v="staff">Staff</button><button type="button" id="seg-mld" data-act="mod-tab" data-v="leaders">Leaders</button><button type="button" id="seg-ml" data-act="mod-tab" data-v="letters">Letters</button><button type="button" id="seg-msp" data-act="mod-tab" data-v="sup">Votes</button><button type="button" id="seg-mgu" data-act="mod-tab" data-v="glow">Glow Up</button><button type="button" id="seg-mgd" data-act="mod-tab" data-v="graddays">Grad days</button><button type="button" id="seg-mwl" data-act="mod-tab" data-v="wall">Class wall</button><button type="button" id="seg-mnw" data-act="mod-tab" data-v="news">What's new</button><button type="button" id="seg-mdl" data-act="mod-tab" data-v="deleted">Deleted profiles</button></div>
-      <div id="mod-comments"><div id="cList"></div></div>
-      <div id="mod-posts" style="display:none">
+    <!-- ── Content: comments, club posts, What's new ── -->
+    <section class="a-view" id="v-content">
+      <div class="a-seg tabs scroll" role="tablist"><button type="button" data-act="tab" data-v="comments" role="tab">Comments</button><button type="button" data-act="tab" data-v="posts" role="tab">Club posts</button><button type="button" data-act="tab" data-v="news" role="tab">What's new</button></div>
+      <div id="mod-comments" data-pane="comments" style="display:none"><div id="cList"></div></div>
+      <div id="mod-posts" data-pane="posts" style="display:none">
         <select class="form-select" id="postClub" style="margin-bottom:12px" aria-label="Filter by club"></select>
         <div id="pList"></div><div id="pMore"></div>
       </div>
-      <div id="mod-staff" style="display:none"><div id="stList"></div></div>
-      <div id="mod-leaders" style="display:none"><div id="ldList"></div></div>
-      <div id="mod-letters" style="display:none"><div id="ltList"></div></div>
-      <div id="mod-glow" style="display:none"><div id="guList"></div></div>
-      <div id="mod-wall" style="display:none"><div id="wlList"></div></div>
-      <div id="mod-news" style="display:none">
+      <div id="mod-news" data-pane="news" style="display:none">
         <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Tell everyone about an app update and why it is exciting. It shows in everyone's Alerts, and (if ticked) every phone with notifications on gets it.</div>
         <div class="a-item" style="display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;gap:8px"><input id="nwEmoji" class="form-input" maxlength="8" value="✨" style="width:64px;text-align:center"><input id="nwTitle" class="form-input" maxlength="120" placeholder="Title, e.g. Graduation week is here 🎓"></div>
@@ -280,20 +307,13 @@
         </div>
         <div id="nwList"></div>
       </div>
-      <div id="mod-deleted" style="display:none">
-        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Profiles their owners deleted. They are hidden from everyone; the owner can restore theirs until its days run out, then it is removed for good with everything tied to it (every night, and whenever this list opens).</div>
-        <div id="dlList"></div>
-      </div>
-      <div id="mod-graddays" style="display:none">
-        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Each class's graduation day. Students' time capsules open at 00:00 (Kisumu) on their class's day; students with sealed notes get a phone notification when you post it.</div>
-        <div class="a-item" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input id="gdYear" inputmode="numeric" maxlength="4" placeholder="Class, e.g. 2027" style="width:140px" class="form-input">
-          <input id="gdDate" type="date" class="form-input" style="width:auto">
-          <button type="button" class="a-mini" data-act="gd-save">Post</button>
-        </div>
-        <div id="gdList"></div>
-      </div>
-      <div id="mod-sup" style="display:none">
+    </section>
+
+    <!-- ── Graduation week: letters, superlative votes, Glow Up, the class wall, graduation days ── -->
+    <section class="a-view" id="v-grad">
+      <div class="a-seg tabs scroll" role="tablist"><button type="button" data-act="tab" data-v="letters" role="tab">Letters<em class="a-cnt" id="cnt-letters" hidden></em></button><button type="button" data-act="tab" data-v="sup" role="tab">Votes</button><button type="button" data-act="tab" data-v="glow" role="tab">Glow Up<em class="a-cnt" id="cnt-glow" hidden></em></button><button type="button" data-act="tab" data-v="wall" role="tab">Class wall<em class="a-cnt" id="cnt-wall" hidden></em></button><button type="button" data-act="tab" data-v="graddays" role="tab">Grad days</button></div>
+      <div id="mod-letters" data-pane="letters" style="display:none"><div id="ltList"></div></div>
+      <div id="mod-sup" data-pane="sup" style="display:none">
         <div class="a-item">
           <div class="a-name">Add a category</div>
           <div style="display:flex;gap:8px;margin-top:8px">
@@ -303,6 +323,17 @@
           </div>
         </div>
         <div id="supList"></div>
+      </div>
+      <div id="mod-glow" data-pane="glow" style="display:none"><div id="guList"></div></div>
+      <div id="mod-wall" data-pane="wall" style="display:none"><div id="wlList"></div></div>
+      <div id="mod-graddays" data-pane="graddays" style="display:none">
+        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Each class's graduation day. Students' time capsules open at 00:00 (Kisumu) on their class's day; students with sealed notes get a phone notification when you post it.</div>
+        <div class="a-item" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input id="gdYear" inputmode="numeric" maxlength="4" placeholder="Class, e.g. 2027" style="width:140px" class="form-input">
+          <input id="gdDate" type="date" class="form-input" style="width:auto">
+          <button type="button" class="a-mini" data-act="gd-save">Post</button>
+        </div>
+        <div id="gdList"></div>
       </div>
     </section>
 
@@ -314,40 +345,37 @@
       <div id="cluList"></div>
     </section>
 
-    <!-- ── Developer (health, free-plan usage, backups, notifications) ── -->
+    <!-- ── Developer: an overview, and a page each for traffic, people, notifications, errors, activity, the quiz board and the audit log ── -->
     <section class="a-view" id="v-dev">
-      <div class="a-meta"><span id="devAt">Loading…</span><span style="flex:1"></span><button type="button" class="a-mini" data-act="dev-refresh">↻ Refresh</button></div>
-      <div class="a-sec">Health</div>
-      <div class="a-card" id="devHealth"></div>
-      <div class="a-sec">Errors (last 14 days)</div>
-      <div class="a-card" id="devErrors"></div>
-      <div class="a-sec">Traffic</div>
-      <div class="a-stats" id="devTrafficTiles"></div>
-      <div class="a-card" id="devTraffic" style="margin-top:10px"></div>
-      <div class="a-sec">Backups</div>
-      <div class="a-card" id="devBackup"></div>
-      <div class="a-sec">Free plan usage</div>
-      <div class="a-card" id="devUsage"></div>
-      <div class="a-sec">Last 7 days</div>
-      <div class="a-stats" id="devWeek"></div>
-      <div class="a-sec">Phone notifications</div>
-      <div class="a-card" id="devPush"></div>
-      <div class="a-sec">To tidy</div>
-      <div class="a-card" id="devTidy"></div>
-      <div class="a-sec">Who's who? leaderboard</div>
-      <div class="a-card" id="devKyu"></div>
-      <div class="a-sec">Recent activity</div>
-      <div class="a-card" id="devRecent"></div>
-      <div class="a-sec">Links</div>
-      <div class="a-card" id="devLinks"></div>
+      <div class="a-seg tabs scroll" role="tablist"><button type="button" data-act="tab" data-v="overview" role="tab">Overview</button><button type="button" data-act="tab" data-v="traffic" role="tab">Traffic</button><button type="button" data-act="tab" data-v="insights" role="tab">People</button><button type="button" data-act="tab" data-v="push" role="tab">Notifications</button><button type="button" data-act="tab" data-v="errors" role="tab">Errors<em class="a-cnt" id="cnt-errors" hidden></em></button><button type="button" data-act="tab" data-v="activity" role="tab">Activity</button><button type="button" data-act="tab" data-v="kyu" role="tab">Who's who</button><button type="button" data-act="tab" data-v="audit" role="tab">Audit</button></div>
+      <div data-pane="overview">
+        <div class="a-meta"><span id="devAt">Loading…</span><span style="flex:1"></span><button type="button" class="a-mini" data-act="dev-refresh">↻ Refresh</button></div>
+        <div class="a-sec">Health</div><div class="a-card" id="devHealth"></div>
+        <div class="a-sec">Last 7 days</div><div class="a-stats" id="devWeek"></div>
+        <div class="a-sec">Errors <button type="button" class="a-see" data-act="tab" data-v="errors">See all ›</button></div><div class="a-card" id="devErrSum"></div>
+        <div class="a-sec">Phone notifications <button type="button" class="a-see" data-act="tab" data-v="push">See who ›</button></div><div class="a-card" id="devPush"></div>
+        <div class="a-sec">Recent activity <button type="button" class="a-see" data-act="tab" data-v="activity">See all ›</button></div><div class="a-card" id="devRecent"></div>
+        <div class="a-sec">Backups</div><div class="a-card" id="devBackup"></div>
+        <div class="a-sec">Free plan usage</div><div class="a-card" id="devUsage"></div>
+        <div class="a-sec">To tidy</div><div class="a-card" id="devTidy"></div>
+        <div class="a-sec">Links</div><div class="a-card" id="devLinks"></div>
+      </div>
+      <div data-pane="traffic" style="display:none"><div class="a-stats" id="devTrafficTiles"></div><div class="a-card" id="devTraffic" style="margin-top:10px"></div></div>
+      <div data-pane="insights" style="display:none"><div id="devInsights"></div></div>
+      <div data-pane="push" style="display:none"><div id="devPushList"></div></div>
+      <div data-pane="errors" style="display:none"><div class="a-card" id="devErrors"></div></div>
+      <div data-pane="activity" style="display:none"><div class="a-chips" id="devActFilters"></div><div class="a-card" id="devActivity"></div><div id="devActMore"></div></div>
+      <div data-pane="kyu" style="display:none"><div class="a-card" id="devKyu"></div></div>
+      <div data-pane="audit" style="display:none"><div class="a-card" id="devAudit"></div></div>
     </section>
 
-    <nav class="a-nav" aria-label="Admin sections">
-      <button type="button" id="nav-home" class="on" data-act="go" data-v="home"><i>🏠</i>Home</button>
-      <button type="button" id="nav-students" data-act="go" data-v="students"><i>👥</i>Students</button>
-      <button type="button" id="nav-mod" data-act="go" data-v="mod"><i>🛡</i>Moderation</button>
-      <button type="button" id="nav-clubs" data-act="go" data-v="clubs"><i>🏛</i>Clubs</button>
-      <button type="button" id="nav-dev" data-act="go" data-v="dev"><i>🛠</i>Developer</button>
+    <nav class="a-nav" aria-label="Super admin sections">
+      <button type="button" id="nav-home" class="on" data-act="go" data-v="home"><i>🏠</i>Home<em class="a-nav-dot" id="dot-home" hidden></em></button>
+      <button type="button" id="nav-people" data-act="go" data-v="people"><i>👥</i>People<em class="a-nav-dot" id="dot-people" hidden></em></button>
+      <button type="button" id="nav-content" data-act="go" data-v="content"><i>💬</i>Content<em class="a-nav-dot" id="dot-content" hidden></em></button>
+      <button type="button" id="nav-grad" data-act="go" data-v="grad"><i>🎓</i>Grad week<em class="a-nav-dot" id="dot-grad" hidden></em></button>
+      <button type="button" id="nav-clubs" data-act="go" data-v="clubs"><i>🏛</i>Clubs<em class="a-nav-dot" id="dot-clubs" hidden></em></button>
+      <button type="button" id="nav-dev" data-act="go" data-v="dev"><i>🛠</i>Developer<em class="a-nav-dot" id="dot-dev" hidden></em></button>
     </nav>
   </div>
 
@@ -555,24 +583,42 @@
       return rows;
     }
   
-    /* ══ Navigation ══ */
-    const VIEWS = { home: 'Overview', students: 'Students', mod: 'Moderation', clubs: 'Clubs', dev: 'Developer' };
+    /* ══ Navigation: six sections. People, Content, Graduation week and Developer have tabs; #view/tab links open them ══ */
+    const VIEWS = { home: 'Super admin', people: 'People', content: 'Content', grad: 'Graduation week', clubs: 'Clubs', dev: 'Developer' };
+    const TABS = { people: 'students', content: 'comments', grad: 'letters', dev: 'overview' };       // the open tab of each section
+    const OLD = { students: ['people', 'students'], mod: ['content', 'comments'] };                    // links from before the redesign
+    const LOAD = {
+      students: () => ensureStudents(), staff: () => loadStaff(), leaders: () => loadLeaders(), admins: () => loadOfficeAdmins(),
+      comments: () => { if (!M.loadedC) loadComments(); }, posts: () => { if (!M.loadedP) loadPosts(true); }, news: () => loadNews(),
+      letters: () => loadLetters(), sup: () => loadSup(), glow: () => loadGlow(), wall: () => loadWall(), graddays: () => loadGradDays(),
+      overview: () => loadDev(), traffic: () => loadTraffic(), insights: () => loadInsights(), push: () => loadPushPeople(),
+      errors: () => loadErrors(), activity: () => loadActivity(true), kyu: () => loadKyu(), audit: () => loadAudit(),
+    };
     let _view = 'home';
-    function go(v) {
+    function go(v, tab) {
+      if (OLD[v]) { tab = tab || OLD[v][1]; v = OLD[v][0]; }
       if (!VIEWS[v]) v = 'home';
+      if (tab && v in TABS) TABS[v] = tab;
       _view = v;
       Object.keys(VIEWS).forEach(k => {
         $('v-' + k).classList.toggle('active', k === v);
         $('nav-' + k).classList.toggle('on', k === v);
       });
       $('aTitle').innerHTML = E(VIEWS[v]) + '<span class="subtitle">GLUK Yearbook 2026</span>';
-      try { history.replaceState(null, '', '#' + v); } catch (e) {}
       window.scrollTo(0, 0);
-      if (v === 'home')     loadDashboard();
-      if (v === 'students') ensureStudents();
-      if (v === 'mod')      ensureMod();
-      if (v === 'clubs')    ensureClubs();
-      if (v === 'dev')      loadDev();
+      if (v === 'home')  loadDashboard();
+      if (v === 'clubs') ensureClubs();
+      if (v in TABS) showTab(v, TABS[v]);
+      else { try { history.replaceState(null, '', '#' + v); } catch (e) {} }
+    }
+    function showTab(v, tab) {
+      const view = $('v-' + v);
+      if (!view.querySelector(`[data-pane="${tab}"]`)) tab = view.querySelector('[data-pane]').dataset.pane;
+      TABS[v] = tab;
+      view.querySelectorAll('.tabs [data-act="tab"]').forEach(b => { b.classList.toggle('on', b.dataset.v === tab); b.setAttribute('aria-selected', String(b.dataset.v === tab)); });
+      view.querySelectorAll('[data-pane]').forEach(x => { x.style.display = x.dataset.pane === tab ? '' : 'none'; });
+      try { history.replaceState(null, '', '#' + v + '/' + tab); } catch (e) {}
+      if (LOAD[tab]) LOAD[tab]();
     }
   
     /* ══ Dashboard ══ */
@@ -611,23 +657,43 @@
       } catch (e) { _officialsMissing = isMissing(e); }
       $('stClubs').textContent = withOfficials === null ? '–' : withOfficials + ' of ' + totalClubs;
   
-      let staffWaiting = 0;                                // staff profiles to approve (none before the staff table exists)
-      try { staffWaiting = ((await window.gApi('admin.staff.list', {})).rows || []).filter(s => s.status === 'pending').length; } catch (e) {}
-      const rows = [];
-      let leadersWaiting = 0;                              // students' leadership claims to check (none before the table exists)
-      try { leadersWaiting = ((await window.gApi('admin.leaders.list', {})).rows || []).filter(s => s.status === 'pending').length; } catch (e) {}
-      if (leadersWaiting > 0) rows.push({ ico: '🎖', txt: leadersWaiting + ' student leader ' + plural(leadersWaiting, 'claim is', 'claims are') + ' waiting for approval', v: 'leaders' });
-      if (staffWaiting > 0) rows.push({ ico: '🎓', txt: staffWaiting + ' staff ' + plural(staffWaiting, 'profile is', 'profiles are') + ' waiting for approval', v: 'staff' });
-      if (nophoto > 0) rows.push({ ico: '📷', txt: nfmt(nophoto) + ' ' + plural(nophoto, 'profile', 'profiles') + ' without a photo', v: 'nophoto' });
+      let todo = null;                                     // everything waiting for the super admin, in one call
+      try { todo = await window.gApi('admin.todo', {}); } catch (e) { console.warn('[todo]', e); }
+      const rows = [], add = (ico, txt, to) => rows.push({ ico, txt, to });
+      if (todo) {
+        const rp = todo.reported || {};
+        if (todo.leaders) add('🎖', todo.leaders + ' student leader ' + plural(todo.leaders, 'claim is', 'claims are') + ' waiting for approval', 'people/leaders');
+        if (todo.staff) add('🎓', todo.staff + ' staff ' + plural(todo.staff, 'profile is', 'profiles are') + ' waiting for approval', 'people/staff');
+        if (rp.letters) add('💌', rp.letters + ' reported ' + plural(rp.letters, 'letter', 'letters') + ' to check', 'grad/letters');
+        if (rp.wall) add('🧱', rp.wall + ' reported class wall ' + plural(rp.wall, 'post', 'posts') + ' to check', 'grad/wall');
+        if (rp.glow) add('✨', rp.glow + ' reported ' + plural(rp.glow, 'glow-up', 'glow-ups') + ' to check', 'grad/glow');
+        if (todo.errors24h) add('💥', todo.errors24h + ' app ' + plural(todo.errors24h, 'error', 'errors') + ' in the last 24 hours', 'dev/errors');
+        const b = todo.lastBackup, age = b ? (Date.now() - Date.parse(b.created_at)) / 864e5 : Infinity;
+        if (!b || !b.ok || age > 8) add('💾', !b ? 'No backup recorded yet' : !b.ok ? 'The last backup had problems' : 'The last backup is ' + Math.floor(age) + ' days old', 'dev/overview');
+        if (todo.ghosts === null) add('⚙️', 'Delete my profile is not fully switched on yet: run its three SQL files in Supabase', 'people/deleted');
+        else if (todo.ghosts) add('🕊️', todo.ghosts + ' deleted ' + plural(todo.ghosts, 'profile is', 'profiles are') + ' waiting out the 90 days', 'people/deleted');
+      }
+      if (nophoto > 0) add('📷', nfmt(nophoto) + ' ' + plural(nophoto, 'profile', 'profiles') + ' without a photo', 'people/nophoto');
       if (withOfficials !== null && totalClubs - withOfficials > 0) {
         const n = totalClubs - withOfficials;
-        rows.push({ ico: '🏛', txt: n + ' ' + plural(n, 'club has', 'clubs have') + ' no officials', v: 'clubs' });
+        add('🏛', n + ' ' + plural(n, 'club has', 'clubs have') + ' no officials', 'clubs/none');
       }
-      if (today > 0) rows.push({ ico: '💬', txt: today + ' new ' + plural(today, 'comment', 'comments') + ' today', v: 'comments' });
+      if (today > 0) add('💬', today + ' new ' + plural(today, 'comment', 'comments') + ' today', 'content/comments');
+      paintBadges(todo);
       loadSecurity();
-    $('attnBox').innerHTML = rows.length
-        ? rows.map(r => `<button type="button" class="a-row" data-act="attn" data-v="${E(r.v)}"><span class="a-tile">${r.ico}</span><span class="grow">${E(r.txt)}</span><span class="chev">›</span></button>`).join('')
+      $('attnBox').innerHTML = rows.length
+        ? rows.map(r => `<button type="button" class="a-row" data-act="goto" data-v="${E(r.to)}"><span class="a-tile">${r.ico}</span><span class="grow">${E(r.txt)}</span><span class="chev">›</span></button>`).join('')
         : '<div class="a-empty" style="padding:22px 16px">✅ Nothing needs your attention right now.</div>';
+    }
+    // Counts on the menu and on the tabs, so it shows where something is waiting
+    function paintBadges(t) {
+      const set = (id, n) => { const el = $(id); if (el) { el.textContent = n > 9 ? '9+' : String(n || ''); el.hidden = !n; } };
+      const rp = (t && t.reported) || {};
+      set('cnt-staff', t && t.staff); set('cnt-leaders', t && t.leaders);
+      set('cnt-letters', rp.letters); set('cnt-wall', rp.wall); set('cnt-glow', rp.glow); set('cnt-errors', t && t.errors24h);
+      set('dot-people', t && (t.staff || 0) + (t.leaders || 0));
+      set('dot-grad', (rp.letters || 0) + (rp.wall || 0) + (rp.glow || 0));
+      set('dot-dev', t && t.errors24h);
     }
   
     async function loadSecurity() {
@@ -672,6 +738,7 @@
     }
   
     async function ensureStudents(force) {
+      if (S.view === 'deleted') { renderStudents(); return; }
       const key = S.view;
       if (S.loaded[key] && !force) { renderStudents(); return; }
       $('sList').innerHTML = '<div class="a-empty">Loading…</div>';
@@ -701,6 +768,11 @@
     function renderStudents() {
       $('seg-active').classList.toggle('on', S.view === 'active');
       $('seg-archived').classList.toggle('on', S.view === 'archived');
+      $('seg-deleted').classList.toggle('on', S.view === 'deleted');
+      const ghosts = S.view === 'deleted';
+      ['sTools', 'activeChips', 'sMeta', 'sList'].forEach(id => { $(id).style.display = ghosts ? 'none' : ''; });
+      $('dlBox').style.display = ghosts ? '' : 'none';
+      if (ghosts) { loadGhosts(); return; }
       const nf = Object.keys(S.f).filter(k => S.f[k]);
       $('filtersBadge').textContent = nf.length ? String(nf.length) : '';
       $('filtersBadge').style.display = nf.length ? 'inline-block' : 'none';
@@ -972,40 +1044,6 @@
   
     /* ══ Moderation ══ */
     const M = { tab: 'comments', comments: [], names: {}, loadedC: false, posts: [], from: 0, done: false, loadedP: false, club: '', errC: '', errP: '' };
-    function ensureMod() {
-      $('mod-comments').style.display = M.tab === 'comments' ? 'block' : 'none';
-      $('mod-posts').style.display    = M.tab === 'posts' ? 'block' : 'none';
-      $('mod-staff').style.display    = M.tab === 'staff' ? 'block' : 'none';
-      $('mod-leaders').style.display  = M.tab === 'leaders' ? 'block' : 'none';
-      $('seg-mld').classList.toggle('on', M.tab === 'leaders');
-      $('mod-letters').style.display  = M.tab === 'letters' ? 'block' : 'none';
-      $('mod-sup').style.display      = M.tab === 'sup' ? 'block' : 'none';
-      $('seg-msp').classList.toggle('on', M.tab === 'sup');
-      $('mod-glow').style.display     = M.tab === 'glow' ? 'block' : 'none';
-      $('seg-mgu').classList.toggle('on', M.tab === 'glow');
-      $('mod-graddays').style.display = M.tab === 'graddays' ? 'block' : 'none';
-      $('seg-mgd').classList.toggle('on', M.tab === 'graddays');
-      $('mod-wall').style.display = M.tab === 'wall' ? 'block' : 'none';
-      $('seg-mwl').classList.toggle('on', M.tab === 'wall');
-      $('mod-news').style.display = M.tab === 'news' ? 'block' : 'none';
-      $('seg-mnw').classList.toggle('on', M.tab === 'news');
-      $('mod-deleted').style.display = M.tab === 'deleted' ? 'block' : 'none';
-      $('seg-mdl').classList.toggle('on', M.tab === 'deleted');
-      $('seg-mc').classList.toggle('on', M.tab === 'comments'); $('seg-mp').classList.toggle('on', M.tab === 'posts');
-      $('seg-ms').classList.toggle('on', M.tab === 'staff'); $('seg-ml').classList.toggle('on', M.tab === 'letters');
-      if (M.tab === 'comments' && !M.loadedC) loadComments();
-      if (M.tab === 'posts' && !M.loadedP) loadPosts(true);
-      if (M.tab === 'staff') loadStaff();
-      if (M.tab === 'leaders') loadLeaders();
-      if (M.tab === 'letters') loadLetters();
-      if (M.tab === 'sup') loadSup();
-      if (M.tab === 'glow') loadGlow();
-      if (M.tab === 'graddays') loadGradDays();
-      if (M.tab === 'wall') loadWall();
-      if (M.tab === 'news') loadNews();
-      if (M.tab === 'deleted') loadGhosts();
-    }
-
     /* ══ Letters: the class wall and anything someone reported. Private letters nobody reported never come here. ══ */
     const LT = { rows: [], err: '' };
     async function loadLetters() {
@@ -1681,11 +1719,145 @@ let _ocSearchT = null;
       return `<span class="d-meter"><i class="${pct >= 90 ? 'bad' : pct >= 70 ? 'warn' : ''}" style="width:${Math.max(pct, 1).toFixed(1)}%"></i></span>`;
     };
 
+    const cap = t => String(t || '').charAt(0).toUpperCase() + String(t || '').slice(1);
+    const dayShort = iso => { try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } };
+    // One line of the developer diary (ops_events), in words
+    const EV_ICON = { backup: '💾', push: '🔔', contact_limit: '🛡', letter_report: '💌', wall_report: '🧱', glow_report: '✨', client_error: '💥', api_error: '🖥',
+      purge: '🧹', profile_deleted: '🕊️', profile_restored: '↩️', profile_purged: '🗑️' };
+    function describeEvent(e) {
+      const x = e.details || {};
+      switch (e.kind) {
+        case 'backup': return 'Backup ' + (e.ok ? 'OK' : 'had problems') + (x.files != null ? ' · ' + nfmt(x.files) + ' files' : '');
+        case 'push': return (x.what && x.what !== 'other' ? 'Notification for a ' + x.what : 'Notification') + ' · ' + nfmt(x.sent) + ' of ' + nfmt(x.devices) + ' delivered';
+        case 'contact_limit': return 'Reached the daily limit of classmates’ contact details: ' + (x.email || 'an account');
+        case 'letter_report': return 'A letter was reported';
+        case 'wall_report': return 'A class wall post was reported';
+        case 'glow_report': return 'A glow-up was reported';
+        case 'client_error': case 'api_error': return (e.kind === 'api_error' ? 'Server error: ' : 'App error: ') + (x.msg || '');
+        case 'purge': return 'Nightly clean-up ran · ' + nfmt(x.purged || 0) + ' deleted ' + plural(x.purged || 0, 'profile', 'profiles') + ' removed for good';
+        case 'profile_deleted': return 'A student deleted their profile (no. ' + x.id + ')';
+        case 'profile_restored': return 'A deleted profile was restored (no. ' + x.id + ')';
+        case 'profile_purged': return e.ok ? 'A deleted profile was removed for good (no. ' + x.id + ')' : 'Could not remove a deleted profile (no. ' + x.id + '): ' + (x.msg || '');
+        default: return String(e.kind);
+      }
+    }
+    const eventRow = e => drow(EV_ICON[e.kind] || '🔔', describeEvent(e), E(when(e.created_at)), e.ok ? '' : '<span class="a-badge warn">problem</span>');
+    const purgeRow = x => drow(x ? (x.ok ? '✅' : '⚠️') : '⏳', 'Nightly clean-up', E(x
+      ? 'Last ran ' + when(x.created_at) + ' · ' + nfmt((x.details || {}).purged || 0) + ' deleted ' + plural((x.details || {}).purged || 0, 'profile', 'profiles') + ' removed for good'
+      : 'Has not run yet. It runs every night at 03:30, once the purge secret is set in Supabase.'));
+
+    /* Notifications (Developer › Notifications): who has them on, on which devices, and what was sent */
+    let _push = null;
+    async function fetchPush(force) { if (!_push || force) _push = await window.gApi('admin.dev.push', {}); return _push; }
+    async function loadPushSummary(force) {
+      const box = $('devPush');
+      let d;
+      try { d = await fetchPush(force); }
+      catch (e) { box.innerHTML = drow('❌', 'Could not load the notifications', E(e.code === 'unknown_action' ? 'Deploy the latest “api” function, then refresh.' : e.message || '')); return; }
+      const ppl = d.people || [], w = d.week || {}, names = ppl.map(x => x.name || 'someone without a profile');
+      box.innerHTML = drow('📲', ppl.length + ' ' + plural(ppl.length, 'person has', 'people have') + ' notifications on',
+          E((names.length ? names.slice(0, 4).join(', ') + (names.length > 4 ? ' and ' + (names.length - 4) + ' more' : '') + ' · ' : '') + nfmt(d.devices) + ' ' + plural(d.devices, 'device', 'devices')),
+          '<button type="button" class="a-mini" data-act="tab" data-v="push">See who</button>') +
+        drow(w.failed ? '⚠️' : '✅', 'Last 7 days: ' + nfmt(w.sent) + ' delivered, ' + nfmt(w.failed) + ' failed',
+          E((w.byWhat || []).slice(0, 3).map(x => cap(x.what) + ' ' + nfmt(x.sent)).join(' · ') || 'Nothing sent this week.'));
+    }
+    async function loadPushPeople() {
+      const box = $('devPushList');
+      box.innerHTML = '<div class="a-empty">Loading…</div>';
+      let d;
+      try { d = await fetchPush(true); }
+      catch (e) { box.innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' ? 'Deploy the latest “api” function, then refresh.' : e.message || 'Could not load.')}</div>`; return; }
+      const ppl = d.people || [], w = d.week || {};
+      const tile = (n, label) => `<div class="a-stat" style="cursor:default"><b>${E(nfmt(n))}</b><span>${E(label)}</span></div>`;
+      const person = x => {
+        const link = x.profile_id ? 'profile.html?id=' + Number(x.profile_id) : x.staff_id ? 'staff.html?id=' + Number(x.staff_id) : '';
+        const photo = window.safeUrl(x.photo_url);
+        const sub = [x.course, x.classyear && 'Class of ' + x.classyear, x.email].filter(Boolean).join(' · ') || 'Signed in, but has no yearbook profile yet';
+        const inner = `<span class="a-av">${photo ? `<img src="${E(photo)}" alt="">` : E(initials(x.name || '?'))}</span>
+          <span class="grow"><span class="a-name">${E(x.name || 'No yearbook profile')}</span><span class="a-sub" style="white-space:normal">${E(sub)}</span>
+          <span class="a-sub" style="white-space:normal">${(x.devices || []).map(v => `<span class="a-badge" style="margin:0 4px 0 0">${E(v.kind)}</span>`).join('')}On since ${E(dayShort(x.since))} · last seen ${E(ago(x.seen))}</span></span>`;
+        return link ? `<a class="a-row" href="${E(link)}" target="_blank" rel="noopener">${inner}<span class="chev">›</span></a>` : `<div class="a-row static">${inner}</div>`;
+      };
+      box.innerHTML = `<div class="a-stats">${tile(ppl.length, 'People with notifications on')}${tile(d.devices, 'Devices')}${tile(w.sent, 'Delivered, last 7 days')}${tile(w.failed, 'Failed, last 7 days')}</div>
+        <div class="a-sec">Who has them on <small style="text-transform:none;letter-spacing:0">· last seen first</small></div>
+        <div class="a-card">${ppl.length ? ppl.map(person).join('') : '<div class="a-empty" style="padding:22px 16px">Nobody yet. Remind students: 🔔 → Turn on.</div>'}</div>
+        <div class="a-sec">What was sent, last 7 days</div>
+        <div class="a-card">${(w.byWhat || []).length ? w.byWhat.map(x => drow('🔔', cap(x.what), E(nfmt(x.batches) + ' ' + plural(x.batches, 'time', 'times') + ' · ' + nfmt(x.sent) + ' delivered' + (x.failed ? ' · ' + nfmt(x.failed) + ' failed' : '')))).join('')
+          : '<div class="a-empty" style="padding:22px 16px">Nothing sent this week.</div>'}</div>`;
+    }
+
+    /* People (Developer › People): who is in the yearbook, how complete the profiles are, and what gets used */
+    async function loadInsights() {
+      const box = $('devInsights');
+      box.innerHTML = '<div class="a-empty">Loading…</div>';
+      let d;
+      try { d = await window.gApi('admin.dev.insights', {}); }
+      catch (e) { box.innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' ? 'Deploy the latest “api” function, then refresh.' : e.message || 'Could not load.')}</div>`; return; }
+      const tile = (n, label) => `<div class="a-stat" style="cursor:default"><b>${E(typeof n === 'string' ? n : nfmt(n))}</b><span>${E(label)}</span></div>`;
+      const bars = (list, label, unit) => {
+        const max = Math.max(1, ...list.map(x => x.n));
+        return list.map(x => `<div class="tr-line"><b>${E(label ? label(x.k) : x.k)}</b><span>${E(nfmt(x.n) + (unit ? ' ' + unit : ''))}</span><span class="d-meter"><i style="width:${Math.max(2, x.n / max * 100).toFixed(1)}%"></i></span></div>`).join('');
+      };
+      const pctLine = (label, v) => `<div class="tr-line"><b>${E(label)}</b><span>${E(v + '%')}</span><span class="d-meter"><i class="${v < 40 ? 'warn' : ''}" style="width:${Math.max(2, v)}%"></i></span></div>`;
+      const people = list => list.length ? list.map(x => `<div class="tr-line"><b><a href="profile.html?id=${Number(x.id)}" target="_blank" rel="noopener">${E(x.name)}</a></b><span>${E(nfmt(x.n))}</span></div>`).join('') : '<span class="a-sub">Nothing yet.</span>';
+      const byDay = Object.fromEntries((d.joined || []).map(x => [x.k, x.n])), days = [], now = Date.now() + 3 * 3600e3;
+      for (let i = 29; i >= 0; i--) { const k = new Date(now - i * 864e5).toISOString().slice(0, 10); days.push({ k, n: byDay[k] || 0 }); }
+      const maxD = Math.max(1, ...days.map(x => x.n));
+      const cols = days.map((x, i) => `<i class="${x.n ? '' : 'zero'}${i === 29 ? ' today' : ''}" style="height:${Math.max(4, x.n / maxD * 100)}%" title="${E(x.k + ': ' + x.n + ' new')}"></i>`).join('');
+      const c = d.complete || {}, f = d.features || {}, joined = days.reduce((n, x) => n + x.n, 0);
+      box.innerHTML = `<div class="a-stats">${tile(d.total, 'Profiles')}${tile(joined, 'Joined, last 30 days')}${tile((c.photo || 0) + '%', 'With a photo')}${tile(d.anonymous, 'Anonymous')}</div>
+        <div class="a-card" style="margin-top:10px">
+          <div class="tr-box"><div class="tr-h">New profiles per day <small>last 30 days</small></div><div class="tr-cols">${cols}</div></div>
+          <div class="tr-box"><div class="tr-h">By class</div>${bars(d.byClass || [], k => 'Class of ' + k + (k === String(GY()) ? ' (graduating)' : ''))}</div>
+          <div class="tr-box"><div class="tr-h">By school</div>${bars(d.bySchool || [], shortDept)}</div>
+          <div class="tr-box"><div class="tr-two"><div><div class="tr-h">Home counties <small>top 10</small></div>${bars(d.byCounty || [])}</div>
+            <div><div class="tr-h">From abroad</div>${(d.countries || []).length ? bars(d.countries) : '<span class="a-sub">Nobody yet.</span>'}</div></div></div>
+          <div class="tr-box"><div class="tr-h">How complete profiles are <small>named profiles</small></div>${pctLine('Photo', c.photo || 0)}${pctLine('Bio', c.bio || 0)}${pctLine('WhatsApp', c.whatsapp || 0)}${pctLine('Email', c.email || 0)}${pctLine('Birthday', c.birthday || 0)}${pctLine('Clubs', c.clubs || 0)}</div>
+          <div class="tr-box"><div class="tr-two"><div><div class="tr-h">Most liked</div>${people(d.topLiked || [])}</div><div><div class="tr-h">Most commented on</div>${people(d.topCommented || [])}</div></div></div>
+          <div class="tr-box"><div class="tr-h">Biggest clubs <small>members, from profiles</small></div>${(d.clubs || []).length ? bars(d.clubs, null, 'members') : '<span class="a-sub">No clubs on profiles yet.</span>'}</div>
+        </div>
+        <div class="a-sec">What people use</div>
+        <div class="a-stats">${tile(f.likes, 'Profile likes')}${tile(f.comments, 'Comments')}${tile(f.replies, 'Replies')}${tile(f.friends, 'Friendships')}${tile(f.friendRequests, 'Friend requests waiting')}${tile(f.letters, 'Letters')}${tile(f.capsules, 'Time capsule notes')}${tile(f.glow, 'Glow-ups')}${tile(f.wall, 'Class wall posts')}${tile(f.votes, 'Superlative votes')}${tile(f.kyu, "Who's who players")}${tile(f.chal, 'Course battle players')}${tile(f.staff, 'Staff profiles')}${tile(f.leaders, 'Student leaders')}${tile(f.news, "What's new posts")}</div>`;
+    }
+
+    /* Activity (Developer › Activity): the whole diary, one kind at a time, 100 lines at a time */
+    const KIND_NAME = { client_error: 'App errors', api_error: 'Server errors', push: 'Notifications', backup: 'Backups', purge: 'Nightly clean-up',
+      contact_limit: 'Contact limit', letter_report: 'Reported letters', wall_report: 'Reported wall posts', glow_report: 'Reported glow-ups',
+      profile_deleted: 'Profiles deleted', profile_restored: 'Profiles restored', profile_purged: 'Removed for good' };
+    const ACT = { kind: '', rows: [], more: false, kinds: {} };
+    async function loadActivity(reset) {
+      const box = $('devActivity');
+      if (reset) { ACT.rows = []; box.innerHTML = '<div class="a-empty">Loading…</div>'; }
+      let d;
+      try { d = await window.gApi('admin.dev.activity', { kind: ACT.kind || undefined, before: !reset && ACT.rows.length ? ACT.rows[ACT.rows.length - 1].created_at : undefined }); }
+      catch (e) { box.innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' ? 'Deploy the latest “api” function, then refresh.' : e.message || 'Could not load.')}</div>`; return; }
+      ACT.rows = ACT.rows.concat(d.rows || []); ACT.more = !!d.more; ACT.kinds = d.kinds || ACT.kinds;
+      $('devActFilters').innerHTML = `<button type="button" class="a-chip${ACT.kind ? '' : ' on'}" data-act="act-kind" data-v="">All</button>` +
+        Object.entries(ACT.kinds).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<button type="button" class="a-chip${ACT.kind === k ? ' on' : ''}" data-act="act-kind" data-v="${E(k)}">${E((KIND_NAME[k] || k) + ' · ' + nfmt(n))}</button>`).join('');
+      box.innerHTML = ACT.rows.length ? ACT.rows.map(eventRow).join('') : '<div class="a-empty" style="padding:22px 16px">Nothing here yet.</div>';
+      $('devActMore').innerHTML = ACT.more ? '<button type="button" class="a-more" data-act="act-more" style="width:100%;margin-top:10px">Show older</button>' : '';
+    }
+
+    /* Audit (Developer › Audit): every list an office opened, every export, every change to the office admins */
+    const AUDIT_NAME = { office_admin_added: 'Made an office admin', office_admin_removed: 'Removed an office admin' };
+    async function loadAudit() {
+      const box = $('devAudit');
+      box.innerHTML = '<div class="a-empty">Loading…</div>';
+      let rows;
+      try { rows = (await window.gApi('admin.audit.list', {})).rows || []; }
+      catch (e) { box.innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' || e.code === 'offices_coming' ? 'The audit log is not switched on yet.' : e.message || 'Could not load.')}</div>`; return; }
+      box.innerHTML = rows.length ? rows.map(r => {
+        const x = r.detail || {};
+        const what = (AUDIT_NAME[r.action] || cap(String(r.action).replace(/_/g, ' '))) + (x.email ? ': ' + x.email : '') + (x.office ? ' (' + (OFFICES[x.office] || x.office) + ')' : '') + (x.rows != null ? ' · ' + nfmt(x.rows) + ' rows' : '');
+        return drow(/export/.test(r.action) ? '⬇' : /office_admin/.test(r.action) ? '🏛' : '👁', what, E(r.email + (r.office ? ' · ' + (OFFICES[r.office] || r.office) : '') + ' · ' + when(r.created_at)));
+      }).join('') : '<div class="a-empty" style="padding:22px 16px">Nothing yet. Office admins’ list views and exports show up here.</div>';
+    }
+
     async function loadDev(force) {
       if (!force && Date.now() - _devT < 20000) return;
       _devT = Date.now();
       $('devAt').textContent = 'Loading…';
-      loadTraffic(); loadKyu(); loadErrors();
+      loadErrSummary(); loadPushSummary(force);
       let d;
       try { d = await window.gApi('admin.dev.stats'); }
       catch (e) {
@@ -1704,7 +1876,8 @@ let _ocSearchT = null;
       $('devHealth').innerHTML =
         drow(h.keys === 'ok' ? '✅' : '❌', 'Secure service', E(h.keys === 'ok' ? 'Running, and checking every sign-in.' : 'Cannot reach Google’s sign-in keys, so sign-ins may fail.')) +
         drow(h.push === 'on' ? '✅' : '⚠️', 'Phone notifications', E(h.push === 'on' ? 'Sending is switched on.' : 'Not sending: the VAPID_PRIVATE_KEY secret is missing in Supabase.')) +
-        drow(h.comments === 'ok' ? '✅' : '⚠️', 'Comments', E(h.comments === 'ok' ? 'Counted: ' + nfmt(c ? c.total : null) + ' in total.' : 'Could not count the comments right now.'));
+        drow(h.comments === 'ok' ? '✅' : '⚠️', 'Comments', E(h.comments === 'ok' ? 'Counted: ' + nfmt(c ? c.total : null) + ' in total.' : 'Could not count the comments right now.')) +
+        purgeRow(d.lastPurge);
 
       const b = d.lastBackup;
       if (!b) {
@@ -1734,12 +1907,6 @@ let _ocSearchT = null;
       $('devWeek').innerHTML = tile(s.profiles_7d, 'New profiles') + tile(c ? c.week : null, 'New comments') +
                                tile(s.club_posts_7d, 'New club posts') + tile(pw.sent, 'Notifications delivered');
 
-      $('devPush').innerHTML =
-        drow('📲', nfmt(s.push_people) + ' ' + plural(s.push_people, 'person has', 'people have') + ' notifications on',
-          E(nfmt(s.push_devices) + ' ' + plural(s.push_devices, 'device', 'devices') + ', out of ' + nfmt(s.profiles) + ' profiles. Remind students: 🔔 → Turn on.')) +
-        drow(pw.failed ? '⚠️' : '✅', 'Last 7 days: ' + nfmt(pw.sent) + ' delivered, ' + nfmt(pw.failed) + ' failed',
-          E(nfmt(pw.batches) + ' ' + plural(pw.batches, 'comment, reply or club post', 'comments, replies and club posts') + ' set them off' +
-            (pw.removed ? '; ' + nfmt(pw.removed) + ' old ' + plural(pw.removed, 'device', 'devices') + ' removed' : '') + '.'));
 
       const o = s.orphan_photos || {}, tidy = [];
       if (o.files) tidy.push(drow('🧹', nfmt(o.files) + ' unused photos (' + mbs(o.bytes) + ')', E('Left behind when people replaced a photo. Safe to delete after a backup: ask Claude.')));
@@ -1747,17 +1914,8 @@ let _ocSearchT = null;
       if (s.archived) tidy.push(drow('🗄', nfmt(s.archived) + ' archived ' + plural(s.archived, 'profile', 'profiles'), E('Restore or delete them from Students → Archived.')));
       $('devTidy').innerHTML = tidy.length ? tidy.join('') : '<div class="a-empty" style="padding:22px 16px">✅ Nothing to tidy.</div>';
 
-      const desc = e => {
-        const x = e.details || {};
-        if (e.kind === 'backup') return 'Backup ' + (e.ok ? 'OK' : 'had problems') + (x.files != null ? ' · ' + nfmt(x.files) + ' files' : '');
-        if (e.kind === 'push') return (x.what && x.what !== 'other' ? 'Notification for a ' + x.what : 'Notification') + ' · ' + nfmt(x.sent) + ' of ' + nfmt(x.devices) + ' delivered';
-        if (e.kind === 'contact_limit') return 'Reached the daily limit of classmates’ contact details: ' + (x.email || 'an account');
-        if (e.kind === 'letter_report') return 'A letter was reported';
-        if (e.kind === 'client_error' || e.kind === 'api_error') return (e.kind === 'api_error' ? 'Server error: ' : 'App error: ') + (x.msg || '');
-        return String(e.kind);
-      };
-      $('devRecent').innerHTML = (d.recent || []).length
-        ? d.recent.map(e => drow(e.kind === 'backup' ? '💾' : e.kind === 'contact_limit' ? '🛡' : e.kind === 'letter_report' ? '💌' : '🔔', desc(e), E(when(e.created_at)), e.ok ? '' : '<span class="a-badge warn">problem</span>')).join('')
+$('devRecent').innerHTML = (d.recent || []).length
+        ? d.recent.slice(0, 5).map(eventRow).join('')
         : '<div class="a-empty" style="padding:22px 16px">Nothing yet. Backups and notifications show up here.</div>';
       renderDevLinks();
     }
@@ -1775,28 +1933,51 @@ let _ocSearchT = null;
       try { path = new URL(x.file).pathname.replace(/^\//, '') || 'index.html'; } catch (er) {}
       return { path, line: Number(x.line) || 0, col: Number(x.col) || 0 };
     }
-    async function loadErrors() {
-      const box = $('devErrors');
-      box.innerHTML = '<div class="a-empty">Loading…</div>';
-      let rows;
-      try { rows = (await window.gApi('admin.dev.errors', {})).rows || []; }
-      catch (e) { box.innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' ? 'Deploy the latest “api” function, then refresh.' : e.message || 'Could not load the errors.')}</div>`; return; }
+    // Not the yearbook's code: cross-origin "Script error.", code phone browsers and wallet apps inject, broken service-worker updates (also in the api)
+    const NOISE = /^Script error\.?$|__firefox__|ethereum|webkit\.messageHandlers|Failed to update a ServiceWorker|reading 'M_ID'/i;
+    let _errs = null;
+    async function fetchErrors(force) { if (!_errs || force) _errs = (await window.gApi('admin.dev.errors', {})).rows || []; return _errs; }
+    function groupErrors(rows) {
       const groups = new Map();
       for (const e of rows) {
         const w = errWhere(e), x = e.details || {}, key = e.kind + '|' + (x.msg || '') + '|' + w.path + ':' + w.line;
-        const g = groups.get(key) || { e, w, n: 0, pages: new Set(), last: e.created_at };
+        const g = groups.get(key) || { e, w, n: 0, pages: new Set(), last: e.created_at, noise: NOISE.test(x.msg || '') };
         g.n++; if (x.page) g.pages.add(x.page);
         if (x.action) g.pages.add('action ' + x.action);
         groups.set(key, g);
       }
-      box.innerHTML = groups.size ? [...groups.values()].map(g => {
-        const x = g.e.details || {}, w = g.w;
-        const link = w.path ? `<a class="a-mini" href="vscode://file/${E(REPO + w.path)}${w.line ? ':' + w.line + ':' + (w.col || 1) : ''}">Open in VS Code</a>` : '';
-        const stack = x.stack ? `<details style="margin-top:4px"><summary class="a-sub" style="cursor:pointer">Stack</summary><pre style="white-space:pre-wrap;font-size:.7rem;margin:4px 0 0">${E(x.stack)}</pre></details>` : '';
-        return `<div class="a-row static" style="align-items:flex-start"><span class="a-tile">${g.e.kind === 'api_error' ? '🖥' : x.kind === 'logged' ? '📝' : '💥'}</span>
-          <span class="grow"><span class="a-name" style="white-space:normal">${E(x.msg || 'Error')}</span>
-          <span class="a-sub" style="white-space:normal">${E(w.path ? w.path + (w.line ? ':' + w.line : '') : 'unknown place')} · ${g.n}× · last ${E(when(g.last))}${g.pages.size ? ' · ' + E([...g.pages].join(', ')) : ''}</span>${stack}</span>${link}</div>`;
-      }).join('') : '<div class="a-empty" style="padding:22px 16px">✅ No errors in the last 14 days.</div>';
+      const all = [...groups.values()];
+      return { real: all.filter(g => !g.noise), noise: all.filter(g => g.noise) };
+    }
+    const errHTML = g => {
+      const x = g.e.details || {}, w = g.w;
+      const link = w.path ? `<a class="a-mini" href="vscode://file/${E(REPO + w.path)}${w.line ? ':' + w.line + ':' + (w.col || 1) : ''}">Open in VS Code</a>` : '';
+      const stack = x.stack ? `<details style="margin-top:4px"><summary class="a-sub" style="cursor:pointer">Stack</summary><pre style="white-space:pre-wrap;font-size:.7rem;margin:4px 0 0">${E(x.stack)}</pre></details>` : '';
+      return `<div class="a-row static" style="align-items:flex-start"><span class="a-tile">${g.e.kind === 'api_error' ? '🖥' : x.kind === 'logged' ? '📝' : '💥'}</span>
+        <span class="grow"><span class="a-name" style="white-space:normal">${E(x.msg || 'Error')}</span>
+        <span class="a-sub" style="white-space:normal">${E(w.path ? w.path + (w.line ? ':' + w.line : '') : 'unknown place')} · ${g.n}× · last ${E(when(g.last))}${g.pages.size ? ' · ' + E([...g.pages].join(', ')) : ''}</span>${stack}</span>${link}</div>`;
+    };
+    async function loadErrors() {
+      const box = $('devErrors');
+      box.innerHTML = '<div class="a-empty">Loading…</div>';
+      let rows;
+      try { rows = await fetchErrors(true); }
+      catch (e) { box.innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' ? 'Deploy the latest “api” function, then refresh.' : e.message || 'Could not load the errors.')}</div>`; return; }
+      const { real, noise } = groupErrors(rows), hidden = noise.reduce((n, g) => n + g.n, 0);
+      box.innerHTML = (real.length ? real.map(errHTML).join('') : '<div class="a-empty" style="padding:22px 16px">✅ No errors from the yearbook in the last 14 days.</div>')
+        + (noise.length ? `<details class="d-noise"><summary>${hidden} more from phone browsers and add-ons, not the yearbook's code</summary>${noise.map(errHTML).join('')}</details>` : '');
+    }
+    async function loadErrSummary() {
+      const box = $('devErrSum');
+      let rows;
+      try { rows = await fetchErrors(true); }
+      catch (e) { box.innerHTML = drow('❌', 'Could not load the errors', E(e.message || '')); return; }
+      const { real, noise } = groupErrors(rows);
+      box.innerHTML = real.length
+        ? real.slice(0, 3).map(g => { const x = g.e.details || {}; return drow(g.e.kind === 'api_error' ? '🖥' : '💥', x.msg || 'Error',
+            E((g.w.path ? g.w.path + (g.w.line ? ':' + g.w.line : '') : 'unknown place') + ' · ' + g.n + '× · last ' + when(g.last))); }).join('')
+          + `<button type="button" class="a-more" data-act="tab" data-v="errors" style="width:100%;border:0;border-top:1px solid var(--gray-100);border-radius:0">See all ${real.length} ›</button>`
+        : drow('✅', 'No errors from the yearbook in the last 14 days', E(noise.length ? 'A few from phone browsers and add-ons were left out: they are not the yearbook’s code.' : ''));
     }
 
     /* Traffic: who visits, where they go, when (admin.dev.traffic) */
@@ -1908,6 +2089,35 @@ let _ocSearchT = null;
       ].map(([ico, t, sub, url]) => `<a class="a-row" href="${E(url)}" target="_blank" rel="noopener"><span class="a-tile">${ico}</span><span class="grow"><span class="a-name">${E(t)}</span><span class="a-sub">${E(sub)}</span></span><span class="chev">›</span></a>`).join('');
     }
 
+    /* ══ Office admins (People › Office admins): who runs which office's dashboard (office.html) ══ */
+    const OFFICES = (typeof OFFICE_NAMES !== 'undefined' && OFFICE_NAMES) || { dos: 'Office of the Dean of Students', alumni: 'Directorate of External Affairs' };
+    async function loadOfficeAdmins() {
+      $('oaList').innerHTML = '<div class="a-empty">Loading…</div>';
+      let rows;
+      try { rows = (await window.gApi('admin.offices.list', {})).rows || []; }
+      catch (e) { $('oaList').innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' || e.code === 'offices_coming' ? 'Office admins are not switched on yet.' : e.message || 'Could not load.')}</div>`; return; }
+      $('oaList').innerHTML = Object.entries(OFFICES).map(([k, name]) => {
+        const list = rows.filter(r => r.office === k);
+        return `<div class="a-sec">${E(name)}</div><div class="a-card">${list.length ? list.map(r => drow('🏛', r.email, E('Added ' + when(r.created_at) + (r.granted_by ? ' by ' + r.granted_by : '')),
+          `<button type="button" class="a-mini danger" data-act="oa-del" data-id="${Number(r.id)}">Remove</button>`)).join('') : '<div class="a-empty" style="padding:18px 16px">Nobody yet.</div>'}</div>`;
+      }).join('');
+    }
+    async function addOfficeAdmin() {
+      const email = $('oaEmail').value.trim(), office = $('oaOffice').value;
+      if (!email) { toast('Write their email first.'); return; }
+      try {
+        await window.gApi('admin.office.add', { email, office });
+        $('oaEmail').value = '';
+        toast('✅ ' + email + ' can now open the ' + (OFFICES[office] || office) + ' dashboard', 3500);
+        loadOfficeAdmins();
+      } catch (e) { toast('❌ ' + (e.message || 'Could not add them.'), 3500); }
+    }
+    async function removeOfficeAdmin(id) {
+      if (!confirm('Remove this office admin? They will no longer see the office dashboard.')) return;
+      try { await window.gApi('admin.office.remove', { id }); toast('Removed'); loadOfficeAdmins(); }
+      catch (e) { toast('❌ ' + (e.message || 'Could not remove them.'), 3500); }
+    }
+
     /* ══ Events (one handler per event type for the whole page) ══ */
     document.addEventListener('click', e => {
       const b = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
@@ -1919,15 +2129,16 @@ let _ocSearchT = null;
         case 'go':       go(b.dataset.v); break;
         case 'site':     location.href = 'index.html'; break;
         case 'signout':  logOut(); break;
-        case 'stat':     if (b.dataset.v === 'comments') { M.tab = 'comments'; go('mod'); } else go(b.dataset.v); break;
-        case 'attn':
-          if (b.dataset.v === 'nophoto') { S.view = 'active'; S.f = NOFILTER(); S.f.noPhoto = true; S.q = ''; $('sSearch').value = ''; S.shown = STEP; go('students'); }
-          else if (b.dataset.v === 'clubs') { C.filter = 'none'; go('clubs'); }
-          else if (b.dataset.v === 'staff') { M.tab = 'staff'; go('mod'); }
-          else if (b.dataset.v === 'leaders') { M.tab = 'leaders'; go('mod'); }
-          else { M.tab = 'comments'; go('mod'); }
+        case 'goto': {                                     // "section/tab", from Home's to-do list, tiles and quick actions
+          const [v, t] = String(b.dataset.v || '').split('/');
+          if (t === 'nophoto') { S.view = 'active'; S.f = NOFILTER(); S.f.noPhoto = true; S.q = ''; $('sSearch').value = ''; S.shown = STEP; go('people', 'students'); }
+          else if (t === 'deleted') { S.view = 'deleted'; go('people', 'students'); }
+          else if (v === 'clubs') { C.filter = t === 'none' ? 'none' : 'all'; go('clubs'); }
+          else go(v, t);
           break;
-        case 'qa-export': S.view = 'active'; S.f = NOFILTER(); S.q = ''; go('students'); ensureStudents().then(exportExcel); break;
+        }
+        case 'tab': { const view = b.closest('.a-view'); if (view) { showTab(view.id.slice(2), b.dataset.v); window.scrollTo(0, 0); } break; }
+        case 'qa-export': S.view = 'active'; S.f = NOFILTER(); S.q = ''; go('people', 'students'); ensureStudents().then(exportExcel); break;
         case 'view':     S.view = b.dataset.v; S.shown = STEP; S.err = ''; ensureStudents(); break;
         case 'open':     openDetail(id); break;
         case 'more':     S.shown += STEP; renderStudents(); break;
@@ -1944,7 +2155,10 @@ let _ocSearchT = null;
         case 'archive':  archiveStudent(id); break;
         case 'restore':  restoreStudent(id); break;
         case 'delete':   deleteStudent(id); break;
-        case 'mod-tab':  M.tab = b.dataset.v; ensureMod(); break;
+        case 'oa-add':   addOfficeAdmin(); break;
+        case 'oa-del':   removeOfficeAdmin(id); break;
+        case 'act-kind': ACT.kind = b.dataset.v; loadActivity(true); break;
+        case 'act-more': loadActivity(false); break;
         case 'c-replies': toggleReplies(b.dataset.cid); break;
         case 'c-del':    deleteComment(b.dataset.cid); break;
         case 'r-del':    deleteReply(b.dataset.cid, b.dataset.rid); break;
@@ -2006,9 +2220,11 @@ let _ocSearchT = null;
       if (_started) return;
       _started = true;
       $('postClub').innerHTML = '<option value="">All clubs</option>' + (window.GLUK_CLUBS || []).map(c => `<option value="${E(c)}">${E(c)}</option>`).join('');
-      const h = (location.hash || '').replace('#', '');
+      $('oaOffice').innerHTML = Object.entries(OFFICES).map(([k, n]) => `<option value="${E(k)}">${E(n)}</option>`).join('');
+      const [hv, ht] = (location.hash || '').replace('#', '').split('/');
       _dashT = 0;
-      go(VIEWS[h] ? h : 'home');
+      go(VIEWS[hv] || OLD[hv] ? hv : 'home', ht);
+      if (_view !== 'home') window.gApi('admin.todo', {}).then(paintBadges).catch(() => {});   // the menu's counts, whichever page opened
     }
 
     window.__adminLoaded = true;      // the page script started: the watchdog can stand down

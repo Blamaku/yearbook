@@ -40,4 +40,7 @@ db.enablePersistence({ synchronizeTabs: true }).catch(err => {
 // Create this account in Firebase Console → Authentication → Add user
 // Email   : admin2026@gluk.ac.ke
 // Password:
-const ADMIN_EMAIL = 'kuriablair@gmail.com';
+const ADMIN_EMAIL = 'kuriablair@gmail.com';   // the super admin
+// The offices with their own dashboard (office.html; the super admin adds their admins in People › Office admins).
+// Change a name here only.
+const OFFICE_NAMES = { dos: 'Office of the Dean of Students', alumni: 'Directorate of External Affairs' };
