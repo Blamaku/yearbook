@@ -1154,7 +1154,7 @@ window.filterClub=async function(club,btn){
 // Loading everyone at once stops working past 1,000 profiles (Supabase's per-request limit) and is slow
 // on mobile data, so the grid fetches one page and the next one as the reader scrolls near the end.
 const GRID_PAGE = 48;
-const GRID_COLS = 'id,name,reg,dept,course,classyear,isanonymous,photo_url';   // only what a card shows
+const GRID_COLS = 'id,name,dept,course,classyear,isanonymous,photo_url';   // only what a card shows (reg numbers are private)
 let _grid = { gen: 0, args: null, from: 0, total: null, done: false, busy: false };
 let _gridObserver = null;
 
@@ -1172,7 +1172,7 @@ function gridQuery(a, from) {
   if (a.club)      q = q.filter('clubs', 'cs', '{"' + String(a.club).replace(/["\\]/g, '\\$&') + '"}');
   // What the reader typed is matched as plain text: wildcards and the filter syntax's own characters are dropped
   const s = String(a.search || '').replace(/[%_*\\"(),]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (s) q = q.or(`name.ilike."%${s}%",reg.ilike."%${s}%"`);
+  if (s) q = q.ilike('name', `%${s}%`);
   return q;
 }
 
@@ -1187,7 +1187,7 @@ function gridCard(s, deptCtx, courseCtx) {
     <div class="card-photo-wrap">${ph}</div>
     <div class="card-body">
       <div class="card-name">${esc(s.name)}</div>
-      <div class="card-reg">${s.isAnonymous?'🔒 Anonymous':esc(s.reg)}</div>
+      <div class="card-reg card-course">${s.isAnonymous?'🔒 Anonymous':esc(s.course||'')}</div>
       <span class="card-badge">Class of ${esc(s.classYear||'?')}</span>
     </div></a>`;
 }
@@ -2337,7 +2337,8 @@ function paintProfile(s){
 
   const tx=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v||'---';};
   tx('profileName',  s.name);
-  tx('profileReg',   isAnon ? '🔒 Anonymous' : s.reg);
+  const _mine=auth&&auth.currentUser&&auth.currentUser.uid===s.uid;
+  tx('profileReg',   isAnon&&!_mine ? '🔒 Anonymous' : s.reg ? (_mine?`🔒 ${s.reg} · only you see this`:s.reg) : (s.classYear?`Class of ${s.classYear}`:''));
   tx('profileDept',  s.dept&&s.course?`${s.dept} — ${s.course}`:(s.dept||s.course||'GLUK Student'));
 
   // Anonymous: hide private sections, show privacy note

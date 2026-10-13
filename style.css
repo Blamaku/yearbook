@@ -521,6 +521,7 @@ button { font-family:inherit; }
 .card-body { padding:7px 8px 9px; display:flex; flex-direction:column; gap:2px; flex:1; }
 .card-name  { font-weight:800; color:var(--navy); font-size:.7rem; line-height:1.2; }
 .card-reg   { font-size:.58rem; color:var(--gray-400); font-weight:500; }
+.card-course { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .card-badge {
   display:inline-block;
   background:linear-gradient(135deg,rgba(245,197,24,.12),rgba(212,160,23,.08));
