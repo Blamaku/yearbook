@@ -1888,19 +1888,22 @@ window.gFriends = (function () {
   return { load, state, act, respond, list, setPublic, isPublic: () => pub, LABEL };
 })();
 
-// ── Office admins: the 🏛 Office link in the top bar (api office.me, asked once a session; the super admin has the Admin page) ──
+// ── Admins: the link in the top bar (api office.me, asked once a session; the super admin always has 🛠 Admin).
+//    Anyone with a permission for the admin page gets 🛠 Admin; someone with only an office's gets 🏛 Office.
 (function () {
   if (typeof auth === 'undefined') return;
   auth.onAuthStateChanged(async u => {
     if (!u || !u.emailVerified || !window.gApi) return;
     if (typeof ADMIN_EMAIL !== 'undefined' && String(u.email || '').toLowerCase() === String(ADMIN_EMAIL).toLowerCase()) return;
-    const key = 'gluk-office:' + u.uid;
+    const key = 'gluk-access:' + u.uid, OFFICE = ['dos.students', 'dos.clubs', 'alumni'];
     let v = null; try { v = sessionStorage.getItem(key); } catch (e) {}
     if (v === null) {
-      try { v = ((await window.gApi('office.me', {})).offices || []).length ? '1' : '0'; } catch (e) { return; }
+      try { const r = await window.gApi('office.me', {}); v = (r.perms || []).some(p => !OFFICE.includes(p)) ? 'admin' : (r.offices || []).length ? 'office' : '0'; } catch (e) { return; }
       try { sessionStorage.setItem(key, v); } catch (e) {}
     }
-    const a = document.getElementById('ubOffice'); if (a) a.hidden = v !== '1';
+    const a = document.getElementById('ubOffice'); if (!a) return;
+    a.hidden = v !== 'admin' && v !== 'office';
+    if (v === 'admin') { a.href = 'admin.html'; a.textContent = '🛠 Admin'; }
   });
 })();
 

@@ -55,7 +55,11 @@ const CONFIG = {
   friendRequestsPerDay: 40,                         // friend requests one person may send per 24 hours
   capsulesPerPerson: 20,                            // time capsule notes one student may seal
   ghostDays: 90,                                    // a profile its owner deletes can be restored for this long, then it is removed for good
-  offices: ['dos', 'alumni'],                       // office dashboards (office.html); their names are OFFICE_NAMES in firebase-config.js
+  // What an admin may do: the super admin ticks these for each person in People › Admins (admin.html has the labels).
+  // The super admin (adminEmail) may do everything, and is the only one who adds, changes or removes admins.
+  perms: ['students.view', 'students.edit', 'students.delete', 'staff', 'leaders', 'moderate', 'news', 'superlatives', 'kyu',
+    'graddays', 'clubs', 'dos.students', 'dos.clubs', 'alumni', 'dev', 'audit'],
+  offices: { dos: ['dos.students', 'dos.clubs'], alumni: ['alumni'] },   // office.html: each office opens with any one of its permissions (names: OFFICE_NAMES in firebase-config.js)
   errorsPerMinute: 60,                              // app error reports kept per minute, from everyone together
   // The class wall (wall.html): each kind opens on its graduation-week day, 00:00 in Kisumu (also in wall.js and the SQL)
   wallOpens: { memory: '2026-11-16T21:00:00Z', tag: '2026-11-17T21:00:00Z', song: '2026-11-18T21:00:00Z', joke: '2026-11-18T21:00:00Z', advice: '2026-11-19T21:00:00Z' },
@@ -226,26 +230,33 @@ async function requireClubManager(ctx, club) {
   if (!(await isClubOfficer(ctx, club))) throw forbidden('Only this club\u2019s officials can do that.');
 }
 const requireAdmin = ctx => { if (!ctx.isAdmin) throw forbidden('Only the super admin can do that.'); };
-// ── Offices (since 2026-10-31): each office admin sees only their own office's dashboard (office.html) ──
-// The super admin (the adminEmail account) passes every office check. An office admin needs a verified email.
-const officeDbError = e => missingTable(e)
-  ? new ApiError(503, 'offices_coming', 'Office dashboards are being switched on. Please try again later.')
+// ── Admins and what each may do (since 2026-11-01): one row per email in `admins`, with the permissions ticked for them ──
+// The super admin (the adminEmail account) has every permission. Anyone else needs a verified email.
+const adminDbError = e => missingTable(e)
+  ? new ApiError(503, 'admins_coming', 'Admin access is being switched on. Please try again later.')
   : new ApiError(500, 'db', 'Could not do that. Please try again.');
-async function loadOffices(ctx) {
-  if (ctx.offices) return ctx.offices;
-  if (ctx.isSuperAdmin || ctx.isAdmin) return (ctx.offices = [...ctx.config.offices]);
-  if (!ctx.user || !ctx.user.emailVerified || !ctx.user.email) return (ctx.offices = []);
-  const r = await ctx.db.from('office_admins').select('office').eq('email', lower(ctx.user.email)).limit(10);
-  return (ctx.offices = r.error ? [] : [...new Set((r.data || []).map(x => x.office))].filter(o => ctx.config.offices.includes(o)));
+async function loadPerms(ctx) {
+  if (ctx.perms) return ctx.perms;
+  if (ctx.isAdmin) return (ctx.perms = [...ctx.config.perms]);
+  if (!ctx.user || !ctx.user.emailVerified || !ctx.user.email) return (ctx.perms = []);
+  const r = await ctx.db.from('admins').select('perms').eq('email', lower(ctx.user.email)).limit(1);
+  const mine = !r.error && r.data && r.data[0] && Array.isArray(r.data[0].perms) ? r.data[0].perms : [];
+  return (ctx.perms = ctx.config.perms.filter(x => mine.includes(x)));
 }
-async function requireOffice(ctx, office) {
-  if (!(await loadOffices(ctx)).includes(office)) throw forbidden('Only this office can do that.');
+const hasPerm = async (ctx, perm) => (await loadPerms(ctx)).includes(perm);
+async function requirePerm(ctx, ...any) {                // any one of these permissions will do
+  const mine = await loadPerms(ctx);
+  if (!any.some(x => mine.includes(x))) throw forbidden('Your admin account cannot do that.');
 }
+const officesOf = (ctx, perms) => Object.keys(ctx.config.offices).filter(o => ctx.config.offices[o].some(x => perms.includes(x)));
+// What an admin's line in the audit log keeps of a request: its plain values (ids, statuses, short text), never whole records
+const auditDetail = b => Object.fromEntries(Object.entries(b || {}).filter(([k, v]) => k !== 'action' && v !== null && typeof v !== 'object')
+  .slice(0, 10).map(([k, v]) => [k, typeof v === 'string' ? snip(v, 80) : v]));
 // Who did what (the super admin reads it in Developer > Audit). If it cannot be written, the action does not happen.
 async function audit(ctx, office, action, detail) {
   const r = await ctx.db.from('office_audit').insert({ email: lower(ctx.user.email) || ctx.user.uid, office: office || null, action,
     detail: detail || {}, created_at: new Date(ctx.now()).toISOString() });
-  if (r.error) throw officeDbError(r.error);
+  if (r.error) throw adminDbError(r.error);
 }
 async function getRow(ctx, table, id) {
   const n = Number(id);
@@ -723,7 +734,7 @@ const DIARY_KINDS = ['client_error', 'api_error', 'push', 'backup', 'purge', 'co
   'profile_deleted', 'profile_restored', 'profile_purged'];
 
 // ── The Dean of Students' dashboard (since 2026-11-01): the students database and club records ──
-// Only the 'dos' office (and the super admin) reads these, and every list view and export goes in office_audit.
+// Only admins with the dos.students or dos.clubs permission read these, and every list view and export goes in office_audit.
 const DOS_COLS = 'id,name,reg,dept,course,classyear,county,country,currentcounty,whatsapp,email,clubs,isanonymous,photo_url,created_at';
 // The filters the yearbook uses (school, programme, class year, county, club) and a name or reg number to search for
 function dosFilters(b) {
@@ -856,12 +867,13 @@ function checkFreshByCaller(ctx, doc) {
 const ACTIONS = {
   // Who am I? (used by the admin page to show the connection status)
   async whoami(ctx) {
-    return { uid: ctx.user.uid, email: ctx.user.email, emailVerified: ctx.user.emailVerified, isAdmin: ctx.isAdmin };
+    return { uid: ctx.user.uid, email: ctx.user.email, emailVerified: ctx.user.emailVerified, isAdmin: ctx.isAdmin, perms: await loadPerms(ctx) };
   },
 
-  // Which office dashboards may I open? (office.html, and the 🏛 Office link in the top bar)
+  // What may I do? The office dashboards I may open (office.html) and my permissions (admin.html, and the link in the top bar)
   async 'office.me'(ctx) {
-    return { superAdmin: !!ctx.isSuperAdmin, offices: await loadOffices(ctx) };
+    const perms = await loadPerms(ctx);
+    return { superAdmin: !!ctx.isAdmin, offices: officesOf(ctx, perms), perms };
   },
 
   // ── profiles ──
@@ -890,15 +902,16 @@ const ACTIONS = {
   async 'profile.update'(ctx, body) {
     if (!isObj(body.patch)) throw bad('Missing changes.');
     const row = await getRow(ctx, 'profiles', body.id);
-    const owner = row.uid === ctx.user.uid;
-    if (!owner && !ctx.isAdmin) throw forbidden('You can only edit your own profile.');
+    const owner = row.uid === ctx.user.uid, editor = ctx.isAdmin || (!owner && await hasPerm(ctx, 'students.edit'));
+    if (!owner && !editor) throw forbidden('You can only edit your own profile.');
     const patch = ownerFields(ctx.config, row.uid, body.patch, {});    // photos must sit in the profile owner's own folder
-    if (ctx.isAdmin) adminFields(body.patch, patch);
+    if (editor) adminFields(body.patch, patch);
     if (!Object.keys(patch).length) throw bad('Nothing to change.');
     patch.updated_at = new Date(ctx.now()).toISOString();
     const before = { ...row };                                          // what it was, for the friends' news
     const up = await ctx.db.from('profiles').update(patch).eq('id', row.id);
     if (up.error) throw new ApiError(500, 'db', 'Could not save the changes: ' + up.error.message);
+    if (!owner && !ctx.isAdmin) await audit(ctx, null, 'profile.update', { id: row.id, name: snip(before.name, 60), fields: Object.keys(patch).filter(k => k !== 'updated_at') });
     if (owner) ctx.background(friendNews(ctx, before, patch).catch(e => console.warn('[friend news]', e && e.message)));
     return {};
   },
@@ -1020,9 +1033,11 @@ const ACTIONS = {
 
   async 'club.post.delete'(ctx, body) {
     const post = await getRow(ctx, 'club_posts', body.id);
-    if (!(ctx.isAdmin || post.created_by === ctx.user.uid || await isClubOfficer(ctx, post.club_name))) throw forbidden();
+    const own = post.created_by === ctx.user.uid || await isClubOfficer(ctx, post.club_name);
+    if (!own && !(await hasPerm(ctx, 'moderate'))) throw forbidden();
     const del = await ctx.db.from('club_posts').delete().eq('id', post.id);
     if (del.error) throw new ApiError(500, 'db', 'Could not delete the post.');
+    if (!own && !ctx.isAdmin) await audit(ctx, null, 'club.post.delete', { id: post.id, club: post.club_name, title: snip(post.title, 80) });
     return {};
   },
 
@@ -1897,7 +1912,7 @@ const ACTIONS = {
   // ── admin only ──
   // Who visits, where they go and when (the Developer tab). Profile and staff ids come back with their names.
   async 'admin.dev.traffic'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'dev');
     const r = await ctx.db.rpc('dev_traffic');
     if (r.error) {
       throw missingTable(r.error) || /dev_traffic/.test(r.error.message || '')
@@ -1920,7 +1935,7 @@ const ACTIONS = {
 
   // Every club's posts, minutes included, 20 at a time (Moderation › Posts)
   async 'admin.club.posts'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'moderate');
     const from = Math.max(0, Math.min(50000, Number(body.from) || 0));
     let q = ctx.db.from('club_posts').select('*').order('created_at', { ascending: false }).range(from, from + 19);
     if (body.club) q = q.eq('club_name', txt(body.club, 80, 'Club'));
@@ -1931,7 +1946,7 @@ const ACTIONS = {
 
   // Superlatives: every category (hidden ones too) with its leaders and their votes so far, and how many have voted
   async 'admin.sup.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'superlatives');
     const categories = await supCategories(ctx, true);
     const t = await supTally(ctx, categories, 5);
     return { categories, results: t.results, votes: t.votes, voters: t.voters, open: supOpen(ctx), revealAt: ctx.config.supRevealAt };
@@ -1939,7 +1954,7 @@ const ACTIONS = {
 
   // Add a category ({ title, emoji? }) or change one ({ id, title?, emoji?, hidden?, sort? })
   async 'admin.sup.category'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'superlatives');
     const patch = {};
     if (body.title !== undefined) {
       patch.title = txt(body.title, 80, 'Category', { required: true });
@@ -1968,7 +1983,7 @@ const ACTIONS = {
 
   // The Who's who? board with the logins, so the admin can take off anyone who cheated
   async 'admin.kyu.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'kyu');
     const r = await ctx.db.from('kyu_board').select('uid,name,score,seconds,plays,hidden,removed,achieved_at')
       .order('score', { ascending: false }).order('seconds', { ascending: true }).limit(300);
     if (r.error) throw kyuDbError(r.error);
@@ -1976,7 +1991,7 @@ const ACTIONS = {
   },
 
   async 'admin.kyu.review'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'kyu');
     const uid = String(body.uid || '');
     if (!/^[A-Za-z0-9]{1,128}$/.test(uid)) throw bad('Missing or invalid player.');
     if (typeof body.removed !== 'boolean') throw bad('Say whether to remove or restore.');
@@ -1986,7 +2001,7 @@ const ACTIONS = {
   },
 
   async 'admin.staff.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'staff');
     const r = await ctx.db.from('staff_profiles').select('*').order('created_at', { ascending: false }).limit(1000);
     if (r.error) throw staffDbError(r.error);
     return { rows: r.data || [] };
@@ -1994,7 +2009,7 @@ const ACTIONS = {
 
   // Approve, hide or send back to pending. The staff member's phone hears when they go live.
   async 'admin.staff.review'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'staff');
     const status = String(body.status || '');
     if (!STAFF_STATUS.includes(status)) throw bad('Unknown status.');
     const row = await getRow(ctx, 'staff_profiles', body.id), was = row.status;
@@ -2006,7 +2021,7 @@ const ACTIONS = {
   },
 
   async 'admin.staff.delete'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'staff');
     const row = await getRow(ctx, 'staff_profiles', body.id);
     const del = await ctx.db.from('staff_profiles').delete().eq('id', row.id);
     if (del.error) throw staffDbError(del.error);
@@ -2015,7 +2030,7 @@ const ACTIONS = {
 
   // Student leaders: every entry, claims waiting for approval too, with the linked profiles
   async 'admin.leaders.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'leaders');
     const r = await ctx.db.from('student_leaders').select(LEADER_COLS)
       .order('term_from', { ascending: false }).order('id', { ascending: false }).limit(2000);
     if (r.error) throw leaderDbError(r.error);
@@ -2031,7 +2046,7 @@ const ACTIONS = {
   // Add a leader ({ leader }) or change one ({ id, leader }). Only the admin sets the name, the linked profile,
   // a photo, an honour (e.g. President emeritus) and the status. A leader the admin adds is live straight away.
   async 'admin.leaders.save'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'leaders');
     if (!isObj(body.leader)) throw bad('Missing leader.');
     const p = body.leader, rec = leaderFields(ctx, p), nowIso = new Date(ctx.now()).toISOString();
     const old = body.id != null ? await getRow(ctx, 'student_leaders', body.id) : null, was = old ? old.status : null;
@@ -2066,7 +2081,7 @@ const ACTIONS = {
 
   // Approve, hide or send back to pending. The student's phone hears when their role goes live.
   async 'admin.leaders.review'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'leaders');
     const status = String(body.status || '');
     if (!LEADER_STATUS.includes(status)) throw bad('Unknown status.');
     const row = await getRow(ctx, 'student_leaders', body.id), was = row.status, nowIso = new Date(ctx.now()).toISOString();
@@ -2077,7 +2092,7 @@ const ACTIONS = {
   },
 
   async 'admin.leaders.delete'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'leaders');
     const row = await getRow(ctx, 'student_leaders', body.id);
     const del = await ctx.db.from('student_leaders').delete().eq('id', row.id);
     if (del.error) throw leaderDbError(del.error);
@@ -2087,7 +2102,7 @@ const ACTIONS = {
   // Letters the admin may see: the wall ones (to check before and after they open) and any someone reported.
   // A private letter nobody reported never leaves its writer and reader.
   async 'admin.letters.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'moderate');
     const cols = 'id,author_name,to_kind,to_name,body,on_wall,hidden,reported,removed,created_at';
     const [wall, flagged] = await Promise.all([
       ctx.db.from('letters').select(cols).eq('on_wall', true).order('created_at', { ascending: false }).limit(1000),
@@ -2101,7 +2116,7 @@ const ACTIONS = {
 
   // Hide or show a letter; either way its report is dealt with
   async 'admin.letters.review'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'moderate');
     const row = await letterRow(ctx, body.id);
     const up = await ctx.db.from('letters').update({ hidden: !!body.hidden, reported: false }).eq('id', row.id);
     if (up.error) throw letterDbError(up.error);
@@ -2110,7 +2125,7 @@ const ACTIONS = {
 
   // App and server errors of the last 14 days (newest first) for the Developer tab
   async 'admin.dev.errors'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'dev');
     const since = new Date(ctx.now() - 14 * 864e5).toISOString();
     const r = await ctx.db.from('ops_events').select('kind,details,created_at').in('kind', ['client_error', 'api_error'])
       .gte('created_at', since).order('created_at', { ascending: false }).limit(1000);
@@ -2120,7 +2135,7 @@ const ACTIONS = {
 
   // Graduation days: every class's posted day, and how many capsule notes wait in each class
   async 'admin.graddays.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'graddays');
     const [g, c] = await Promise.all([
       ctx.db.from('grad_days').select('classyear,opens_at,posted_at').order('classyear', { ascending: true }),
       ctx.db.from('capsules').select('uid').limit(10000),
@@ -2139,7 +2154,7 @@ const ACTIONS = {
   // Post (or move) a class's graduation day ({ classyear, date: 'YYYY-MM-DD' }); capsules open at 00:00 in Kisumu.
   // Students of that class with capsule notes hear about it on their phones.
   async 'admin.gradday.save'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'graddays');
     const classyear = String(body.classyear || '').trim(), date = String(body.date || '').trim();
     if (!/^20[0-9]{2}$/.test(classyear)) throw bad('Enter the class year, e.g. 2027.');
     if (!/^20[0-9]{2}-[01][0-9]-[0-3][0-9]$/.test(date) || isNaN(Date.parse(date + 'T00:00:00+03:00'))) throw bad('Choose the graduation date.');
@@ -2160,7 +2175,7 @@ const ACTIONS = {
   },
 
   async 'admin.gradday.delete'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'graddays');
     const classyear = String(body.classyear || '').trim();
     if (!/^20[0-9]{2}$/.test(classyear)) throw bad('Missing class year.');
     const del = await ctx.db.from('grad_days').delete().eq('classyear', classyear);
@@ -2170,7 +2185,7 @@ const ACTIONS = {
 
   // The class wall: every post (reported first), with the names of who wrote it and who was tagged
   async 'admin.wall.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'moderate');
     const r = await ctx.db.from('grad_posts').select('id,profile_id,kind,year,tag_role,tagged_profile,title,body,hidden,reported,created_at')
       .order('created_at', { ascending: false }).limit(1000);
     if (r.error) throw wallDbError(r.error);
@@ -2184,7 +2199,7 @@ const ACTIONS = {
   },
 
   async 'admin.wall.review'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'moderate');
     const row = await wallRow(ctx, body.id);
     const up = await ctx.db.from('grad_posts').update({ hidden: !!body.hidden, reported: false }).eq('id', row.id);
     if (up.error) throw wallDbError(up.error);
@@ -2193,7 +2208,7 @@ const ACTIONS = {
 
   // What's new: the admin's announcements of app updates (the newest first)
   async 'admin.news.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'news');
     const r = await ctx.db.from('announcements').select('*').order('created_at', { ascending: false }).limit(100);
     if (r.error) throw friendDbError(r.error);
     return { rows: r.data || [] };
@@ -2201,7 +2216,7 @@ const ACTIONS = {
 
   // Post one ({ emoji?, title, body?, url?, push? }): everyone sees it in Alerts; push (default) also tells every phone
   async 'admin.news.save'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'news');
     const title = txt(body.title, 120, 'The title', { required: true });
     if (title.length < 3) throw bad('The title needs a few more letters.');
     const text = txt(body.body, 600, 'The text'), emoji = txt(body.emoji, 16, 'The emoji') || '✨';
@@ -2225,7 +2240,7 @@ const ACTIONS = {
   },
 
   async 'admin.news.hide'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'news');
     const id = Number(body.id);
     if (!Number.isInteger(id) || id <= 0) throw bad('Missing or invalid announcement.');
     const up = await ctx.db.from('announcements').update({ hidden: !!body.hidden }).eq('id', id);
@@ -2235,7 +2250,7 @@ const ACTIONS = {
 
   // Glow Up: every glow-up (reported first) with the graduate's name
   async 'admin.glow.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'moderate');
     const r = await ctx.db.from('glowups').select('profile_id,then_url,now_url,then_year,caption,hidden,reported,created_at,updated_at')
       .order('updated_at', { ascending: false }).limit(1000);
     if (r.error) throw glowDbError(r.error);
@@ -2252,7 +2267,7 @@ const ACTIONS = {
 
   // Hide or show a glow-up ({ profileId, hidden }); either way its report is dealt with
   async 'admin.glow.review'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'moderate');
     const pid = Number(body.profileId);
     if (!Number.isInteger(pid) || pid <= 0) throw bad('Missing or invalid glow-up.');
     const up = await ctx.db.from('glowups').update({ hidden: !!body.hidden, reported: false }).eq('profile_id', pid);
@@ -2261,14 +2276,14 @@ const ACTIONS = {
   },
 
   async 'admin.comment.delete'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'moderate');
     const del = await ctx.db.from('comments').delete().eq('id', docId(body.commentId, 'comment'));   // its replies go with it
     if (del.error) throw commentDbError(del.error);
     return {};
   },
 
   async 'admin.reply.delete'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'moderate');
     const r = await ctx.db.rpc('comment_delete_reply', { p_comment: docId(body.commentId, 'comment'), p_reply: docId(body.replyId, 'reply') });
     if (r.error) throw commentDbError(r.error);
     return { deleted: r.data === true };
@@ -2276,7 +2291,7 @@ const ACTIONS = {
 
   // Everything the admin page's Developer tab shows, in one call.
   async 'admin.dev.stats'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'dev');
     const weekAgo = new Date(ctx.now() - 7 * 864e5).toISOString();
     const ev = () => ctx.db.from('ops_events');
     const [stats, backup, pushes, recent, keys, purge] = await Promise.all([
@@ -2312,7 +2327,7 @@ const ACTIONS = {
 
   // Full profile rows (with contact details) for the admin dashboard and exports.
   async 'admin.profiles.list'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'students.view');
     const from = Math.max(0, Math.min(50000, Number(body.from) || 0));
     const r = await ctx.db.from('profiles').select('*')
       .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + 999);
@@ -2322,7 +2337,7 @@ const ACTIONS = {
 
   // Find a student by name or reg number (to make them a club official).
   async 'admin.profile.search'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'students.view', 'leaders', 'clubs');
     const q = txt(body.q, 60, 'Search').replace(/[%_\\,()*]/g, ' ').trim();
     if (q.length < 2) return { rows: [] };
     const cols = 'id,name,reg,email,classyear,course,photo_url,isanonymous';
@@ -2335,7 +2350,7 @@ const ACTIONS = {
   },
 
   async 'admin.officer.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'clubs');
     const r = await ctx.db.from('club_officers').select('*').order('id', { ascending: true }).limit(5000);
     if (r.error) throw new ApiError(500, missingTable(r.error) ? 'club_tables_missing' : 'db', missingTable(r.error) ? 'The club tables are not set up yet (run clubs-upgrade.sql).' : 'Could not load the officials.');
     return { rows: r.data || [] };
@@ -2343,7 +2358,7 @@ const ACTIONS = {
 
   // Archived profiles are hidden from the public key once the database is locked, so the admin reads them here.
   async 'admin.archive.list'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'students.view');
     const from = Math.max(0, Math.min(50000, Number(body.from) || 0));
     const r = await ctx.db.from('profiles_archive').select('*').eq('deleted_by_owner', false)
       .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + 999);
@@ -2352,7 +2367,7 @@ const ACTIONS = {
   },
 
   async 'admin.profile.archive'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'students.edit');
     const row = await getRow(ctx, 'profiles', body.id);
     const rec = { ...row, archived_at: new Date(ctx.now()).toISOString(), archived_by: ctx.user.email };
     const ins = await ctx.db.from('profiles_archive').insert(rec);
@@ -2363,7 +2378,7 @@ const ACTIONS = {
   },
 
   async 'admin.profile.restore'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'students.edit');
     const row = await getRow(ctx, 'profiles_archive', body.id);
     if (row.uid) {
       const ex = await ctx.db.from('profiles').select('id').eq('uid', row.uid).limit(1);
@@ -2377,7 +2392,7 @@ const ACTIONS = {
   },
 
   async 'admin.profile.delete'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'students.delete');
     const table = body.archived === true ? 'profiles_archive' : 'profiles';
     const row = await getRow(ctx, table, body.id);
     const del = await ctx.db.from(table).delete().eq('id', row.id);
@@ -2387,7 +2402,7 @@ const ACTIONS = {
 
   // Profiles their owners deleted, soonest to go first. Overdue ones are removed first, in case the nightly run missed them.
   async 'admin.ghosts.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'students.view');
     const purged = await purgeDue(ctx);
     const r = await ctx.db.from('profiles_archive').select('id,uid,name,course,classyear,email,photo_url,deleted_at,purge_after')
       .eq('deleted_by_owner', true).order('purge_after', { ascending: true }).limit(1000);
@@ -2396,7 +2411,7 @@ const ACTIONS = {
   },
 
   async 'admin.ghost.restore'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'students.edit');
     const g = await ghostRow(ctx, { id: body.id });
     if (!g) throw notFound('That deleted profile is not there any more.');
     await unGhost(ctx, g);
@@ -2405,74 +2420,82 @@ const ACTIONS = {
 
   // Remove one for good now, without waiting for its days to run out
   async 'admin.ghost.purge'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'students.delete');
     const g = await ghostRow(ctx, { id: body.id });
     if (!g) throw notFound('That deleted profile is not there any more.');
     return { removed: await purgeGhost(ctx, g) };
   },
 
-  // ── super admin: the to-do list, office admins, the audit log and the Developer tab's pages ──
-  // Home's to-do list and the badges on the menu: everything waiting for the super admin, in one call
+  // ── the to-do list, the admins, the audit log and the Developer tab's pages ──
+  // Home's to-do list and the badges on the menu: everything waiting, in one call. Each admin gets only what they may see.
   async 'admin.todo'(ctx) {
-    requireAdmin(ctx);
-    const count = (t, f) => f(ctx.db.from(t).select('*', { count: 'exact', head: true })).then(r => r.error ? null : (r.count || 0));
+    await requirePerm(ctx, ...ctx.config.perms);
+    const mine = await loadPerms(ctx), can = x => mine.includes(x), skip = Promise.resolve(undefined);
+    const count = (perm, t, f) => can(perm) ? f(ctx.db.from(t).select('*', { count: 'exact', head: true })).then(r => r.error ? null : (r.count || 0)) : skip;
     const day = new Date(ctx.now() - 864e5).toISOString();
     const [staff, leaders, letters, wall, glow, ghosts, errs, backup] = await Promise.all([
-      count('staff_profiles', q => q.eq('status', 'pending')),
-      count('student_leaders', q => q.eq('status', 'pending')),
-      count('letters', q => q.eq('reported', true)),
-      count('grad_posts', q => q.eq('reported', true)),
-      count('glowups', q => q.eq('reported', true)),
-      count('profiles_archive', q => q.eq('deleted_by_owner', true)),
-      ctx.db.from('ops_events').select('details').in('kind', ['client_error', 'api_error']).gte('created_at', day).limit(1000),
-      ctx.db.from('ops_events').select('ok,created_at').eq('kind', 'backup').order('created_at', { ascending: false }).limit(1),
+      count('staff', 'staff_profiles', q => q.eq('status', 'pending')),
+      count('leaders', 'student_leaders', q => q.eq('status', 'pending')),
+      count('moderate', 'letters', q => q.eq('reported', true)),
+      count('moderate', 'grad_posts', q => q.eq('reported', true)),
+      count('moderate', 'glowups', q => q.eq('reported', true)),
+      count('students.view', 'profiles_archive', q => q.eq('deleted_by_owner', true)),
+      can('dev') ? ctx.db.from('ops_events').select('details').in('kind', ['client_error', 'api_error']).gte('created_at', day).limit(1000) : skip,
+      can('dev') ? ctx.db.from('ops_events').select('ok,created_at').eq('kind', 'backup').order('created_at', { ascending: false }).limit(1) : skip,
     ]);
     return { staff, leaders, reported: { letters, wall, glow }, ghosts,
-      errors24h: errs.error ? null : (errs.data || []).filter(e => !isNoise(e.details)).length,
-      lastBackup: backup.error ? null : ((backup.data || [])[0] || null) };
+      errors24h: !errs ? undefined : errs.error ? null : (errs.data || []).filter(e => !isNoise(e.details)).length,
+      lastBackup: !backup ? undefined : backup.error ? null : ((backup.data || [])[0] || null) };
   },
 
-  async 'admin.offices.list'(ctx) {
+  // Every admin, with what they may do (People › Admins)
+  async 'admin.admins.list'(ctx) {
     requireAdmin(ctx);
-    const r = await ctx.db.from('office_admins').select('id,email,office,granted_by,created_at').order('created_at', { ascending: true }).limit(500);
-    if (r.error) throw officeDbError(r.error);
+    const r = await ctx.db.from('admins').select('id,email,note,perms,granted_by,created_at,updated_at').order('created_at', { ascending: true }).limit(500);
+    if (r.error) throw adminDbError(r.error);
     return { rows: r.data || [] };
   },
 
-  // Make someone an office admin ({ email, office }). They sign in with that email (verified) and open office.html.
-  async 'admin.office.add'(ctx, body) {
+  // Add an admin, or change what one may do ({ email, perms, note? }). They sign in with that email, verified.
+  async 'admin.admins.save'(ctx, body) {
     requireAdmin(ctx);
     const email = lower(emailOrBlank(body.email, 'Email'));
     if (!email) throw bad('Write their email.');
-    const office = String(body.office || '');
-    if (!ctx.config.offices.includes(office)) throw bad('Choose the office.');
-    if (email === lower(ctx.config.adminEmail)) throw bad('The super admin already sees every office.');
-    const ins = await ctx.db.from('office_admins').insert({ email, office, granted_by: lower(ctx.user.email), created_at: new Date(ctx.now()).toISOString() }).select('id');
-    if (ins.error) throw ins.error.code === '23505' ? conflict('They are already an admin of that office.', 'exists') : officeDbError(ins.error);
-    await audit(ctx, null, 'office_admin_added', { email, office });
-    return { id: (Array.isArray(ins.data) ? ins.data[0] : ins.data).id };
+    if (email === lower(ctx.config.adminEmail)) throw bad('The super admin can already do everything.');
+    if (!Array.isArray(body.perms) || body.perms.some(x => !ctx.config.perms.includes(x))) throw bad('Unknown permission.');
+    const perms = ctx.config.perms.filter(x => body.perms.includes(x));
+    if (!perms.length) throw bad('Tick at least one thing they may do, or remove them.');
+    const note = txt(body.note, 80, 'Who they are') || null, at = new Date(ctx.now()).toISOString();
+    const old = await ctx.db.from('admins').select('id,perms').eq('email', email).limit(1);
+    if (old.error) throw adminDbError(old.error);
+    const was = old.data && old.data[0], before = (was && was.perms) || [];
+    const w = was ? await ctx.db.from('admins').update({ perms, note, updated_at: at }).eq('id', was.id)
+      : await ctx.db.from('admins').insert({ email, perms, note, granted_by: lower(ctx.user.email), created_at: at, updated_at: at }).select('id');
+    if (w.error) throw adminDbError(w.error);
+    await audit(ctx, null, was ? 'admin_changed' : 'admin_added', { email, added: perms.filter(x => !before.includes(x)), removed: before.filter(x => !perms.includes(x)) });
+    return { id: was ? was.id : (Array.isArray(w.data) ? w.data[0] : w.data).id, perms };
   },
 
-  async 'admin.office.remove'(ctx, body) {
+  async 'admin.admins.remove'(ctx, body) {
     requireAdmin(ctx);
-    const row = await getRow(ctx, 'office_admins', body.id);
-    const del = await ctx.db.from('office_admins').delete().eq('id', row.id);
-    if (del.error) throw officeDbError(del.error);
-    await audit(ctx, null, 'office_admin_removed', { email: row.email, office: row.office });
+    const row = await getRow(ctx, 'admins', body.id);
+    const del = await ctx.db.from('admins').delete().eq('id', row.id);
+    if (del.error) throw adminDbError(del.error);
+    await audit(ctx, null, 'admin_removed', { email: row.email, removed: row.perms || [] });
     return {};
   },
 
-  // Every list view, export and office-admin change, newest first
+  // Every list view and export, every change to the admins, and everything other admins do, newest first
   async 'admin.audit.list'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'audit');
     const r = await ctx.db.from('office_audit').select('id,email,office,action,detail,created_at').order('created_at', { ascending: false }).limit(500);
-    if (r.error) throw officeDbError(r.error);
+    if (r.error) throw adminDbError(r.error);
     return { rows: r.data || [] };
   },
 
   // Who has phone notifications on (each person, their devices, since when) and what was sent in the last 7 days
   async 'admin.dev.push'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'dev');
     const weekAgo = new Date(ctx.now() - 7 * 864e5).toISOString();
     const [subs, ev] = await Promise.all([
       ctx.db.from('push_subscriptions').select('uid,endpoint,created_at,last_seen_at').limit(5000),
@@ -2515,7 +2538,7 @@ const ACTIONS = {
 
   // The developer diary, newest first, 100 at a time ({ kind?, before? }), and how many of each kind in 30 days
   async 'admin.dev.activity'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'dev');
     const kind = String(body.kind || ''), before = body.before ? String(body.before) : '';
     if (kind && !DIARY_KINDS.includes(kind)) throw bad('Unknown kind of event.');
     if (before && isNaN(Date.parse(before))) throw bad('Invalid date.');
@@ -2532,7 +2555,7 @@ const ACTIONS = {
 
   // The Developer tab's People page: who is in the yearbook, how complete their profiles are, and what gets used
   async 'admin.dev.insights'(ctx) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'dev');
     const all = [];
     for (let from = 0; from < 50000; from += 1000) {
       const r = await ctx.db.from('profiles').select('id,name,dept,course,classyear,county,country,photo_url,bio,whatsapp,email,birthday,clubs,isanonymous,created_at')
@@ -2579,7 +2602,7 @@ const ACTIONS = {
   // The students database, 100 at a time, A to Z ({ dept?, course?, classyear?, county?, club?, q?, from? }).
   // { ...filters, export: true } gives every match at once, for the CSV. Both are written in the audit log first.
   async 'dos.students'(ctx, body) {
-    await requireOffice(ctx, 'dos');
+    await requirePerm(ctx, 'dos.students');
     const f = dosFilters(body), all = body.export === true;
     const from = all ? 0 : Math.max(0, Math.min(50000, Number(body.from) || 0));
     const page = (a, b) => dosQuery(ctx.db.from('profiles').select(DOS_COLS), f).order('name', { ascending: true }).order('id', { ascending: true }).range(a, b);
@@ -2600,7 +2623,7 @@ const ACTIONS = {
   // Club activity records for one year ({ year, export? }): every post with its date, type and trimester; the clubs'
   // officials, members and meeting details. Officials and members are as they are today (the yearbook keeps no history).
   async 'dos.clubs'(ctx, body) {
-    await requireOffice(ctx, 'dos');
+    await requirePerm(ctx, 'dos.clubs');
     const year = Number(body.year), thisYear = new Date(ctx.now()).getUTCFullYear();
     if (!Number.isInteger(year) || year < 2000 || year > thisYear + 1) throw bad('Choose the year.');
     const [posts, officers, info, first] = await Promise.all([
@@ -2628,7 +2651,7 @@ const ACTIONS = {
   },
 
   async 'admin.officer.add'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'clubs');
     const club = txt(body.club, 80, 'Club', { required: true });
     const email = lower(emailOrBlank(body.email, 'Email'));
     if (!email) throw bad('Email is required.');
@@ -2643,7 +2666,7 @@ const ACTIONS = {
   },
 
   async 'admin.officer.remove'(ctx, body) {
-    requireAdmin(ctx);
+    await requirePerm(ctx, 'clubs');
     const row = await getRow(ctx, 'club_officers', body.id);
     const del = await ctx.db.from('club_officers').delete().eq('id', row.id);
     if (del.error) throw new ApiError(500, 'db', 'Could not remove the official.');
@@ -2699,7 +2722,9 @@ export function createApi({ config, db, storage, getKeys, now = () => Date.now()
       if (!token) throw new ApiError(401, 'auth', 'Please sign in first.');
       const user = await verifyFirebaseToken(token, { projectId: config.projectId, getKeys, nowSec: () => Math.floor(now() / 1000) });
       const isAdmin = user.emailVerified && !!user.email && lower(user.email) === lower(config.adminEmail);
-      const result = await fn({ user, isAdmin, isSuperAdmin: isAdmin, db, storage, config, now, rand, push, firestore, firestoreStats, newId, background, keysStatus }, body);
+      const ctx = { user, isAdmin, db, storage, config, now, rand, push, firestore, firestoreStats, newId, background, keysStatus };
+      const result = await fn(ctx, body);
+      if (!isAdmin && action.startsWith('admin.') && action !== 'admin.todo') await audit(ctx, null, action, auditDetail(body));
       return json({ ok: true, ...result }, 200, headers);
     } catch (e) {
       if (e instanceof ApiError && e.status >= 500 && e.code !== 'too_large') await logEvent({ db, now }, 'api_error', false, { msg: snip(e.message, 300), code: e.code, action, stack: errStack(e.stack) });

@@ -3,8 +3,8 @@
 //  One page for every office: the signed-in person sees only their own office's dashboard (api office.me);
 //  the super admin sees every office, with a switch. Every list an office opens and every export is written
 //  in the audit log (the api does that before it answers).
-//    dos     Office of the Dean of Students: the students database and the club activity records
-//    alumni  Directorate of External Affairs: the alumni form and database (Phase 5)
+//    dos     Office of the Dean of Students: the students database (permission dos.students) and the club activity records (dos.clubs)
+//    alumni  Directorate of External Affairs: the alumni form and database (Phase 5; permission alumni)
 // =====================================================
 'use strict';
 (function () {
@@ -17,7 +17,7 @@
   const initials = n => (String(n || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2) || '?').toUpperCase();
   const fmtDay = d => new Date(String(d).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   const tile = (n, label) => `<div class="of-tile"><b>${esc(typeof n === 'number' ? nfmt(n) : n)}</b><span>${esc(label)}</span></div>`;
-  let offices = [], cur = '';
+  let offices = [], perms = [], cur = '';
 
   // ── CSV files that Excel opens straight away: UTF-8 with a byte-order mark, and no cell can start a formula ──
   function csvCell(v) {
@@ -41,10 +41,12 @@
   // ══ Office of the Dean of Students ══
   const DOS = { tab: 'students', f: {}, rows: [], total: 0, more: false, year: 0, clubs: null };
   let _seq = 0, _typing = 0;
+  const DOS_TABS = [['students', '👥 Students database', 'dos.students'], ['clubs', '🏛 Club records', 'dos.clubs']];
   function paintDos() {
-    body.innerHTML = `<div class="of-tabs" role="tablist">
-        <button type="button" role="tab" data-dt="students" class="${DOS.tab === 'students' ? 'on' : ''}" aria-selected="${DOS.tab === 'students'}">👥 Students database</button>
-        <button type="button" role="tab" data-dt="clubs" class="${DOS.tab === 'clubs' ? 'on' : ''}" aria-selected="${DOS.tab === 'clubs'}">🏛 Club records</button></div>
+    const tabs = DOS_TABS.filter(t => perms.includes(t[2]));        // each tab needs its own permission
+    if (!tabs.some(t => t[0] === DOS.tab)) DOS.tab = tabs[0][0];
+    body.innerHTML = `<div class="of-tabs" role="tablist">${tabs.map(([k, label]) =>
+        `<button type="button" role="tab" data-dt="${k}" class="${DOS.tab === k ? 'on' : ''}" aria-selected="${DOS.tab === k}">${label}</button>`).join('')}</div>
       <div id="dosPane"></div>`;
     if (DOS.tab === 'students') paintStudents(); else paintClubs();
   }
@@ -208,7 +210,8 @@
       card(`<div class="of-ico">✉️</div><h2>Verify your email first</h2><p>For your office’s safety, the dashboard opens only for a verified email. Open the link we sent to ${esc(u.email || 'your email')}, then come back here.</p>`);
       return;
     }
-    try { offices = (await window.gApi('office.me', {})).offices || []; }
+    try { const me = await window.gApi('office.me', {}); offices = me.offices || [];
+      perms = me.perms || ['dos.students', 'dos.clubs', 'alumni']; }   // shortcut: an api before 2026-11-01 sends no permissions (it still checks each list); drop once api v29 is live
     catch (e) { card(`<p>${esc((e && e.message) || 'Could not check your office. Please try again.')}</p>`); return; }
     if (!offices.length) {
       card(`<div class="of-ico">🏛</div><h2>No office dashboard for this account</h2><p>This page is for the university’s offices. If your office should have one, ask the yearbook’s admin to add ${esc(u.email || 'your email')}.</p>`);

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#061020">
-  <title>Super admin — GLUK Yearbook 2026</title>
+  <title>Admin — GLUK Yearbook 2026</title>
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -119,6 +119,13 @@
     .a-qa-link { grid-column:1 / -1; padding:12px; border-radius:var(--radius-md); border:1.5px dashed var(--gray-200); color:var(--blue); font-weight:700; font-size:.78rem; text-align:center; text-decoration:none; }
     .d-noise { margin:0; padding:10px 14px; border-top:1px solid var(--gray-100); }
     .d-noise summary { cursor:pointer; font-size:.74rem; color:var(--gray-400); font-weight:700; }
+    #adminContent [hidden] { display:none !important; }
+    /* People › Admins: what each admin may do */
+    .pm-item { display:flex; gap:12px; align-items:flex-start; padding:11px 14px; border-bottom:1px solid var(--gray-100); cursor:pointer; }
+    .pm-item:last-child { border-bottom:none; }
+    .pm-item input { width:18px; height:18px; margin:2px 0 0; flex-shrink:0; accent-color:var(--blue); }
+    .pm-item .a-sub { white-space:normal; }
+    .pm-acts { display:flex; gap:6px; flex-shrink:0; }
 
     .a-ov { position:fixed; inset:0; z-index:5000; display:none; align-items:flex-end; background:rgba(4,13,30,.78); }
     .a-ov.open { display:flex; }
@@ -170,9 +177,9 @@
 
   <div class="admin-gate" id="adminGate">
     <div style="font-size:3.5rem">🔐</div>
-    <h2 style="color:var(--navy);font-size:1.3rem">Super admin</h2>
-    <p style="color:var(--gray-600);font-size:.875rem;max-width:280px">Sign in with the super admin account to manage the GLUK Yearbook.</p>
-    <button class="btn-primary" style="max-width:240px;width:100%" onclick="openAuthModal(null,'login')">Sign in as super admin</button>
+    <h2 style="color:var(--navy);font-size:1.3rem">Admin</h2>
+    <p style="color:var(--gray-600);font-size:.875rem;max-width:280px">Sign in with your admin account to manage the GLUK Yearbook.</p>
+    <button class="btn-primary" style="max-width:240px;width:100%" onclick="openAuthModal(null,'login')">Sign in</button>
     <p id="gateMsg" style="color:#dc2626;font-size:.78rem;max-width:300px;line-height:1.5;margin:0"></p>
     <p id="gateInfo" style="color:var(--gray-400);font-size:.72rem;max-width:300px;line-height:1.5;margin:0">Loading scripts…</p>
     <p style="color:var(--gray-400);font-size:.6rem;margin:0;opacity:.7">Admin page build 21</p>
@@ -182,7 +189,7 @@
   <div id="adminDenied" style="display:none;position:fixed;inset:0;background:var(--off-white);z-index:9998;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center">
     <div style="font-size:3rem">🚫</div>
     <h2 style="color:var(--navy)">Access Denied</h2>
-    <p style="color:var(--gray-600);font-size:.875rem">This page is only for the yearbook admin.</p>
+    <p style="color:var(--gray-600);font-size:.875rem">This page is only for the yearbook's admins.</p>
     <p id="deniedEmail" style="color:var(--gray-600);font-size:.78rem;max-width:300px;line-height:1.5;margin:0"></p>
     <button class="btn-secondary" style="max-width:200px" onclick="logOut()">Sign out</button>
     <a href="index.html" class="btn-primary" style="max-width:200px;display:block;text-align:center">Go Home</a>
@@ -250,14 +257,14 @@
         <button type="button" data-act="qa-export">📊 Export to Excel</button>
         <button type="button" data-act="go" data-v="clubs">➕ Add official</button>
         <button type="button" data-act="goto" data-v="content/news">📣 Post an update</button>
-        <button type="button" data-act="goto" data-v="people/admins">🏛 Office admins</button>
-        <a class="a-qa-link" href="office.html" target="_blank" rel="noopener">🏛 Office dashboards ›</a>
+        <button type="button" data-act="goto" data-v="people/admins">🔑 Admins</button>
+        <a class="a-qa-link" id="qaOffice" href="office.html" target="_blank" rel="noopener">🏛 Office dashboards ›</a>
       </div>
     </section>
 
-    <!-- ── People: students (active, archived, deleted), staff, student leaders, office admins ── -->
+    <!-- ── People: students (active, archived, deleted), staff, student leaders, admins ── -->
     <section class="a-view" id="v-people">
-      <div class="a-seg tabs scroll" role="tablist"><button type="button" data-act="tab" data-v="students" role="tab">Students</button><button type="button" data-act="tab" data-v="staff" role="tab">Staff<em class="a-cnt" id="cnt-staff" hidden></em></button><button type="button" data-act="tab" data-v="leaders" role="tab">Leaders<em class="a-cnt" id="cnt-leaders" hidden></em></button><button type="button" data-act="tab" data-v="admins" role="tab">Office admins</button></div>
+      <div class="a-seg tabs scroll" role="tablist"><button type="button" data-act="tab" data-v="students" role="tab">Students</button><button type="button" data-act="tab" data-v="staff" role="tab">Staff<em class="a-cnt" id="cnt-staff" hidden></em></button><button type="button" data-act="tab" data-v="leaders" role="tab">Leaders<em class="a-cnt" id="cnt-leaders" hidden></em></button><button type="button" data-act="tab" data-v="admins" role="tab">Admins</button></div>
       <div data-pane="students">
       <div class="a-seg"><button type="button" id="seg-active" class="on" data-act="view" data-v="active">Active</button><button type="button" id="seg-archived" data-act="view" data-v="archived">Archived</button><button type="button" id="seg-deleted" data-act="view" data-v="deleted">Deleted</button></div>
       <div class="a-tools" id="sTools">
@@ -278,13 +285,19 @@
       <div data-pane="staff" style="display:none"><div id="stList"></div></div>
       <div data-pane="leaders" style="display:none"><div id="ldList"></div></div>
       <div data-pane="admins" style="display:none">
-        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Office admins see only their own office's dashboard, at <a href="office.html" target="_blank" rel="noopener">office.html</a> (the 🏛 Office link in their top bar). They sign in with this email, verified. As the super admin you see every office, and everything an office opens or exports is written in Developer › Audit.</div>
-        <div class="a-item" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input id="oaEmail" class="form-input" type="email" placeholder="Their email" style="flex:1;min-width:200px" autocomplete="off" aria-label="Email">
-          <select id="oaOffice" class="form-select" style="width:auto" aria-label="Office"></select>
-          <button type="button" class="a-mini" data-act="oa-add">Add</button>
+        <div class="a-sub" style="margin:0 2px 10px;white-space:normal">Give someone access to only the parts they need. They sign in with this email, verified, and open this page (or <a href="office.html" target="_blank" rel="noopener">office.html</a> for an office dashboard): they see only what you ticked, and the server refuses anything else. Everything they do is written in Developer › Audit. Only you add, change or remove admins.</div>
+        <div class="a-item">
+          <div class="a-name" id="pmHead">Add an admin</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <input id="pmEmail" class="form-input" type="email" placeholder="Their email" style="flex:1;min-width:200px" autocomplete="off" aria-label="Their email">
+            <input id="pmNote" class="form-input" maxlength="80" placeholder="Who they are, e.g. Dean of Students" style="flex:1;min-width:200px" aria-label="Who they are">
+          </div>
+          <div class="a-f-title">Start from</div>
+          <div class="a-chips" id="pmPresets"></div>
+          <div id="pmBoxes"></div>
+          <div class="a-btns"><button type="button" class="btn-secondary" data-act="pm-cancel" id="pmCancel" hidden>Cancel</button><button type="button" class="btn-primary" data-act="pm-save" id="pmSave">Add admin</button></div>
         </div>
-        <div id="oaList"></div>
+        <div id="pmList"></div>
       </div>
     </section>
 
@@ -369,7 +382,7 @@
       <div data-pane="audit" style="display:none"><div class="a-card" id="devAudit"></div></div>
     </section>
 
-    <nav class="a-nav" aria-label="Super admin sections">
+    <nav class="a-nav" id="aNav" aria-label="Admin sections">
       <button type="button" id="nav-home" class="on" data-act="go" data-v="home"><i>🏠</i>Home<em class="a-nav-dot" id="dot-home" hidden></em></button>
       <button type="button" id="nav-people" data-act="go" data-v="people"><i>👥</i>People<em class="a-nav-dot" id="dot-people" hidden></em></button>
       <button type="button" id="nav-content" data-act="go" data-v="content"><i>💬</i>Content<em class="a-nav-dot" id="dot-content" hidden></em></button>
@@ -501,25 +514,38 @@
     });
   
     let _started = false, _admin = null;
-    auth.onAuthStateChanged(user => {
+    // What this admin may do (api office.me); the super admin may do everything. The api checks every action
+    // again: this page only hides what someone may not do.
+    let ME = { superAdmin: false, perms: [], offices: [] };
+    const OFFICE_PERMS = ['dos.students', 'dos.clubs', 'alumni'];        // these open office.html, not this page
+    auth.onAuthStateChanged(async user => {
       const gate = $('adminGate'), denied = $('adminDenied'), content = $('adminContent');
+      const deny = html => { gate.style.display = 'none'; denied.style.display = 'flex'; content.style.display = 'none'; const de = $('deniedEmail'); if (de) de.innerHTML = html; };
       if (!user) {
         gate.style.display = 'flex'; denied.style.display = 'none'; content.style.display = 'none';
         gateInfo('You are not signed in on this page yet. Tap the button above to sign in.');
         return;
       }
       gateInfo('');
-      if (String(user.email || '').toLowerCase() !== String(ADMIN_EMAIL).toLowerCase()) {
-        gate.style.display = 'none'; denied.style.display = 'flex'; content.style.display = 'none';
-        const de = $('deniedEmail');
-        if (de) de.textContent = 'You are signed in as ' + (user.email || 'an account with no email') + '. Sign out, then sign in with the admin account.';
-        return;
+      const who = 'You are signed in as ' + E(user.email || 'an account with no email') + '. ';
+      if (String(user.email || '').toLowerCase() === String(ADMIN_EMAIL).toLowerCase()) ME = { superAdmin: true, perms: [], offices: [] };
+      else if (!user.emailVerified) { deny(who + 'Verify this email first (open the link we sent to it), then reload this page.'); return; }
+      else {
+        gateInfo('Checking what you may do…');
+        try { const r = await window.gApi('office.me', {}); ME = { superAdmin: false, perms: r.perms || [], offices: r.offices || [] }; }
+        catch (e) { gateInfo(''); gateMsg('Could not check your access: ' + ((e && e.message) || 'please reload the page.')); return; }
+        gateInfo('');
+        if (!ME.perms.some(p => !OFFICE_PERMS.includes(p))) {
+          deny(who + (ME.offices.length ? 'Your access is to your <a href="office.html">office dashboard</a>.' : 'Sign out, then sign in with an admin account.'));
+          return;
+        }
       }
       gate.style.display = 'none'; denied.style.display = 'none'; content.style.display = 'block';
       _admin = user;
+      applyPerms();
       start();
     });
-  
+
     /* ══ Helpers ══ */
     const SCHOOLS = ['School of Medicine', 'School of Nursing and Midwifery', 'School of Public Health', 'Faculty of Education',
       'Faculty of Humanities and Social Sciences', 'Faculty of Agribusiness and Technology', 'School of Business Administration'];
@@ -588,16 +614,39 @@
     const TABS = { people: 'students', content: 'comments', grad: 'letters', dev: 'overview' };       // the open tab of each section
     const OLD = { students: ['people', 'students'], mod: ['content', 'comments'] };                    // links from before the redesign
     const LOAD = {
-      students: () => ensureStudents(), staff: () => loadStaff(), leaders: () => loadLeaders(), admins: () => loadOfficeAdmins(),
+      students: () => ensureStudents(), staff: () => loadStaff(), leaders: () => loadLeaders(), admins: () => loadAdmins(),
       comments: () => { if (!M.loadedC) loadComments(); }, posts: () => { if (!M.loadedP) loadPosts(true); }, news: () => loadNews(),
       letters: () => loadLetters(), sup: () => loadSup(), glow: () => loadGlow(), wall: () => loadWall(), graddays: () => loadGradDays(),
       overview: () => loadDev(), traffic: () => loadTraffic(), insights: () => loadInsights(), push: () => loadPushPeople(),
       errors: () => loadErrors(), activity: () => loadActivity(true), kyu: () => loadKyu(), audit: () => loadAudit(),
     };
+    // The permission each tab needs ('super': only the super admin), and the buttons that need more than their tab
+    const PANE_PERM = { students: 'students.view', nophoto: 'students.view', deleted: 'students.view', staff: 'staff', leaders: 'leaders', admins: 'super',
+      comments: 'moderate', posts: 'moderate', news: 'news', letters: 'moderate', sup: 'superlatives', glow: 'moderate', wall: 'moderate', graddays: 'graddays',
+      overview: 'dev', traffic: 'dev', insights: 'dev', push: 'dev', errors: 'dev', activity: 'dev', kyu: 'kyu', audit: 'audit' };
+    const ACT_PERM = { edit: 'students.edit', archive: 'students.edit', restore: 'students.edit', 'dl-restore': 'students.edit', delete: 'students.delete',
+      'dl-purge': 'students.delete', 'qa-export': 'students.view', 'ld-from': 'leaders', 'p-pin': 'super' };
+    const can = p => ME.superAdmin || ME.perms.includes(p);
+    const paneOk = t => !PANE_PERM[t] || can(PANE_PERM[t]);
+    const viewOk = v => v === 'home' || (v === 'clubs' ? can('clubs') : [...$('v-' + v).querySelectorAll('[data-pane]')].some(x => paneOk(x.dataset.pane)));
+    const targetOk = to => { const [v, t] = String(to || '').split('/'); return !VIEWS[v] || (viewOk(v) && (v === 'clubs' || !t || paneOk(t))); };
+    function applyPerms() {
+      if (ME.superAdmin) return;
+      VIEWS.home = 'Admin';
+      document.title = 'Admin — GLUK Yearbook 2026';
+      Object.keys(VIEWS).forEach(v => { $('nav-' + v).hidden = !viewOk(v); });
+      $('aNav').style.gridTemplateColumns = `repeat(${Object.keys(VIEWS).filter(viewOk).length},1fr)`;
+      document.querySelectorAll('.tabs [data-act="tab"]').forEach(b => { b.hidden = !paneOk(b.dataset.v); });
+      document.querySelectorAll('#adminContent [data-act="goto"], #adminContent [data-act="go"]').forEach(b => { if (!targetOk(b.dataset.v)) b.hidden = true; });
+      $('qaOffice').hidden = !ME.offices.length;
+      document.querySelectorAll('#v-home .a-stats, #v-home .a-qa').forEach(g => { if ([...g.children].every(x => x.hidden || (ACT_PERM[x.dataset.act] && !can(ACT_PERM[x.dataset.act])))) g.hidden = g.previousElementSibling.hidden = true; });   // no empty headings
+      const off = Object.keys(ACT_PERM).filter(a => !can(ACT_PERM[a])).map(a => `[data-act="${a}"]`).join(',');
+      if (off) document.head.insertAdjacentHTML('beforeend', `<style>${off} { display:none !important; }</style>`);
+    }
     let _view = 'home';
     function go(v, tab) {
       if (OLD[v]) { tab = tab || OLD[v][1]; v = OLD[v][0]; }
-      if (!VIEWS[v]) v = 'home';
+      if (!VIEWS[v] || !viewOk(v)) v = 'home';
       if (tab && v in TABS) TABS[v] = tab;
       _view = v;
       Object.keys(VIEWS).forEach(k => {
@@ -613,7 +662,8 @@
     }
     function showTab(v, tab) {
       const view = $('v-' + v);
-      if (!view.querySelector(`[data-pane="${tab}"]`)) tab = view.querySelector('[data-pane]').dataset.pane;
+      const panes = [...view.querySelectorAll('[data-pane]')].map(x => x.dataset.pane).filter(paneOk);
+      if (!panes.includes(tab)) tab = panes[0];
       TABS[v] = tab;
       view.querySelectorAll('.tabs [data-act="tab"]').forEach(b => { b.classList.toggle('on', b.dataset.v === tab); b.setAttribute('aria-selected', String(b.dataset.v === tab)); });
       view.querySelectorAll('[data-pane]').forEach(x => { x.style.display = x.dataset.pane === tab ? '' : 'none'; });
@@ -659,7 +709,7 @@
   
       let todo = null;                                     // everything waiting for the super admin, in one call
       try { todo = await window.gApi('admin.todo', {}); } catch (e) { console.warn('[todo]', e); }
-      const rows = [], add = (ico, txt, to) => rows.push({ ico, txt, to });
+      const rows = [], add = (ico, txt, to) => { if (targetOk(to)) rows.push({ ico, txt, to }); };   // only what this admin may open
       if (todo) {
         const rp = todo.reported || {};
         if (todo.leaders) add('🎖', todo.leaders + ' student leader ' + plural(todo.leaders, 'claim is', 'claims are') + ' waiting for approval', 'people/leaders');
@@ -701,7 +751,7 @@
       const row = (ico, title, sub, extra) => `<div class="a-row static"><span class="a-tile">${ico}</span><span class="grow"><span class="a-name">${E(title)}</span><span class="a-sub" style="white-space:normal">${E(sub)}</span></span>${extra || ''}</div>`;
       try {
         const w = await window.gApi('whoami');
-        box.innerHTML = w.isAdmin
+        box.innerHTML = w.isAdmin || (w.perms || []).length
           ? row('🔒', 'Secure service connected', 'Your changes are checked on the server before they are saved.')
           : row('⚠️', 'Connected, but you are not recognised as admin', 'Sign in with the admin account and make sure its email is verified.');
       } catch (e) {
@@ -1839,18 +1889,21 @@ let _ocSearchT = null;
     }
 
     /* Audit (Developer › Audit): every list an office opened, every export, every change to the office admins */
-    const AUDIT_NAME = { office_admin_added: 'Made an office admin', office_admin_removed: 'Removed an office admin' };
+    const AUDIT_NAME = { office_admin_added: 'Made an office admin', office_admin_removed: 'Removed an office admin', admin_added: 'Made an admin',
+      admin_changed: 'Changed what an admin may do', admin_removed: 'Removed an admin', 'profile.update': 'Edited a profile', 'club.post.delete': 'Deleted a club post' };
     async function loadAudit() {
       const box = $('devAudit');
       box.innerHTML = '<div class="a-empty">Loading…</div>';
       let rows;
       try { rows = (await window.gApi('admin.audit.list', {})).rows || []; }
-      catch (e) { box.innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' || e.code === 'offices_coming' ? 'The audit log is not switched on yet.' : e.message || 'Could not load.')}</div>`; return; }
+      catch (e) { box.innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' || e.code === 'admins_coming' ? 'The audit log is not switched on yet.' : e.message || 'Could not load.')}</div>`; return; }
       box.innerHTML = rows.length ? rows.map(r => {
         const x = r.detail || {};
-        const what = (AUDIT_NAME[r.action] || cap(String(r.action).replace(/_/g, ' '))) + (x.email ? ': ' + x.email : '') + (x.office ? ' (' + (OFFICES[x.office] || x.office) + ')' : '') + (x.rows != null ? ' · ' + nfmt(x.rows) + ' rows' : '');
-        return drow(/export/.test(r.action) ? '⬇' : /office_admin/.test(r.action) ? '🏛' : '👁', what, E(r.email + (r.office ? ' · ' + (OFFICES[r.office] || r.office) : '') + ' · ' + when(r.created_at)));
-      }).join('') : '<div class="a-empty" style="padding:22px 16px">Nothing yet. Office admins’ list views and exports show up here.</div>';
+        const list = (label, l) => (l || []).length ? ' · ' + label + ' ' + l.map(permLabel).join(', ') : '';
+        const what = (AUDIT_NAME[r.action] || cap(String(r.action).replace(/^admin\./, '').replace(/[._]/g, ' '))) + (x.email ? ': ' + x.email : '') + (x.name ? ': ' + x.name : x.id != null ? ' #' + x.id : '')
+          + (x.office ? ' (' + (OFFICES[x.office] || x.office) + ')' : '') + (x.rows != null ? ' · ' + nfmt(x.rows) + ' rows' : '') + list('added', x.added) + list('removed', x.removed);
+        return drow(/export/.test(r.action) ? '⬇' : /admin_/.test(r.action) ? '🔑' : /^admin\.|\.(update|delete)$/.test(r.action) ? '🛠' : '👁', what, E(r.email + (r.office ? ' · ' + (OFFICES[r.office] || r.office) : '') + ' · ' + when(r.created_at)));
+      }).join('') : '<div class="a-empty" style="padding:22px 16px">Nothing yet. Offices’ list views and exports, changes to admins, and everything other admins do show up here.</div>';
     }
 
     async function loadDev(force) {
@@ -2089,32 +2142,77 @@ $('devRecent').innerHTML = (d.recent || []).length
       ].map(([ico, t, sub, url]) => `<a class="a-row" href="${E(url)}" target="_blank" rel="noopener"><span class="a-tile">${ico}</span><span class="grow"><span class="a-name">${E(t)}</span><span class="a-sub">${E(sub)}</span></span><span class="chev">›</span></a>`).join('');
     }
 
-    /* ══ Office admins (People › Office admins): who runs which office's dashboard (office.html) ══ */
+    /* ══ Admins (People › Admins): who may do what. The api has the same list (CONFIG.perms) ══ */
     const OFFICES = (typeof OFFICE_NAMES !== 'undefined' && OFFICE_NAMES) || { dos: 'Office of the Dean of Students', alumni: 'Directorate of External Affairs' };
-    async function loadOfficeAdmins() {
-      $('oaList').innerHTML = '<div class="a-empty">Loading…</div>';
-      let rows;
-      try { rows = (await window.gApi('admin.offices.list', {})).rows || []; }
-      catch (e) { $('oaList').innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' || e.code === 'offices_coming' ? 'Office admins are not switched on yet.' : e.message || 'Could not load.')}</div>`; return; }
-      $('oaList').innerHTML = Object.entries(OFFICES).map(([k, name]) => {
-        const list = rows.filter(r => r.office === k);
-        return `<div class="a-sec">${E(name)}</div><div class="a-card">${list.length ? list.map(r => drow('🏛', r.email, E('Added ' + when(r.created_at) + (r.granted_by ? ' by ' + r.granted_by : '')),
-          `<button type="button" class="a-mini danger" data-act="oa-del" data-id="${Number(r.id)}">Remove</button>`)).join('') : '<div class="a-empty" style="padding:18px 16px">Nobody yet.</div>'}</div>`;
-      }).join('');
+    // [permission, what it is called, what it allows, sensitive?]
+    const PERMS = [
+      ['People', [['students.view', 'See students and their contacts', 'The students list with phone numbers, emails and reg numbers, the deleted profiles, and the Excel export.', true],
+        ['students.edit', 'Edit, archive and restore profiles', 'Includes changing a student’s school, programme and class.'],
+        ['students.delete', 'Delete profiles for good', 'Cannot be undone.', true],
+        ['staff', 'Approve staff profiles', 'Approve, hide or delete lecturers’ and staff profiles.'],
+        ['leaders', 'Student leaders', 'Add, approve and edit the roll of student leaders.']]],
+      ['Content', [['moderate', 'Moderate', 'Delete comments and club posts; check reported letters, class wall posts and glow-ups.'],
+        ['news', 'Post What’s new', 'It goes to everyone’s Alerts, and can send every phone a notification.', true],
+        ['superlatives', 'Superlatives', 'Add and hide categories, and see the votes so far.'],
+        ['kyu', 'Quiz leaderboard', 'Take a cheater off the Who’s who? board.']]],
+      ['Graduation week and clubs', [['graddays', 'Graduation days', 'When each class’s time capsules open.'],
+        ['clubs', 'Club officials', 'Add and remove the officials of every club.']]],
+      ['Office dashboards (office.html)', [['dos.students', 'Dean of Students: students database', 'Every student with contacts, and the CSV export.', true],
+        ['dos.clubs', 'Dean of Students: club records', 'Each year’s club activity, by trimester.'],
+        ['alumni', 'Directorate of External Affairs', 'The alumni form and database (coming next).']]],
+      ['Developer', [['dev', 'Developer tab', 'Errors, traffic, who has notifications on, and activity. It shows some people’s names and emails.', true],
+        ['audit', 'Audit log', 'What every admin opened and did.']]],
+    ];
+    const PRESETS = { dos: ['Dean of Students office', ['dos.students', 'dos.clubs']], alumni: ['Directorate of External Affairs', ['alumni']],
+      mod: ['Moderator', ['moderate', 'staff', 'leaders']], grad: ['Graduation week helper', ['moderate', 'superlatives', 'graddays']] };
+    const permLabel = k => (PERMS.flatMap(g => g[1]).find(x => x[0] === k) || [k, k])[1];
+    const PM = { rows: [], editing: null };
+    const permBox = k => document.querySelector(`#pmBoxes [data-perm="${k}"]`);
+    function paintPermForm(on, row) {
+      PM.editing = row || null;
+      $('pmHead').textContent = row ? 'Change what ' + row.email + ' may do' : 'Add an admin';
+      $('pmEmail').value = row ? row.email : ''; $('pmEmail').readOnly = !!row;
+      $('pmNote').value = row ? row.note || '' : '';
+      $('pmSave').textContent = row ? 'Save changes' : 'Add admin';
+      $('pmCancel').hidden = !row;
+      $('pmPresets').innerHTML = Object.entries(PRESETS).map(([k, [label]]) => `<button type="button" class="a-chip" data-act="pm-preset" data-v="${k}">${E(label)}</button>`).join('');
+      $('pmBoxes').innerHTML = PERMS.map(([group, items]) => `<div class="a-f-title">${E(group)}</div><div class="a-card">${items.map(([k, label, help, risky]) =>
+        `<label class="pm-item"><input type="checkbox" data-perm="${E(k)}"${on.includes(k) ? ' checked' : ''}><span class="grow"><span class="a-name">${E(label)}${risky ? ' <span class="a-badge warn">⚠ sensitive</span>' : ''}</span><span class="a-sub">${E(help)}</span></span></label>`).join('')}</div>`).join('');
     }
-    async function addOfficeAdmin() {
-      const email = $('oaEmail').value.trim(), office = $('oaOffice').value;
-      if (!email) { toast('Write their email first.'); return; }
+    // Changing or deleting profiles needs seeing them first
+    function permLinks(t) {
+      if (t.checked && /^students\.(edit|delete)$/.test(t.dataset.perm)) permBox('students.view').checked = true;
+      if (!t.checked && t.dataset.perm === 'students.view') ['students.edit', 'students.delete'].forEach(k => { permBox(k).checked = false; });
+    }
+    async function loadAdmins() {
+      if (!$('pmBoxes').innerHTML) paintPermForm([]);
+      $('pmList').innerHTML = '<div class="a-empty">Loading…</div>';
+      try { PM.rows = (await window.gApi('admin.admins.list', {})).rows || []; }
+      catch (e) { $('pmList').innerHTML = `<div class="a-empty">${E(e.code === 'unknown_action' || e.code === 'admins_coming' ? 'Admin permissions are not switched on yet.' : e.message || 'Could not load.')}</div>`; return; }
+      const n = PM.rows.length;
+      $('pmList').innerHTML = `<div class="a-sec">${n} ${plural(n, 'admin', 'admins')} besides you</div>` + (n ? `<div class="a-card">${PM.rows.map(r => `<div class="a-row static"><span class="a-tile">🔑</span>
+        <span class="grow"><span class="a-name">${E(r.email)}${r.note ? ' <span class="a-sub inline">· ' + E(r.note) + '</span>' : ''}</span>
+          <span class="a-sub" style="white-space:normal">${E((r.perms || []).map(permLabel).join(' · '))}</span>
+          <span class="a-sub">Added ${E(when(r.created_at))}${r.granted_by ? ' by ' + E(r.granted_by) : ''}</span></span>
+        <span class="pm-acts"><button type="button" class="a-mini" data-act="pm-edit" data-id="${Number(r.id)}">Edit</button><button type="button" class="a-mini danger" data-act="pm-del" data-id="${Number(r.id)}">Remove</button></span></div>`).join('')}</div>`
+        : '<div class="a-empty" style="padding:18px 16px">Nobody yet. Add someone above.</div>');
+    }
+    async function saveAdmin() {
+      const email = $('pmEmail').value.trim(), note = $('pmNote').value.trim();
+      const perms = [...document.querySelectorAll('#pmBoxes [data-perm]')].filter(x => x.checked).map(x => x.dataset.perm);
+      if (!emailOk(email)) { toast('Write their email first.'); return; }
+      if (!perms.length) { toast('Tick at least one thing they may do.'); return; }
+      if (!confirm(`${email} will be able to:\n\n• ${perms.map(permLabel).join('\n• ')}\n\nThey sign in with this email (verified). Save?`)) return;
       try {
-        await window.gApi('admin.office.add', { email, office });
-        $('oaEmail').value = '';
-        toast('✅ ' + email + ' can now open the ' + (OFFICES[office] || office) + ' dashboard', 3500);
-        loadOfficeAdmins();
-      } catch (e) { toast('❌ ' + (e.message || 'Could not add them.'), 3500); }
+        await window.gApi('admin.admins.save', { email, perms, note });
+        toast(PM.editing ? '✅ Saved' : '✅ ' + email + ' is now an admin', 3500);
+        paintPermForm([]); loadAdmins();
+      } catch (e) { toast('❌ ' + (e.message || 'Could not save that.'), 3500); }
     }
-    async function removeOfficeAdmin(id) {
-      if (!confirm('Remove this office admin? They will no longer see the office dashboard.')) return;
-      try { await window.gApi('admin.office.remove', { id }); toast('Removed'); loadOfficeAdmins(); }
+    async function removeAdmin(id) {
+      const r = PM.rows.find(x => x.id === id);
+      if (!confirm('Remove ' + (r ? r.email : 'this admin') + '? They lose all admin access straight away.')) return;
+      try { await window.gApi('admin.admins.remove', { id }); toast('Removed'); if (PM.editing && PM.editing.id === id) paintPermForm([]); loadAdmins(); }
       catch (e) { toast('❌ ' + (e.message || 'Could not remove them.'), 3500); }
     }
 
@@ -2123,6 +2221,7 @@ $('devRecent').innerHTML = (d.recent || []).length
       const b = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
       if (!b) return;
       const a = b.dataset.act, id = Number(b.dataset.id);
+      if ((ACT_PERM[a] && !can(ACT_PERM[a])) || ((a === 'goto' || a === 'go') && !targetOk(b.dataset.v))) return;
       switch (a) {
         case 'backdrop': if (e.target === b) closeAllSheets(); break;
         case 'close':    closeSheet(b.dataset.v); break;
@@ -2155,8 +2254,16 @@ $('devRecent').innerHTML = (d.recent || []).length
         case 'archive':  archiveStudent(id); break;
         case 'restore':  restoreStudent(id); break;
         case 'delete':   deleteStudent(id); break;
-        case 'oa-add':   addOfficeAdmin(); break;
-        case 'oa-del':   removeOfficeAdmin(id); break;
+        case 'pm-save':  saveAdmin(); break;
+        case 'pm-del':   removeAdmin(id); break;
+        case 'pm-edit':  { const r = PM.rows.find(x => x.id === id); if (r) { paintPermForm(r.perms || [], r); $('pmEmail').scrollIntoView({ block: 'center' }); } break; }
+        case 'pm-cancel': paintPermForm([]); break;
+        case 'pm-preset': {
+          const [label, perms] = PRESETS[b.dataset.v] || ['', []];
+          document.querySelectorAll('#pmBoxes [data-perm]').forEach(x => { x.checked = perms.includes(x.dataset.perm); });
+          if (!$('pmNote').value && (b.dataset.v === 'dos' || b.dataset.v === 'alumni')) $('pmNote').value = label;
+          break;
+        }
         case 'act-kind': ACT.kind = b.dataset.v; loadActivity(true); break;
         case 'act-more': loadActivity(false); break;
         case 'c-replies': toggleReplies(b.dataset.cid); break;
@@ -2212,6 +2319,7 @@ $('devRecent').innerHTML = (d.recent || []).length
       else if (t.id === 'postClub') { M.club = t.value; loadPosts(true); }
     else if (t.id === 'ocRole') { updateRoleNote(); }
       else if (t.id === 'alPhoto') { pickAlPhoto(t.files && t.files[0]); }
+      else if (t.dataset && t.dataset.perm) permLinks(t);
     });
     document.addEventListener('submit', e => { if (e.target && e.target.id === 'editForm') saveEdit(e); else if (e.target && e.target.id === 'leaderForm') saveLeader(e); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllSheets(); });
@@ -2220,7 +2328,6 @@ $('devRecent').innerHTML = (d.recent || []).length
       if (_started) return;
       _started = true;
       $('postClub').innerHTML = '<option value="">All clubs</option>' + (window.GLUK_CLUBS || []).map(c => `<option value="${E(c)}">${E(c)}</option>`).join('');
-      $('oaOffice').innerHTML = Object.entries(OFFICES).map(([k, n]) => `<option value="${E(k)}">${E(n)}</option>`).join('');
       const [hv, ht] = (location.hash || '').replace('#', '').split('/');
       _dashT = 0;
       go(VIEWS[hv] || OLD[hv] ? hv : 'home', ht);
