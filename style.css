@@ -2863,3 +2863,6 @@ html.grad-day .hm-hero h1::after { content: ' 🎓'; }
 .fl-who small { font-size: .7rem; color: var(--gray-400); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fl-item .notif-fr { margin-top: 0; flex: none; }
 .fl-empty { font-size: .8rem; color: var(--gray-600); margin: 0; line-height: 1.5; }
+.fl-pub { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 700; color: var(--gray-600); margin: 0 0 10px; cursor: pointer; }
+.fl-pub[hidden] { display: none; }
+.fl-pub input { width: 18px; height: 18px; accent-color: var(--blue); }

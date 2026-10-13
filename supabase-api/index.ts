@@ -567,7 +567,8 @@ async function wallRow(ctx, id) {
 
 // ── Friends (since 2026-10-27) ─────────────────────────────────────────
 // A request waits until the other person accepts; only friends hear about each other's new photos, profile
-// updates (once a day) and likes (once a day). Friendships are private: only the api reads friend_links.
+// updates (once a day) and likes (once a day). Only the api reads friend_links; a person's friends show on
+// their profile only if they chose that (friend_prefs).
 const friendDbError = e => missingTable(e)
   ? new ApiError(503, 'friends_coming', 'Friends are being switched on. Please try again later.')
   : new ApiError(500, 'db', 'Could not save that. Please try again.');
@@ -580,6 +581,11 @@ async function myLinks(ctx, uid) {
   const r = await ctx.db.from('friend_links').select('*').or(`from_uid.eq.${safeUid(uid)},to_uid.eq.${safeUid(uid)}`).limit(3000);
   if (r.error) throw friendDbError(r.error);
   return r.data || [];
+}
+// Whether someone chose to show their friends on their profile (no choice yet, or before the SQL: private)
+async function friendsPublic(ctx, uid) {
+  const r = await ctx.db.from('friend_prefs').select('public').eq('uid', safeUid(uid)).limit(1);
+  return !r.error && !!(r.data && r.data[0] && r.data[0].public);
 }
 async function friendUids(ctx, uid) {
   const links = await myLinks(ctx, uid);
@@ -1444,7 +1450,35 @@ const ACTIONS = {
   async 'friend.mine'(ctx) {
     const uid = ctx.user.uid;
     const links = await myLinks(ctx, uid);
-    return { links: links.map(l => ({ id: l.id, profile_id: l.from_uid === uid ? l.to_profile : l.from_profile, status: l.status, dir: l.from_uid === uid ? 'out' : 'in' })) };
+    return { links: links.map(l => ({ id: l.id, profile_id: l.from_uid === uid ? l.to_profile : l.from_profile, status: l.status, dir: l.from_uid === uid ? 'out' : 'in' })),
+      public: await friendsPublic(ctx, uid) };
+  },
+
+  // Show your friends on your profile, or keep them to yourself ({ public })
+  async 'friend.privacy'(ctx, body) {
+    if (typeof body.public !== 'boolean') throw bad('Say whether your friends list is public.');
+    const w = await ctx.db.from('friend_prefs').upsert({ uid: ctx.user.uid, public: body.public, updated_at: new Date(ctx.now()).toISOString() }, { onConflict: 'uid' });
+    if (w.error) throw friendDbError(w.error);
+    return { public: body.public };
+  },
+
+  // Someone's friends, when they chose to show them ({ profileId }). Anonymous friends are left out.
+  async 'friend.list'(ctx, body) {
+    const pid = Number(body.profileId);
+    if (!Number.isInteger(pid) || pid <= 0) throw bad('Missing or invalid profile.');
+    const p = await ctx.db.from('profiles').select('id,uid,isanonymous').eq('id', pid).limit(1);
+    if (p.error) throw friendDbError(p.error);
+    const who = p.data && p.data[0];
+    if (!who || !who.uid || who.isanonymous || !(await friendsPublic(ctx, who.uid))) return { public: false, friends: [] };
+    const ids = (await myLinks(ctx, who.uid)).filter(l => l.status === 'accepted').map(l => l.from_uid === who.uid ? l.to_profile : l.from_profile);
+    const friends = [];
+    for (let i = 0; i < ids.length; i += 200) {
+      const r = await ctx.db.from('profiles').select('id,name,photo_url,course,isanonymous').in('id', ids.slice(i, i + 200));
+      if (r.error) throw friendDbError(r.error);
+      (r.data || []).filter(x => !x.isanonymous).forEach(x => friends.push({ id: x.id, name: snip(x.name, 60), photo_url: x.photo_url || null, course: x.course || '' }));
+    }
+    friends.sort((a, b) => a.name.localeCompare(b.name));
+    return { public: true, friends };
   },
 
   // Ask someone to be your friend ({ profileId }). If they already asked you, this accepts their request.

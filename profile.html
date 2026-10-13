@@ -60,9 +60,10 @@
   <!-- Profile Body -->
   <div class="profile-body">
 
-    <!-- MY FRIENDS: only you see this, on your own profile -->
+    <!-- FRIENDS: yours on your own profile; someone else's only if they chose to show them -->
     <div class="info-card fade-in" id="friendsCard" style="display:none;animation-delay:.01s">
-      <div class="info-card-title">🤝 My friends <small style="font-weight:600;color:var(--gray-400)">(only you can see this)</small></div>
+      <div class="info-card-title"><span class="fl-title">🤝 My friends</span> <small class="fl-sees" style="font-weight:600;color:var(--gray-400)">(only you can see this)</small></div>
+      <label class="fl-pub" hidden><input type="checkbox" id="flPublic"><span>Show my friends on my profile</span></label>
       <div class="fl-list"></div>
     </div>
 
