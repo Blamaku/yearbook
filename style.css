@@ -2853,3 +2853,13 @@ html.grad-day .hm-hero h1::after { content: ' 🎓'; }
 .notif-fr-yes { border: 0; background: var(--blue); color: #fff; }
 .notif-fr-no { border: 1px solid var(--gray-200); background: var(--surface); color: var(--gray-600); }
 .notif-t a { color: inherit; }
+.fl-group { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--gray-400); margin: 10px 0 4px; }
+.fl-group:first-child { margin-top: 0; }
+.fl-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; }
+.fl-who { display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
+.fl-who img, .fl-ph { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; display: grid; place-items: center; background: var(--gray-100); }
+.fl-who span { display: flex; flex-direction: column; min-width: 0; }
+.fl-who b { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-who small { font-size: .7rem; color: var(--gray-400); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-item .notif-fr { margin-top: 0; flex: none; }
+.fl-empty { font-size: .8rem; color: var(--gray-600); margin: 0; line-height: 1.5; }

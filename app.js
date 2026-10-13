@@ -1877,7 +1877,8 @@ window.gFriends = (function () {
   }
   const LABEL = { none: ['➕', 'Add friend'], sent: ['⏳', 'Requested'], received: ['🤝', 'Accept'], friends: ['✅', 'Friends'] };
   if (typeof auth !== 'undefined') auth.onAuthStateChanged(() => { map = null; load(); });
-  return { load, state, act, respond, LABEL };
+  const list = () => map ? [...map.values()] : [];
+  return { load, state, act, respond, list, LABEL };
 })();
 
 // ── My Profile shortcut (top-bar icon on the students page) ───
@@ -2249,6 +2250,32 @@ function initProfilePage(){
         _fb.onclick = () => window.gFriends.act(data.id, String(data.name || '').trim().split(/\s+/)[0] || 'them');
         document.addEventListener('gluk-friends', paintFriend);
         paintFriend(); window.gFriends.load();
+      }
+      // My friends: only on your own profile (friendships are private)
+      const _fc = document.getElementById('friendsCard');
+      if (_fc && window.gFriends) {
+        const paintList = async () => {
+          if (!(currentUser && currentUser.uid === data.uid)) { _fc.style.display = 'none'; return; }
+          const links = window.gFriends.list(), ids = links.map(l => Number(l.profile_id));
+          let people = {};
+          if (ids.length) {
+            const { data: rows } = await supabase.from('profiles_public').select('id,name,photo_url,course').in('id', ids);
+            (rows || []).forEach(p => { people[p.id] = p; });
+          }
+          const card = l => { const p = people[l.profile_id]; if (!p) return '';
+            const img = window.safeUrl(p.photo_url);
+            return `<div class="fl-item"><a class="fl-who" href="profile.html?id=${Number(p.id)}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : '<span class="fl-ph">👤</span>'}<span><b>${esc(p.name)}</b><small>${esc(p.course || '')}</small></span></a>${
+              l.dir === 'in' && l.status !== 'accepted' ? `<span class="notif-fr"><button type="button" class="notif-fr-yes" data-fl="accept" data-id="${Number(l.id)}">Accept</button><button type="button" class="notif-fr-no" data-fl="decline" data-id="${Number(l.id)}">Decline</button></span>` : ''}</div>`; };
+          const group = (title, ls) => ls.length ? `<div class="fl-group">${title} · ${ls.length}</div>` + ls.map(card).join('') : '';
+          const inc = links.filter(l => l.status !== 'accepted' && l.dir === 'in'), fr = links.filter(l => l.status === 'accepted'), out = links.filter(l => l.status !== 'accepted' && l.dir === 'out');
+          _fc.querySelector('.fl-list').innerHTML = (group('Asked to be your friend', inc) + group('Friends', fr) + group('Requests you sent', out))
+            || '<p class="fl-empty">No friends yet. Tap <b>+</b> under the heart on the Students feed, or <b>Add friend</b> on a classmate\u2019s profile.</p>';
+          _fc.style.display = '';
+        };
+        _fc.addEventListener('click', e => { const b = e.target.closest('[data-fl]'); if (b) window.gFriends.respond(Number(b.dataset.id), b.dataset.fl === 'accept'); });
+        document.addEventListener('gluk-friends', paintList);
+        auth.onAuthStateChanged(() => paintList());
+        window.gFriends.load().then(paintList);
       }
       // A notification (e.g. "add your birthday") can link straight to the edit form — opens once only
       if (location.hash === '#edit') {
