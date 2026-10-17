@@ -502,7 +502,9 @@ window.normalizeProfile = normalizeProfile;
     if (_waitingSW) { _waitingSW.postMessage({ type: 'SKIP_WAITING' }); _waitingSW = null; }
   });
   document.getElementById('swDismissBtn').addEventListener('click', () => { banner.style.display = 'none'; });
-  navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+  // A first install also fires controllerchange; only an update to an old worker needs the reload.
+  const hadSW = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW) window.location.reload(); });
 
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')

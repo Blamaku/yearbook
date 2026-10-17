@@ -9,7 +9,7 @@
 //  • Phone notifications: shows pushes from the "api" function and keeps the
 //    number on the app icon (the page corrects it whenever the app is open).
 // =====================================================
-const CACHE = 'gluk-v77';
+const CACHE = 'gluk-v78';
 const STATE = 'gluk-state';          // tiny saved values (the app-icon number); kept across updates
 
 // App-shell files saved for offline use
