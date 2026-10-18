@@ -86,11 +86,11 @@
   const face = s => {
     const u = photoOf(s);
     return `<a class="hm-face" href="${esc(feedLink(s))}">
-      <span class="hm-av">${u ? `<img src="${esc(u)}" alt="" loading="lazy" decoding="async">` : esc(initials(s.name))}</span>
+      <span class="hm-av">${u ? `<img src="${esc(thumbUrl(u, 160))}" alt="" loading="lazy" decoding="async">` : esc(initials(s.name))}</span>
       <span class="hm-face-n">${esc(first(s.name))}</span></a>`;
   };
   const tile = s => `<a class="hm-tile" href="${esc(feedLink(s))}">
-      <img src="${esc(photoOf(s))}" alt="" loading="lazy" decoding="async">
+      <img src="${esc(thumbUrl(photoOf(s), 240))}" alt="" loading="lazy" decoding="async">
       <span class="hm-tile-b"><span class="hm-tile-n">${esc(s.name)}</span><span class="hm-tile-c">${esc(s.course || s.dept || '')}</span></span></a>`;
 
   async function loadNew() {
@@ -130,7 +130,7 @@
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     function paint() {
       const p = list[i];
-      $('hmFaces').innerHTML = `<a class="hm-face-big" href="${esc(profileLink(p))}"><img src="${esc(photoOf(p))}" alt="" loading="lazy">
+      $('hmFaces').innerHTML = `<a class="hm-face-big" href="${esc(profileLink(p))}"><img src="${esc(thumbUrl(photoOf(p), 640))}" alt="" loading="lazy">
         <span class="hm-face-t"><small>GLUK Yearbook congratulates</small><b>${esc(p.name)}</b><span>${esc(p.course || p.dept || '')}</span></span></a>
         ${list.length > 1 ? `<button type="button" class="hm-face-nav prev" data-step="-1" aria-label="Previous graduate">‹</button><button type="button" class="hm-face-nav next" data-step="1" aria-label="Next graduate">›</button>` : ''}`;
       $('hmFacesN').textContent = `${i + 1} of ${list.length} today`;
@@ -150,7 +150,7 @@
     $('hmStaff').innerHTML = shuffle(data).map(s => {
       const u = window.safeUrl(s.photo_url);
       return `<a class="hm-face is-staff" href="staff.html?id=${Number(s.id)}">
-        <span class="hm-av">${u ? `<img src="${esc(u)}" alt="" loading="lazy" decoding="async">` : esc(initials(s.name))}</span>
+        <span class="hm-av">${u ? `<img src="${esc(thumbUrl(u, 160))}" alt="" loading="lazy" decoding="async">` : esc(initials(s.name))}</span>
         <span class="hm-face-n">${esc(staffLabel(s))}</span></a>`;
     }).join('');
     show('hmStaffSec', true);

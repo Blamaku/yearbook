@@ -229,6 +229,11 @@ window.safeUrl = function (u) {
   try { return new URL(s).href; } catch (e) { return ''; }
 };
 
+// A resized copy of a Supabase Storage photo (width in px); any other link comes back unchanged
+window.thumbUrl = (u, w) => /\.supabase\.co\/storage\/v1\/object\/public\//.test(u)
+  ? u.replace('/object/public/', '/render/image/public/') + (u.includes('?') ? '&' : '?') + 'width=' + w + '&quality=70'
+  : u;
+
 // profiles.clubs can be a real array, a "a, b" string, or a Postgres "{a,\"b c\"}" literal
 window.parseClubField = function (v) {
   if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean);
